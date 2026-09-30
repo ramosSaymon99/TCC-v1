@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Building2, Database as DbIcon, Download, RotateCcw, Target, Upload } from 'lucide-react';
+import { Building2, Database as DbIcon, Download, KeyRound, RotateCcw, Target, Upload } from 'lucide-react';
 import { useStore } from '../store/Store';
 import type { Database, Empresa } from '../types';
 import { Confirm, PageHeader } from '../components/ui';
@@ -7,7 +7,8 @@ import { Field, toNumber } from '../components/fields';
 import { money, today } from '../utils/format';
 
 export default function Configuracoes() {
-  const { db, setEmpresa, resetDemo, toast } = useStore();
+  const { db, setEmpresa, resetDemo, replaceDb, changePassword, modo, toast } = useStore();
+  const [senhas, setSenhas] = useState({ atual: '', nova: '', conf: '' });
   const [f, setF] = useState<Empresa>(db.empresa);
   const [reset, setReset] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -34,8 +35,7 @@ export default function Configuracoes() {
     file.text().then((t) => {
       const data = JSON.parse(t) as Database;
       if (!Array.isArray(data.clientes) || !Array.isArray(data.lancamentos)) throw new Error('inválido');
-      localStorage.setItem('techgest:db:v1', JSON.stringify(data));
-      window.location.reload();
+      return replaceDb(data).then((err) => toast(err ?? 'Backup restaurado.', err ? 'error' : 'success'));
     }).catch(() => toast('Arquivo de backup inválido.', 'error'));
   };
 
@@ -67,7 +67,9 @@ export default function Configuracoes() {
           <div className="card-head"><h3 className="row"><DbIcon size={16} color="var(--primary)" /> Dados do sistema</h3></div>
           <div style={{ padding: 20, display: 'grid', gap: 14 }}>
             <p className="small muted" style={{ margin: 0 }}>
-              Os dados ficam salvos neste navegador. Faça backups periódicos para não perdê-los ao limpar o navegador ou trocar de computador.
+              {modo === 'remote'
+                ? 'Os dados estão no banco Cloudflare D1 e são compartilhados por todos os usuários. Exporte backups periódicos.'
+                : 'Modo local: os dados ficam salvos neste navegador. Faça backups periódicos para não perdê-los ao limpar o navegador ou trocar de computador.'}
             </p>
             <div className="row" style={{ flexWrap: 'wrap' }}>
               <button className="btn" onClick={backup}><Download size={15} /> Exportar backup (JSON)</button>
@@ -84,7 +86,24 @@ export default function Configuracoes() {
           </div>
         </div>
       </div>
-      {reset && <Confirm label="Restaurar" text="Todos os dados atuais serão substituídos pelos dados de demonstração. Deseja continuar?" onClose={() => setReset(false)} onConfirm={() => { resetDemo(); toast('Dados de demonstração restaurados.'); setTimeout(() => window.location.reload(), 300); }} />}
+      {modo === 'remote' && (
+        <div className="card mt" style={{ maxWidth: 520 }}>
+          <div className="card-head"><h3 className="row"><KeyRound size={16} color="var(--primary)" /> Alterar minha senha</h3></div>
+          <form className="form-grid" style={{ padding: 20 }} onSubmit={async (e) => {
+            e.preventDefault();
+            if (senhas.nova !== senhas.conf) return toast('A confirmação não confere.', 'error');
+            const err = await changePassword(senhas.nova, senhas.atual);
+            toast(err ?? 'Senha alterada.', err ? 'error' : 'success');
+            if (!err) setSenhas({ atual: '', nova: '', conf: '' });
+          }}>
+            <Field label="Senha atual" full><input className="input" type="password" value={senhas.atual} onChange={(e) => setSenhas({ ...senhas, atual: e.target.value })} required /></Field>
+            <Field label="Nova senha" hint="Mínimo de 6 caracteres."><input className="input" type="password" minLength={6} value={senhas.nova} onChange={(e) => setSenhas({ ...senhas, nova: e.target.value })} required /></Field>
+            <Field label="Confirmar nova senha"><input className="input" type="password" value={senhas.conf} onChange={(e) => setSenhas({ ...senhas, conf: e.target.value })} required /></Field>
+            <div className="full"><button className="btn btn-primary">Alterar senha</button></div>
+          </form>
+        </div>
+      )}
+      {reset && <Confirm label="Restaurar" text="Todos os dados atuais serão substituídos pelos dados de demonstração. Deseja continuar?" onClose={() => setReset(false)} onConfirm={() => { resetDemo().then((err) => toast(err ?? 'Dados de demonstração restaurados.', err ? 'error' : 'success')); }} />}
     </>
   );
 }

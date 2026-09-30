@@ -5,15 +5,18 @@ import { useStore } from '../store/Store';
 import { Logo } from '../components/ui';
 
 export default function Login() {
-  const { login, db } = useStore();
+  const { login, db, modo } = useStore();
+  const [enviando, setEnviando] = useState(false);
   const nav = useNavigate();
   const [email, setEmail] = useState('saymon@techgest.com');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState<string | null>(null);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const err = login(email, senha);
+    setEnviando(true);
+    const err = await login(email, senha);
+    setEnviando(false);
     if (err) setErro(err);
     else nav('/');
   };
@@ -54,9 +57,11 @@ export default function Login() {
             <input id="senha" className="input" type="password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="••••••" required />
           </div>
           {erro && <div className="error-text">{erro}</div>}
-          <button className="btn btn-primary" style={{ height: 42 }}><LogIn size={16} /> Entrar</button>
+          <button className="btn btn-primary" style={{ height: 42 }} disabled={enviando}><LogIn size={16} /> {enviando ? 'Entrando…' : 'Entrar'}</button>
           <div className="demo-box">
-            <strong>Ambiente de demonstração</strong> — senha <code>123456</code>. Entrar como:
+            {modo === 'remote'
+              ? <><strong>Dados salvos no banco (Cloudflare D1).</strong> Senha inicial dos usuários: <code>123456</code> — altere em Configurações após o primeiro acesso. Entrar como:</>
+              : <><strong>Modo local</strong> — dados salvos neste navegador. Senha <code>123456</code>. Entrar como:</>}
             <div style={{ display: 'flex', flexDirection: 'column', marginTop: 6 }}>
               {db.usuarios.filter((u) => u.status === 'Ativo').map((u) => (
                 <button type="button" key={u.id} style={{ textAlign: 'left' }} onClick={() => { setEmail(u.email); setSenha('123456'); setErro(null); }}>

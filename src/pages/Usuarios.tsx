@@ -10,7 +10,7 @@ import { MODULOS } from '../store/seed';
 const PERFIS: Perfil[] = ['Proprietário', 'Operador', 'Financeiro', 'Técnico'];
 
 export default function Usuarios() {
-  const { db, user, upsert, remove, setPermissoes, toast } = useStore();
+  const { db, user, upsert, remove, setPermissoes, changePassword, modo, toast } = useStore();
   const [perfil, setPerfil] = useState<Perfil>('Operador');
   const [perms, setPerms] = useState<Modulo[]>(db.permissoes['Operador']);
   const [editing, setEditing] = useState<Usuario | null>(null);
@@ -74,12 +74,20 @@ export default function Usuarios() {
         </div>
       </div>
 
-      {editing && <UserForm u={editing} onClose={() => setEditing(null)} onSave={(u) => {
+      {editing && <UserForm u={editing} novo={!db.usuarios.some((x) => x.id === editing.id)} podeSenha={modo === 'remote' && editing.id !== user?.id} onClose={() => setEditing(null)} onSave={async (u, senha) => {
         if (!u.nome || !u.email) return toast('Preencha nome e e-mail.', 'error');
         if (db.usuarios.some((x) => x.id !== u.id && x.email.toLowerCase() === u.email.toLowerCase())) return toast('Já existe um usuário com este e-mail.', 'error');
         const eraDono = db.usuarios.find((x) => x.id === u.id)?.perfil === 'Proprietário';
         if (eraDono && (u.perfil !== 'Proprietário' || u.status !== 'Ativo') && donos.length <= 1) return toast('É preciso manter ao menos um proprietário ativo.', 'error');
-        upsert('usuarios', u); toast('Usuário salvo. Senha inicial de demonstração: 123456.'); setEditing(null);
+        const novo = !db.usuarios.some((x) => x.id === u.id);
+        upsert('usuarios', u);
+        setEditing(null);
+        if (senha) {
+          // aguarda o servidor criar o usuário antes de definir a senha
+          if (novo) await new Promise((r) => setTimeout(r, 800));
+          const err = await changePassword(senha, undefined, u.id);
+          toast(err ?? 'Usuário salvo e senha definida.', err ? 'error' : 'success');
+        } else toast(novo ? 'Usuário salvo. Senha inicial: 123456.' : 'Usuário salvo.');
       }} />}
       {deleting && <Confirm text={<>Excluir o usuário <strong>{deleting.nome}</strong>?</>} onClose={() => setDeleting(null)} onConfirm={() => {
         if (deleting.perfil === 'Proprietário' && donos.length <= 1) return toast('É preciso manter ao menos um proprietário.', 'error');
@@ -89,19 +97,27 @@ export default function Usuarios() {
   );
 }
 
-function UserForm({ u, onClose, onSave }: { u: Usuario; onClose: () => void; onSave: (u: Usuario) => void }) {
+function UserForm({ u, novo, podeSenha, onClose, onSave }: {
+  u: Usuario; novo: boolean; podeSenha: boolean; onClose: () => void; onSave: (u: Usuario, senha?: string) => void;
+}) {
   const [f, setF] = useState(u);
+  const [senha, setSenha] = useState('');
   const set = <K extends keyof Usuario>(k: K, v: Usuario[K]) => setF((x) => ({ ...x, [k]: v }));
   return (
     <Modal title={u.nome ? 'Editar usuário' : 'Novo usuário'} onClose={onClose} footer={<>
       <button className="btn" onClick={onClose}>Cancelar</button>
       <button className="btn btn-primary" form="user-form">Salvar</button>
     </>}>
-      <form id="user-form" className="form-grid" onSubmit={(e) => { e.preventDefault(); onSave(f); }}>
+      <form id="user-form" className="form-grid" onSubmit={(e) => { e.preventDefault(); onSave(f, senha || undefined); }}>
         <Field label="Nome" full><input className="input" value={f.nome} onChange={(e) => set('nome', e.target.value)} required autoFocus /></Field>
         <Field label="E-mail" full><input className="input" type="email" value={f.email} onChange={(e) => set('email', e.target.value)} required /></Field>
         <Field label="Perfil"><select className="select" value={f.perfil} onChange={(e) => set('perfil', e.target.value as Perfil)}><Options items={PERFIS} /></select></Field>
         <Field label="Status"><select className="select" value={f.status} onChange={(e) => set('status', e.target.value as Usuario['status'])}><Options items={['Ativo', 'Inativo'] as const} /></select></Field>
+        {podeSenha && (
+          <Field label={novo ? 'Senha inicial' : 'Redefinir senha'} full hint={novo ? 'Em branco = 123456. Mínimo de 6 caracteres.' : 'Deixe em branco para manter a senha atual.'}>
+            <input className="input" type="password" minLength={6} value={senha} onChange={(e) => setSenha(e.target.value)} autoComplete="new-password" />
+          </Field>
+        )}
       </form>
     </Modal>
   );

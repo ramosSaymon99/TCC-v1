@@ -1,0 +1,14 @@
+name = "techgest"
+main = "worker/index.js"
+compatibility_date = "2025-09-01"
+
+# O app (arquivo único index.html) é servido como asset estático
+[assets]
+directory = "./cloudflare-dist"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "techgest-db"
+database_id = "fb14cdf8-e27a-45fd-97b0-2a4ed594cd0d"
