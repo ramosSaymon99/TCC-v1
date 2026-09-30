@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "build:single": "npm run build && node scripts/singlefile.mjs",
+    "deploy": "npm run build:single && wrangler deploy"
   },
   "dependencies": {
     "lucide-react": "^1.49.0",
@@ -21,6 +23,7 @@
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.7.0",
     "typescript": "^5.9.3",
-    "vite": "^5.4.21"
+    "vite": "^5.4.21",
+    "wrangler": "^4.144.0"
   }
 }

@@ -21,7 +21,32 @@ Sistema web de gestão comercial para pequenos negócios de tecnologia (treiname
 
 ## Tecnologias
 
-React 18 + TypeScript + Vite, React Router, Recharts e Lucide Icons. Os dados ficam no `localStorage` do navegador (há dados de demonstração gerados relativos à data atual).
+React 18 + TypeScript + Vite, React Router, Recharts e Lucide Icons. Back-end em Cloudflare Workers com banco Cloudflare D1.
+
+O app detecta sozinho onde está rodando:
+
+- **Publicado no Cloudflare** (`/api` disponível): dados no banco D1, compartilhados entre usuários; login validado no servidor (senhas com PBKDF2, sessão assinada com HMAC, permissões por perfil checadas na API).
+- **Arquivo aberto direto / hospedagem estática**: modo local, dados no `localStorage` do navegador.
+
+## Publicar no Cloudflare (Worker + D1)
+
+O banco `techgest-db` já está criado e com as tabelas (`worker/schema.sql`). O `wrangler.toml` já aponta para ele.
+
+```bash
+npm install
+npx wrangler login                    # abre o navegador para autorizar sua conta
+npm run deploy                        # gera o index.html único e publica o Worker
+npx wrangler secret put AUTH_SECRET   # cole uma frase longa e aleatória (assina as sessões)
+```
+
+No primeiro acesso, o app popula o banco com os dados de demonstração. Todos os usuários começam com a senha `123456`; troque em **Configurações → Alterar minha senha** (o proprietário redefine a dos demais em **Usuários**).
+
+| Arquivo | Função |
+|---|---|
+| `worker/index.js` | API (`/api/status`, `/login`, `/db`, `/items/:col/:id`, `/config/:key`, `/password`, `/reset`) e entrega do app |
+| `worker/schema.sql` | Tabelas `items`, `config`, `credentials` |
+| `wrangler.toml` | Configuração do Worker, assets estáticos e vínculo com o D1 |
+| `scripts/singlefile.mjs` | Gera `cloudflare-dist/index.html` com JS e CSS embutidos |
 
 ## Como executar
 
@@ -34,4 +59,4 @@ npm run preview  # serve o build localmente
 
 Usuários de demonstração (senha `123456`): `saymon@techgest.com` (Proprietário), `ana@techgest.com` (Operador), `carlos@techgest.com` (Financeiro), `lucas@techgest.com` (Técnico).
 
-> Observação: a autenticação é apenas de demonstração (front-end). Para produção, é necessário um back-end com autenticação e banco de dados.
+> Observação: no modo local (sem Worker) a autenticação é apenas de demonstração, feita no navegador.
