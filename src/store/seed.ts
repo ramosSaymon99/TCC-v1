@@ -1,6 +1,6 @@
 import type {
-  CategoriaServico, Cliente, Compromisso, Database, Equipamento, Lancamento, Oportunidade,
-  Orcamento, OrdemServico, Tarefa, Usuario, Modulo, Perfil,
+  CategoriaServico, Cliente, Compromisso, Contrato, Database, Equipamento, Lancamento, Movimento, Oportunidade,
+  Orcamento, OrdemServico, Peca, Servico, Tarefa, Turma, Usuario, Modulo, Perfil,
 } from '../types';
 import { addDays, pad, toISODate } from '../utils/format';
 
@@ -23,26 +23,50 @@ export const SERVICOS: Record<CategoriaServico, { nomes: string[]; faixa: [numbe
 };
 export const CATEGORIAS = Object.keys(SERVICOS) as CategoriaServico[];
 export const CATEGORIAS_DESPESA = ['Peças e acessórios', 'Transporte', 'Marketing', 'Software e licenças', 'Impostos', 'Outros'];
+/** Receitas aceitam também a categoria de mensalidades de contratos. */
+export const CATEGORIAS_RECEITA = [...CATEGORIAS, 'Recorrência'];
+/** Versão do formato dos dados; ao subir, `migrar` completa bases antigas com os módulos novos. */
+export const VERSAO_DADOS = 2;
+
+/** Catálogo padrão: nome, categoria, preço de tabela, custo direto, horas. */
+const SERV_DEFS: [string, CategoriaServico, number, number, number][] = [
+  // nome, categoria, preço de tabela, custo direto, horas
+  ['Treinamento de Informática', 'Treinamento', 650, 80, 12], ['Treinamento de Excel', 'Treinamento', 550, 60, 8],
+  ['Curso de Pacote Office', 'Treinamento', 800, 90, 16], ['Manutenção de Notebook', 'Manutenção', 320, 60, 2.5],
+  ['Formatação e Instalação', 'Manutenção', 280, 20, 2], ['Formatação de PC', 'Manutenção', 260, 20, 2],
+  ['Upgrade de PC', 'Manutenção', 380, 40, 1.5], ['Manutenção preventiva', 'Manutenção', 650, 60, 5],
+  ['Desenvolvimento de Site', 'Desenvolvimento Web', 3200, 250, 40], ['Criação de Site', 'Desenvolvimento Web', 3200, 250, 45],
+  ['Site institucional', 'Desenvolvimento Web', 3200, 250, 42], ['Loja virtual', 'Desenvolvimento Web', 4500, 450, 70],
+  ['Implantação de Rede', 'Implantação', 1800, 300, 12], ['Implantação de Servidor', 'Implantação', 2200, 350, 16],
+  ['Configuração de Backup', 'Implantação', 1100, 150, 6], ['Consultoria em TI', 'Consultoria', 600, 30, 4],
+  ['Diagnóstico de Infraestrutura', 'Consultoria', 700, 40, 5],
+];
+const PRECO_TABELA: Record<string, number> = Object.fromEntries(SERV_DEFS.map(([n, , p]) => [n, p]));
 
 export const MODULOS: { id: Modulo; label: string }[] = [
   { id: 'inicio', label: 'Início' },
   { id: 'clientes', label: 'Clientes' },
   { id: 'orcamentos', label: 'Orçamentos e Propostas' },
   { id: 'funil', label: 'Funil Comercial' },
+  { id: 'contratos', label: 'Contratos' },
   { id: 'ordens', label: 'Ordens de Serviço' },
   { id: 'equipamentos', label: 'Equipamentos' },
+  { id: 'estoque', label: 'Estoque de Peças' },
+  { id: 'treinamentos', label: 'Treinamentos' },
   { id: 'agenda', label: 'Agenda' },
+  { id: 'servicos', label: 'Serviços e Preços' },
   { id: 'financeiro', label: 'Financeiro' },
   { id: 'relatorios', label: 'Relatórios' },
+  { id: 'planejamento', label: 'Planejamento' },
   { id: 'usuarios', label: 'Usuários' },
   { id: 'configuracoes', label: 'Configurações' },
 ];
 
 export const PERMISSOES_PADRAO: Record<Perfil, Modulo[]> = {
   'Proprietário': MODULOS.map((m) => m.id),
-  'Operador': ['inicio', 'clientes', 'orcamentos', 'funil', 'ordens', 'equipamentos', 'agenda'],
-  'Financeiro': ['inicio', 'clientes', 'financeiro', 'relatorios'],
-  'Técnico': ['inicio', 'ordens', 'equipamentos', 'agenda'],
+  'Operador': ['inicio', 'clientes', 'orcamentos', 'funil', 'contratos', 'ordens', 'equipamentos', 'estoque', 'treinamentos', 'agenda', 'servicos'],
+  'Financeiro': ['inicio', 'clientes', 'contratos', 'financeiro', 'relatorios', 'planejamento', 'servicos'],
+  'Técnico': ['inicio', 'ordens', 'equipamentos', 'estoque', 'agenda'],
 };
 
 export function createSeed(): Database {
@@ -105,9 +129,11 @@ export function createSeed(): Database {
       const dia = 1 + Math.floor(rnd() * ultimoDia);
       const data = `${inicio.getFullYear()}-${pad(inicio.getMonth() + 1)}-${pad(dia)}`;
       const clienteId = pick(pool);
+      const nome = pick(serv.nomes);
       lancamentos.push({
-        id: `l${lid++}`, tipo: 'Receita', descricao: pick(serv.nomes), categoria: cat,
-        valor: between(serv.faixa[0], serv.faixa[1]) * (cat === 'Desenvolvimento Web' ? 1 : crescimento),
+        id: `l${lid++}`, tipo: 'Receita', descricao: nome, categoria: cat,
+        // preço praticado oscila em torno da tabela; sites costumam sair com desconto na negociação
+        valor: (PRECO_TABELA[nome] ?? between(serv.faixa[0], serv.faixa[1])) * (cat === 'Desenvolvimento Web' ? 0.78 + rnd() * 0.17 : 0.9 + rnd() * 0.15) * (cat === 'Desenvolvimento Web' ? 1 : crescimento / 1.15),
         data, status: m === 0 && dia > now.getDate() - 5 ? 'Pendente' : 'Pago', clienteId,
       });
     }
@@ -234,6 +260,9 @@ export function createSeed(): Database {
     numeroSerie: `${marca.slice(0, 2).toUpperCase()}${(734921 + i * 7919).toString(36).toUpperCase()}`,
     dataAquisicao: d(-dias), garantiaMeses: tipo === 'Servidor' ? 36 : 12,
   }));
+  // Avaliações (0–10) dadas pelos clientes nas OS finalizadas
+  const notas = [10, 9, 10, 6];
+  ordens.filter((o) => o.status === 'Finalizada').forEach((o, i) => (o.avaliacao = notas[i % notas.length]));
   ordens[4].equipamentoId = 'e1';
   ordens[2].equipamentoId = 'e6';
   ordens[7].equipamentoId = 'e8';
@@ -270,12 +299,122 @@ export function createSeed(): Database {
     { id: 'u4', nome: 'Lucas Martins', email: 'lucas@techgest.com', perfil: 'Técnico', status: 'Ativo', ultimoAcesso: hora(-3, 9, 5) },
   ];
 
+  // ---------- Catálogo de serviços ----------
+  const servicos: Servico[] = SERV_DEFS.map(([nome, categoria, preco, custo, duracaoHoras], i) => ({
+    id: `s${i + 1}`, nome, categoria, preco, custo, duracaoHoras, ativo: true,
+  }));
+
+  // ---------- Estoque de peças ----------
+  const pecaDefs: [string, Peca['categoria'], number, number, number, number, string, number][] = [
+    // nome, categoria, qtd, mínimo, custo, venda, fornecedor, consumo em 90 dias
+    ['SSD 480GB', 'Armazenamento', 3, 4, 220, 320, 'InfoParts', 6], ['Memória RAM 8GB DDR4', 'Memória', 6, 4, 150, 230, 'InfoParts', 7],
+    ['Fonte ATX 500W', 'Energia', 1, 2, 180, 260, 'Distribuidora Vix', 3], ['Cabo de rede Cat6 (metro)', 'Rede', 120, 50, 2.5, 5, 'Rede Forte', 95],
+    ['Teclado e mouse USB', 'Periféricos', 5, 3, 60, 95, 'Distribuidora Vix', 4], ['Bateria de notebook', 'Energia', 0, 2, 190, 290, 'InfoParts', 3],
+    ['Pasta térmica', 'Outros', 8, 3, 15, 30, 'InfoParts', 6], ['HD externo 1TB', 'Armazenamento', 2, 2, 280, 390, 'Distribuidora Vix', 2],
+    ['Roteador Wi-Fi AC1200', 'Rede', 2, 1, 170, 260, 'Rede Forte', 2], ['Conector RJ45', 'Rede', 80, 50, 0.8, 2, 'Rede Forte', 64],
+  ];
+  const pecas: Peca[] = pecaDefs.map(([nome, categoria, quantidade, minimo, custoUnit, precoVenda, fornecedor], i) => ({
+    id: `p${i + 1}`, nome, categoria, quantidade, minimo, custoUnit, precoVenda, fornecedor,
+    sku: `PC-${String(i + 1).padStart(3, '0')}`,
+  }));
+  const movimentos: Movimento[] = [];
+  let mid = 1;
+  const osComPeca = ['os1', 'os5', 'os6', 'os9', 'os8', 'os11'];
+  pecaDefs.forEach(([, , qtd, , custo, , , consumo], i) => {
+    const partes = Math.min(4, Math.max(1, Math.round(consumo / 10) || 1));
+    let restante = consumo;
+    for (let k = 0; k < partes; k++) {
+      const q = k === partes - 1 ? restante : Math.max(1, Math.round(consumo / partes));
+      restante -= q;
+      if (q <= 0) continue;
+      movimentos.push({
+        id: `m${mid++}`, pecaId: `p${i + 1}`, tipo: 'Saída', quantidade: q, data: d(-Math.floor(5 + rnd() * 80)),
+        osId: k === 0 ? osComPeca[i % osComPeca.length] : undefined,
+      });
+    }
+    movimentos.push({ id: `m${mid++}`, pecaId: `p${i + 1}`, tipo: 'Entrada', quantidade: qtd + consumo, data: d(-95), custoUnit: custo, obs: 'Compra trimestral' });
+  });
+
+  // ---------- Contratos recorrentes ----------
+  const mesAnterior = (() => { const x = new Date(now.getFullYear(), now.getMonth() - 1, 1); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}`; })();
+  const ctDefs: [number, Contrato['tipo'], string, number, number, number, number, Contrato['status']][] = [
+    // cliente, tipo, descrição, valor, início (dias atrás), renovação (dias a partir de hoje), dia venc., status
+    [1, 'Suporte mensal', 'Suporte técnico remoto e presencial (até 8h/mês)', 450, 300, 65, 10, 'Ativo'],
+    [4, 'Hospedagem de site', 'Hospedagem + certificado SSL da loja virtual', 89, 200, 165, 5, 'Ativo'],
+    [7, 'Suporte mensal', 'Suporte de TI para 12 estações', 600, 400, 20, 15, 'Ativo'],
+    [9, 'Manutenção preventiva', 'Revisão mensal de computadores e rede', 320, 150, 215, 20, 'Ativo'],
+    [11, 'Hospedagem de site', 'Hospedagem do site institucional', 99, 90, 275, 8, 'Ativo'],
+    [10, 'Domínio e e-mail', 'Domínio .com.br + 5 contas de e-mail', 45, 330, 12, 1, 'Ativo'],
+    [5, 'Suporte mensal', 'Suporte ao laboratório de informática', 380, 240, -20, 12, 'Cancelado'],
+  ];
+  const contratos: Contrato[] = ctDefs.map(([ci, tipo, descricao, valorMensal, ini, ren, diaVencimento, status], i) => ({
+    id: `ct${i + 1}`, clienteId: clientes[ci].id, tipo, descricao, valorMensal, inicio: d(-ini), renovacao: d(ren),
+    diaVencimento, status, ultimaCobranca: status === 'Ativo' ? mesAnterior : undefined,
+  }));
+  // Mensalidades já cobradas nos últimos 6 meses (até o mês anterior)
+  for (const c of contratos) {
+    for (let m = 6; m >= 1; m--) {
+      const ref = new Date(now.getFullYear(), now.getMonth() - m, 1);
+      const data = `${ref.getFullYear()}-${pad(ref.getMonth() + 1)}-${pad(Math.min(c.diaVencimento, 28))}`;
+      if (data < c.inicio || (c.status === 'Cancelado' && data > c.renovacao)) continue;
+      lancamentos.push({
+        id: `l${lid++}`, tipo: 'Receita', descricao: `${c.tipo} - mensalidade`, categoria: 'Recorrência',
+        valor: c.valorMensal, data, status: 'Pago', clienteId: c.clienteId,
+      });
+    }
+  }
+
+  // ---------- Turmas de treinamento ----------
+  const nomesAlunos = ['Ana Paula', 'Bruno Lima', 'Carla Dias', 'Diego Rocha', 'Elaine Souza', 'Fábio Nunes', 'Gabriela Reis', 'Henrique Alves',
+    'Isabela Moura', 'José Carlos', 'Karen Lopes', 'Leandro Costa', 'Mariana Freitas', 'Nelson Prado', 'Olívia Santos'];
+  const alunos = (n: number, naoPagos = 0) => nomesAlunos.slice(0, n).map((nome, i) => ({ nome, pago: i < n - naoPagos }));
+  const turmas: Turma[] = [
+    { id: 'tu1', curso: 'Excel Básico', inicio: d(6), fim: d(27), horario: 'Ter e Qui · 19h–21h', local: 'Sala TechGest', vagas: 12, precoAluno: 380, custoTurma: 1800, status: 'Inscrições abertas', alunos: alunos(4, 1) },
+    { id: 'tu2', curso: 'Informática para Iniciantes', inicio: d(-10), fim: d(20), horario: 'Seg e Qua · 14h–16h', local: 'Escola Saber', vagas: 15, precoAluno: 300, custoTurma: 1600, status: 'Em andamento', alunos: alunos(13, 2) },
+    { id: 'tu3', curso: 'Pacote Office Completo', inicio: d(20), fim: d(55), horario: 'Sáb · 8h–12h', local: 'Sala TechGest', vagas: 10, precoAluno: 650, custoTurma: 2000, status: 'Inscrições abertas', alunos: alunos(7, 3) },
+    { id: 'tu4', curso: 'Excel Avançado', inicio: d(-60), fim: d(-30), horario: 'Ter e Qui · 19h–21h', local: 'Sala TechGest', vagas: 10, precoAluno: 520, custoTurma: 1800, status: 'Concluída', alunos: alunos(9) },
+  ];
+
   return {
     clientes, orcamentos, oportunidades, ordens, equipamentos, compromissos, tarefas, lancamentos, usuarios,
+    servicos, pecas, movimentos, contratos, turmas,
     permissoes: PERMISSOES_PADRAO,
     empresa: {
       nome: 'TechGest', cnpj: '45.123.456/0001-78', telefone: '(27) 99999-0000', email: 'contato@techgest.com',
-      endereco: 'Cariacica/ES', metaMensal: 12000, diasAlertaOrcamento: 5,
+      endereco: 'Cariacica/ES', metaMensal: 12000, diasAlertaOrcamento: 5, versaoDados: VERSAO_DADOS,
     },
   };
+}
+
+const NOVAS_COLECOES = ['servicos', 'pecas', 'movimentos', 'contratos', 'turmas'] as const;
+const NOVOS_MODULOS: Modulo[] = ['servicos', 'estoque', 'contratos', 'treinamentos', 'planejamento'];
+
+/**
+ * Completa uma base criada numa versão anterior com as coleções e permissões dos módulos novos,
+ * preservando todos os dados existentes. Retorna null quando não há nada a migrar.
+ */
+export function migrar(db: Database): Database | null {
+  if ((db.empresa?.versaoDados ?? 1) >= VERSAO_DADOS) return null;
+  const seed = createSeed();
+  const out = { ...db } as Database;
+  for (const col of NOVAS_COLECOES) {
+    if (!Array.isArray(out[col]) || out[col].length === 0) {
+      (out as unknown as Record<string, unknown>)[col] = seed[col];
+      // contratos de demonstração vêm com o histórico de mensalidades já pagas
+      if (col === 'contratos') {
+        const ids = new Set(out.lancamentos.map((l) => l.id));
+        const recorrentes = seed.lancamentos.filter((l) => l.categoria === 'Recorrência').map((l) => ({ ...l, id: ids.has(l.id) ? `${l.id}-r` : l.id }));
+        out.lancamentos = [...out.lancamentos, ...recorrentes];
+      }
+    }
+  }
+  const permissoes = { ...out.permissoes };
+  (Object.keys(PERMISSOES_PADRAO) as Perfil[]).forEach((perfil) => {
+    const atuais = permissoes[perfil] ?? [];
+    const novos = PERMISSOES_PADRAO[perfil].filter((m) => NOVOS_MODULOS.includes(m) && !atuais.includes(m));
+    permissoes[perfil] = [...atuais, ...novos];
+  });
+  out.permissoes = permissoes;
+  out.empresa = { ...out.empresa, versaoDados: VERSAO_DADOS };
+  return out;
 }

@@ -61,6 +61,7 @@ export interface OrdemServico {
   equipamentoId?: string;
   tecnico?: string;
   descricao?: string;
+  avaliacao?: number; // nota 0–10 dada pelo cliente após a entrega (NPS)
 }
 
 export type StatusEquip = 'Em uso' | 'Em manutenção' | 'Inativo';
@@ -112,6 +113,8 @@ export interface Lancamento {
   status: 'Pago' | 'Pendente';
   clienteId?: string;
   osId?: string;
+  contratoId?: string;
+  turmaId?: string;
 }
 
 export type Perfil = 'Proprietário' | 'Operador' | 'Financeiro' | 'Técnico';
@@ -127,7 +130,73 @@ export interface Usuario {
 
 export type Modulo =
   | 'inicio' | 'clientes' | 'orcamentos' | 'funil' | 'ordens' | 'equipamentos'
-  | 'agenda' | 'financeiro' | 'relatorios' | 'usuarios' | 'configuracoes';
+  | 'agenda' | 'financeiro' | 'relatorios' | 'usuarios' | 'configuracoes'
+  | 'servicos' | 'estoque' | 'contratos' | 'treinamentos' | 'planejamento';
+
+export interface Servico {
+  id: string;
+  nome: string;
+  categoria: CategoriaServico;
+  preco: number;          // preço de tabela
+  custo: number;          // custo direto estimado (peças, deslocamento, material)
+  duracaoHoras: number;   // horas de trabalho estimadas
+  descricao?: string;
+  ativo: boolean;
+}
+
+export interface Peca {
+  id: string;
+  nome: string;
+  categoria: 'Armazenamento' | 'Memória' | 'Energia' | 'Periféricos' | 'Rede' | 'Outros';
+  sku: string;
+  quantidade: number;
+  minimo: number;
+  custoUnit: number;
+  precoVenda: number;
+  fornecedor?: string;
+}
+
+export interface Movimento {
+  id: string;
+  pecaId: string;
+  tipo: 'Entrada' | 'Saída';
+  quantidade: number;
+  data: string;
+  custoUnit?: number;
+  osId?: string;
+  obs?: string;
+}
+
+export type TipoContrato = 'Suporte mensal' | 'Hospedagem de site' | 'Manutenção preventiva' | 'Domínio e e-mail';
+
+export interface Contrato {
+  id: string;
+  clienteId: string;
+  tipo: TipoContrato;
+  descricao: string;
+  valorMensal: number;
+  inicio: string;
+  renovacao: string;        // data de fim/renovação do contrato
+  diaVencimento: number;    // dia do mês da cobrança
+  status: 'Ativo' | 'Suspenso' | 'Cancelado';
+  ultimaCobranca?: string;  // yyyy-mm da última cobrança gerada
+}
+
+export interface Aluno { nome: string; clienteId?: string; pago: boolean }
+
+export interface Turma {
+  id: string;
+  curso: string;
+  inicio: string;
+  fim: string;
+  horario: string;
+  local: string;
+  vagas: number;
+  precoAluno: number;
+  custoTurma: number;       // instrutor, material, sala
+  status: 'Inscrições abertas' | 'Em andamento' | 'Concluída' | 'Cancelada';
+  alunos: Aluno[];
+}
 
 export interface Empresa {
   nome: string;
@@ -137,6 +206,7 @@ export interface Empresa {
   endereco: string;
   metaMensal: number;
   diasAlertaOrcamento: number;
+  versaoDados?: number;
 }
 
 export interface Database {
@@ -149,6 +219,11 @@ export interface Database {
   tarefas: Tarefa[];
   lancamentos: Lancamento[];
   usuarios: Usuario[];
+  servicos: Servico[];
+  pecas: Peca[];
+  movimentos: Movimento[];
+  contratos: Contrato[];
+  turmas: Turma[];
   permissoes: Record<Perfil, Modulo[]>;
   empresa: Empresa;
 }

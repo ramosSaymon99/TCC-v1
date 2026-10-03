@@ -8,7 +8,7 @@ import { Badge, Confirm, Empty, Kpi, Modal, PageHeader, Pager, RowMenu, SearchIn
 import { ClienteSelect, Field, Options, toNumber } from '../components/fields';
 import { addDays, date, diffDays, downloadCSV, money, moneyShort, monthKey, monthLabel, normalize, parseDate, pct, toISODate, today, uid, variation } from '../utils/format';
 import { resumoPeriodo } from '../utils/metrics';
-import { CATEGORIAS, CATEGORIAS_DESPESA } from '../store/seed';
+import { CATEGORIAS_DESPESA, CATEGORIAS_RECEITA } from '../store/seed';
 
 const CORES = ['#1e6fe8', '#12336d', '#7fb2f6', '#f59e0b', '#16a34a', '#94a3b8'];
 
@@ -212,7 +212,7 @@ export default function Financeiro() {
 function LancForm({ l, onClose, onSave }: { l: Lancamento; onClose: () => void; onSave: (l: Lancamento) => void }) {
   const [f, setF] = useState(l);
   const set = <K extends keyof Lancamento>(k: K, v: Lancamento[K]) => setF((x) => ({ ...x, [k]: v }));
-  const cats = f.tipo === 'Receita' ? CATEGORIAS : CATEGORIAS_DESPESA;
+  const cats = f.tipo === 'Receita' ? CATEGORIAS_RECEITA : CATEGORIAS_DESPESA;
   return (
     <Modal title={l.descricao ? 'Editar lançamento' : 'Novo lançamento'} onClose={onClose} footer={<>
       <button className="btn" onClick={onClose}>Cancelar</button>
@@ -220,7 +220,7 @@ function LancForm({ l, onClose, onSave }: { l: Lancamento; onClose: () => void; 
     </>}>
       <form id="lanc-form" className="form-grid" onSubmit={(e) => { e.preventDefault(); onSave(f); }}>
         <Field label="Tipo">
-          <select className="select" value={f.tipo} onChange={(e) => { const t = e.target.value as Lancamento['tipo']; setF((x) => ({ ...x, tipo: t, categoria: t === 'Receita' ? CATEGORIAS[0] : CATEGORIAS_DESPESA[0] })); }}>
+          <select className="select" value={f.tipo} onChange={(e) => { const t = e.target.value as Lancamento['tipo']; setF((x) => ({ ...x, tipo: t, categoria: t === 'Receita' ? CATEGORIAS_RECEITA[0] : CATEGORIAS_DESPESA[0] })); }}>
             <Options items={['Receita', 'Despesa'] as const} />
           </select>
         </Field>

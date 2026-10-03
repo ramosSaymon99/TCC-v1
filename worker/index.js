@@ -8,10 +8,14 @@
  *   credentials(user_id, salt, hash)  → senhas (PBKDF2), nunca enviadas ao cliente
  */
 
-const COLS = ['clientes', 'orcamentos', 'oportunidades', 'ordens', 'equipamentos', 'compromissos', 'tarefas', 'lancamentos', 'usuarios'];
+const COLS = [
+  'clientes', 'orcamentos', 'oportunidades', 'ordens', 'equipamentos', 'compromissos', 'tarefas', 'lancamentos', 'usuarios',
+  'servicos', 'pecas', 'movimentos', 'contratos', 'turmas',
+];
 const MODULO = {
   clientes: 'clientes', orcamentos: 'orcamentos', oportunidades: 'funil', ordens: 'ordens', equipamentos: 'equipamentos',
   compromissos: 'agenda', tarefas: 'agenda', lancamentos: 'financeiro', usuarios: 'usuarios',
+  servicos: 'servicos', pecas: 'estoque', movimentos: 'estoque', contratos: 'contratos', turmas: 'treinamentos',
 };
 const SENHA_PADRAO = '123456';
 const TOKEN_HORAS = 12;
@@ -100,8 +104,10 @@ async function podeEscrever(env, user, col, item) {
   const perms = (await getConfig(env, 'permissoes')) ?? {};
   const mods = perms[user.perfil] ?? [];
   if (mods.includes(MODULO[col])) return true;
-  // Quem opera OS pode gerar a receita da OS finalizada
+  // Quem opera OS pode gerar a receita da OS finalizada; contratos e turmas geram suas cobranças
   if (col === 'lancamentos' && item?.osId && mods.includes('ordens')) return true;
+  if (col === 'lancamentos' && item?.categoria === 'Recorrência' && mods.includes('contratos')) return true;
+  if (col === 'lancamentos' && item?.turmaId && mods.includes('treinamentos')) return true;
   return false;
 }
 

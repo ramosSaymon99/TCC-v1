@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle2, Clock, Download, FileText, Percent, Plus, Send, Wallet, X } from 'lucide-react';
+import { CheckCircle2, Clock, Download, FileText, Percent, Plus, Printer, Send, Wallet, X } from 'lucide-react';
+import { imprimirProposta } from '../utils/print';
 import { useClienteNome, useStore } from '../store/Store';
 import type { CategoriaServico, Orcamento, StatusOrcamento } from '../types';
 import { Badge, Confirm, Empty, Kpi, Modal, PageHeader, Pager, RowMenu, SearchInput, Th, useSortPage } from '../components/ui';
@@ -139,6 +140,7 @@ export default function Orcamentos() {
                   <td className="right">
                     <RowMenu actions={[
                       { label: 'Editar', onClick: () => setEditing(o) },
+                      { label: <><Printer size={14} /> Gerar proposta (PDF)</>, onClick: () => imprimirProposta(o, db.clientes.find((c) => c.id === o.clienteId), db.empresa) },
                       { label: <><Send size={14} /> Marcar proposta enviada</>, onClick: () => setStatusOrc(o, 'Proposta enviada'), hidden: !ABERTOS.includes(o.status) || o.status === 'Proposta enviada' },
                       { label: <><CheckCircle2 size={14} /> Converter em OS</>, onClick: () => converter(o), hidden: !ABERTOS.includes(o.status) },
                       { label: 'Marcar como recusado', onClick: () => setStatusOrc(o, 'Recusado'), hidden: !ABERTOS.includes(o.status) },
@@ -165,7 +167,11 @@ export default function Orcamentos() {
 }
 
 function OrcamentoForm({ o, onClose, onSave }: { o: Orcamento; onClose: () => void; onSave: (o: Orcamento) => void }) {
+  const { db } = useStore();
   const [f, setF] = useState(o);
+  const [vk, setVk] = useState(0); // remonta o campo de valor quando o catálogo preenche o preço
+  const catalogo = db.servicos.filter((s) => s.ativo);
+  const tabela = db.servicos.find((s) => s.nome === f.servico);
   const set = <K extends keyof Orcamento>(k: K, v: Orcamento[K]) => setF((x) => ({ ...x, [k]: v }));
   return (
     <Modal title={`${o.servico ? 'Editar' : 'Novo'} orçamento · ${o.numero}`} onClose={onClose} footer={<>
@@ -174,11 +180,22 @@ function OrcamentoForm({ o, onClose, onSave }: { o: Orcamento; onClose: () => vo
     </>}>
       <form id="orc-form" className="form-grid" onSubmit={(e) => { e.preventDefault(); onSave(f); }}>
         <Field label="Cliente" full><ClienteSelect value={f.clienteId} onChange={(v) => set('clienteId', v)} /></Field>
+        <Field label="Do catálogo" full hint="Preenche serviço, categoria e preço de tabela. Pode ajustar depois.">
+          <select className="select" value={catalogo.some((s) => s.nome === f.servico) ? f.servico : ''} onChange={(e) => {
+            const s = catalogo.find((x) => x.nome === e.target.value);
+            if (s) { setF((x) => ({ ...x, servico: s.nome, categoria: s.categoria, valor: s.preco })); setVk((k) => k + 1); }
+          }}>
+            <option value="">Serviço personalizado</option>
+            {catalogo.map((s) => <option key={s.id} value={s.nome}>{s.nome} · {money(s.preco)}</option>)}
+          </select>
+        </Field>
         <Field label="Serviço"><input className="input" value={f.servico} onChange={(e) => set('servico', e.target.value)} required /></Field>
         <Field label="Categoria">
           <select className="select" value={f.categoria} onChange={(e) => set('categoria', e.target.value as CategoriaServico)}><Options items={CATEGORIAS} /></select>
         </Field>
-        <Field label="Valor (R$)"><input className="input" inputMode="decimal" defaultValue={f.valor ? String(f.valor).replace('.', ',') : ''} onChange={(e) => set('valor', toNumber(e.target.value))} required /></Field>
+        <Field label="Valor (R$)" hint={tabela && f.valor < tabela.preco ? `Desconto de ${pct((tabela.preco - f.valor) / tabela.preco)} sobre a tabela (${money(tabela.preco)}).` : undefined}>
+          <input key={vk} className="input" inputMode="decimal" defaultValue={f.valor ? String(f.valor).replace('.', ',') : ''} onChange={(e) => set('valor', toNumber(e.target.value))} required />
+        </Field>
         <Field label="Status">
           <select className="select" value={f.status} onChange={(e) => set('status', e.target.value as StatusOrcamento)}>
             <Options items={['Orçamento', 'Em análise', 'Proposta enviada', 'Convertido', 'Recusado'] as const} />

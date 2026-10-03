@@ -18,6 +18,13 @@ Sistema web de gestão comercial para pequenos negócios de tecnologia (treiname
 | 9 | Relatórios | DRE, Fluxo de Caixa, Curva ABC de clientes, Clientes em risco, Vendas por serviço (efeito volume × ticket), Desempenho operacional, Conversão do funil — com exportação CSV e impressão/PDF |
 | 10 | Usuários e Permissões | Perfis Proprietário/Operador/Financeiro/Técnico com módulos configuráveis |
 | 11 | Configurações | Dados da empresa, meta mensal (com referência histórica), backup/restauração em JSON |
+| 12 | Serviços e Preços | Catálogo com preço de tabela, custo, margem, lucro por hora, preço praticado vs. tabela e classificação (carro-chefe, volume, nicho, revisar); alimenta os orçamentos |
+| 13 | Estoque de Peças | Mínimo, consumo de 90 dias, cobertura em dias, sugestão e lista de compras, entradas (com despesa automática) e saídas vinculadas à OS |
+| 14 | Contratos | Suporte mensal, hospedagem, manutenção preventiva e domínios: MRR, peso na receita, renovações, churn, geração das cobranças do mês e clientes com perfil para contrato |
+| 15 | Treinamentos | Turmas com vagas, ocupação, ponto de equilíbrio por turma, alunos e pagamentos (viram receita) |
+| 16 | Planejamento | Ponto de equilíbrio com pró-labore, simulador de cenários com a alavanca de maior impacto e meta do mês por categoria |
+
+Funções transversais: busca global (Ctrl+K), proposta comercial e OS/termo de entrega em PDF, NPS de satisfação nas OS, menu agrupado por área e novos alertas no painel "Onde agir agora". Bases criadas na versão anterior são completadas automaticamente com os módulos novos, sem perder dados.
 
 ## Tecnologias
 
