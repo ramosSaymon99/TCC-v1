@@ -51,9 +51,9 @@ h1, h2, h3, h4 { margin: 0; }
 .brand-name { font-weight: 700; font-size: 18px; letter-spacing: -0.02em; line-height: 1.1; }
 .brand-sub { font-size: 11px; color: #7fa6e3; }
 .nav { padding: 8px 12px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; flex: 1; }
-.nav-section { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: #5d7bb0; padding: 14px 10px 6px; }
+.nav-section { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: #5d7bb0; padding: 10px 10px 4px; }
 .nav a {
-  display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; gap: 12px; padding: 7px 12px; border-radius: var(--radius-sm);
   color: #c9d6ee; font-size: 13.5px; font-weight: 500; transition: background 0.15s, color 0.15s; white-space: nowrap;
 }
 .nav a svg { flex-shrink: 0; }

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, CheckCircle2, Download, Gauge, Plus, Timer, Wrench, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Download, Gauge, Plus, Printer, Smile, Timer, Wrench, X } from 'lucide-react';
+import { imprimirOS } from '../utils/print';
 import { useClienteNome, useStore } from '../store/Store';
 import type { CategoriaServico, OrdemServico, StatusOS } from '../types';
 import { Badge, Confirm, Empty, Kpi, Modal, PageHeader, Pager, RowMenu, SearchInput, Th, useSortPage } from '../components/ui';
@@ -37,6 +38,10 @@ export default function Ordens() {
   const abertas = rows.filter((o) => (ABERTAS as readonly string[]).includes(o.status));
   const atrasadas = rows.filter((o) => o.atrasada);
   const finalizadas = rows.filter((o) => o.status === 'Finalizada' && o.conclusao);
+  // NPS = % promotores (9–10) − % detratores (0–6) entre as OS avaliadas
+  const avaliadas = rows.filter((o) => o.avaliacao !== undefined);
+  const nps = avaliadas.length ? Math.round(((avaliadas.filter((o) => o.avaliacao! >= 9).length - avaliadas.filter((o) => o.avaliacao! <= 6).length) / avaliadas.length) * 100) : null;
+  const semAvaliacao = finalizadas.filter((o) => o.avaliacao === undefined).length;
   const noPrazo = finalizadas.filter((o) => o.conclusao! <= o.prazo);
   const tempoMedio = finalizadas.length ? finalizadas.reduce((a, o) => a + diffDays(o.conclusao!, o.abertura), 0) / finalizadas.length : 0;
   const aguardando = rows.filter((o) => o.status === 'Aguardando peças');
@@ -65,13 +70,15 @@ export default function Ordens() {
         <button className="btn btn-primary" onClick={() => setEditing(novo())}><Plus size={16} /> Nova OS</button>
       </PageHeader>
 
-      <div className="grid kpis" style={{ marginBottom: 16 }}>
+      <div className="grid kpis" style={{ marginBottom: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
         <Kpi icon={<Wrench size={20} />} tone="blue" label="OS em aberto" value={abertas.length} foot={`${money(abertas.reduce((a, o) => a + o.valor, 0))} a faturar`} />
         <Kpi icon={<AlertTriangle size={20} />} tone="red" label="Com prazo vencido" value={atrasadas.length}
           foot={atrasadas.length ? <button className="btn btn-sm btn-ghost" style={{ padding: 0, height: 'auto', color: 'var(--danger)' }} onClick={() => setParams({ filtro: 'atrasadas' })}>Ver atrasadas →</button> : 'Nenhuma atrasada'} />
         <Kpi icon={<CheckCircle2 size={20} />} tone="green" label="Entregas no prazo (SLA)" value={pct(finalizadas.length ? noPrazo.length / finalizadas.length : 0)} foot={`${noPrazo.length} de ${finalizadas.length} finalizadas`} />
         <Kpi icon={<Timer size={20} />} tone="orange" label="Tempo médio de execução" value={`${tempoMedio.toFixed(1).replace('.', ',')} dias`}
           foot={aguardando.length ? <span className="row" style={{ gap: 4 }}><Gauge size={13} /> {aguardando.length} aguardando peças</span> : 'Abertura → conclusão'} />
+        <Kpi icon={<Smile size={20} />} tone="purple" label="Satisfação (NPS)" value={nps === null ? '—' : nps}
+          foot={`${avaliadas.length} avaliação(ões)${semAvaliacao ? ` · ${semAvaliacao} OS sem nota` : ''}`} />
       </div>
 
       <div className="card">
@@ -115,6 +122,9 @@ export default function Ordens() {
                   <td className="right">
                     <RowMenu actions={[
                       { label: 'Abrir / editar', onClick: () => setEditing(o) },
+                      { label: <><Printer size={14} /> Imprimir OS / termo</>, onClick: () => imprimirOS(o, db.clientes.find((c) => c.id === o.clienteId), db.empresa,
+                        db.equipamentos.find((e) => e.id === o.equipamentoId)?.nome,
+                        db.movimentos.filter((m) => m.osId === o.id && m.tipo === 'Saída').map((m) => ({ nome: db.pecas.find((p) => p.id === m.pecaId)?.nome ?? 'Peça', qtd: m.quantidade }))) },
                       ...STATUS.filter((st) => st !== o.status).map((st) => ({ label: `Mudar para: ${st}`, onClick: () => mudarStatus(o, st) })),
                       { label: 'Excluir', danger: true, onClick: () => setDeleting(o) },
                     ]} />
@@ -174,6 +184,14 @@ function OSForm({ o, onClose, onSave }: { o: OrdemServico; onClose: () => void; 
         <Field label="Status" hint={f.status === 'Finalizada' ? 'Ao finalizar, uma receita pendente é lançada no financeiro.' : undefined}>
           <select className="select" value={f.status} onChange={(e) => set('status', e.target.value as StatusOS)}><Options items={STATUS} /></select>
         </Field>
+        {f.status === 'Finalizada' && (
+          <Field label="Avaliação do cliente (0 a 10)" hint="Pergunte: de 0 a 10, quanto recomendaria nosso serviço? Alimenta o NPS.">
+            <select className="select" value={f.avaliacao ?? ''} onChange={(e) => set('avaliacao', e.target.value === '' ? undefined : Number(e.target.value))}>
+              <option value="">Não avaliado</option>
+              {Array.from({ length: 11 }, (_, i) => 10 - i).map((n) => <option key={n} value={n}>{n}{n >= 9 ? ' · promotor' : n <= 6 ? ' · detrator' : ' · neutro'}</option>)}
+            </select>
+          </Field>
+        )}
         <Field label="Descrição do problema / serviço" full><textarea className="textarea" value={f.descricao ?? ''} onChange={(e) => set('descricao', e.target.value)} /></Field>
       </form>
     </Modal>

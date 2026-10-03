@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Database, Empresa, Modulo, Perfil, Usuario } from '../types';
-import { createSeed } from './seed';
+import { createSeed, migrar } from './seed';
 
 const DB_KEY = 'techgest:db:v1';
 const SESSION_KEY = 'techgest:session:v1';
@@ -45,7 +45,12 @@ const ls = {
 
 function loadLocal(): Database {
   const raw = ls.get(DB_KEY);
-  if (raw) { try { return JSON.parse(raw) as Database; } catch { /* base corrompida: usa demonstração */ } }
+  if (raw) {
+    try {
+      const db = JSON.parse(raw) as Database;
+      return migrar(db) ?? db;
+    } catch { /* base corrompida: usa demonstração */ }
+  }
   return createSeed();
 }
 
@@ -81,7 +86,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const recarregar = useCallback(async () => {
     try {
-      setDb(await call<Database>('/db'));
+      const remoto = await call<Database>('/db');
+      const migrado = migrar(remoto);
+      setDb(migrado ?? remoto);
+      // Base criada antes dos módulos novos: o proprietário grava a versão completada no banco
+      if (migrado) await call('/reset', { method: 'POST', body: JSON.stringify({ db: migrado }) }).catch(() => undefined);
     } catch (e) {
       if ((e as { status?: number }).status === 401) sair();
       else throw e;

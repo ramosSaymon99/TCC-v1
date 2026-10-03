@@ -72,7 +72,8 @@ export function gerarInsights(db: Database): Insight[] {
   // 1. Projeção x meta
   const projecao = p.dia ? (atual.faturamento / p.dia) * p.diasMes : 0;
   const meta = db.empresa.metaMensal;
-  if (meta > 0) {
+  // Com menos de 7 dias de dados a projeção linear é instável: não gera alerta de meta
+  if (meta > 0 && p.dia >= 7) {
     const gap = meta - projecao;
     if (gap > meta * 0.02) {
       const restantes = p.diasMes - p.dia;
@@ -212,6 +213,63 @@ export function gerarInsights(db: Database): Insight[] {
       title: `${money(sum(pend.map((l) => l.valor)))} a receber`,
       detail: `${pend.length} lançamento(s) de receita pendente(s). Cobrança ativa melhora o fluxo de caixa.`,
       action: 'Ver pendências', to: '/financeiro?status=Pendente',
+    });
+  }
+
+  // 10. Estoque abaixo do mínimo travando OS
+  const baixos = (db.pecas ?? []).filter((p) => p.quantidade < p.minimo);
+  if (baixos.length) {
+    const aguardando = db.ordens.filter((o) => o.status === 'Aguardando peças');
+    out.push({
+      kind: aguardando.length ? 'risk' : 'warn', peso: aguardando.length ? 80 : 42,
+      title: `${baixos.length} peça(s) abaixo do estoque mínimo`,
+      detail: `${baixos.slice(0, 3).map((p) => `${p.nome} (${p.quantidade}/${p.minimo})`).join(', ')}${baixos.length > 3 ? '…' : ''}.${aguardando.length ? ` ${aguardando.length} OS aguardando peças (${money(sum(aguardando.map((o) => o.valor)))} parados).` : ''}`,
+      action: 'Ver lista de compras', to: '/estoque',
+    });
+  }
+
+  // 11. Contratos a renovar
+  const renov = (db.contratos ?? []).filter((c) => c.status === 'Ativo' && c.renovacao <= addDays(hoje, 30));
+  if (renov.length) {
+    out.push({
+      kind: 'warn', peso: 75,
+      title: `${renov.length} contrato(s) vencem em até 30 dias`,
+      detail: `${money(sum(renov.map((c) => c.valorMensal)))}/mês de receita recorrente em jogo (${money(sum(renov.map((c) => c.valorMensal)) * 12)}/ano). Agende a conversa de renovação antes do vencimento.`,
+      action: 'Ver contratos', to: '/contratos',
+    });
+  }
+  const mesAtual = hoje.slice(0, 7);
+  const semCobranca = (db.contratos ?? []).filter((c) => c.status === 'Ativo' && (c.ultimaCobranca ?? '') < mesAtual && c.inicio <= hoje);
+  if (semCobranca.length) {
+    out.push({
+      kind: 'opp', peso: 68,
+      title: `Cobranças recorrentes do mês não geradas`,
+      detail: `${semCobranca.length} contrato(s) ativos somando ${money(sum(semCobranca.map((c) => c.valorMensal)))} ainda sem cobrança lançada neste mês.`,
+      action: 'Gerar cobranças', to: '/contratos',
+    });
+  }
+
+  // 12. Turmas abaixo do ponto de equilíbrio perto de começar
+  const turmasRisco = (db.turmas ?? []).filter((t) => t.status === 'Inscrições abertas' && diffDays(t.inicio, hoje) <= 10 &&
+    t.precoAluno > 0 && t.alunos.length < Math.ceil(t.custoTurma / t.precoAluno));
+  for (const t of turmasRisco) {
+    const faltam = Math.ceil(t.custoTurma / t.precoAluno) - t.alunos.length;
+    out.push({
+      kind: 'risk', peso: 72,
+      title: `Turma "${t.curso}" abaixo do equilíbrio`,
+      detail: `Começa em ${diffDays(t.inicio, hoje)} dia(s) com ${t.alunos.length}/${t.vagas} alunos; faltam ${faltam} inscrição(ões) para cobrir o custo de ${money(t.custoTurma)}.`,
+      action: 'Ver turmas', to: '/treinamentos',
+    });
+  }
+
+  // 13. Satisfação: detratores recentes
+  const detratores = db.ordens.filter((o) => o.avaliacao !== undefined && o.avaliacao <= 6 && (o.conclusao ?? '') >= addDays(hoje, -60));
+  if (detratores.length) {
+    out.push({
+      kind: 'warn', peso: 58,
+      title: `${detratores.length} cliente(s) insatisfeito(s) nos últimos 60 dias`,
+      detail: `${detratores.map((o) => `${o.numero} (nota ${o.avaliacao})`).join(', ')}. Um contato de recuperação reduz o risco de perda e de indicação negativa.`,
+      action: 'Ver ordens de serviço', to: '/ordens',
     });
   }
 

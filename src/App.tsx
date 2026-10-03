@@ -16,6 +16,11 @@ import Financeiro from './pages/Financeiro';
 import Relatorios from './pages/Relatorios';
 import Usuarios from './pages/Usuarios';
 import Configuracoes from './pages/Configuracoes';
+import Servicos from './pages/Servicos';
+import Estoque from './pages/Estoque';
+import Contratos from './pages/Contratos';
+import Treinamentos from './pages/Treinamentos';
+import Planejamento from './pages/Planejamento';
 
 function Guard({ mod, children }: { mod: Modulo; children: ReactNode }) {
   const { can } = useStore();
@@ -52,6 +57,11 @@ export default function App() {
           <Route path="relatorios" element={<Guard mod="relatorios"><Relatorios /></Guard>} />
           <Route path="usuarios" element={<Guard mod="usuarios"><Usuarios /></Guard>} />
           <Route path="configuracoes" element={<Guard mod="configuracoes"><Configuracoes /></Guard>} />
+          <Route path="servicos" element={<Guard mod="servicos"><Servicos /></Guard>} />
+          <Route path="estoque" element={<Guard mod="estoque"><Estoque /></Guard>} />
+          <Route path="contratos" element={<Guard mod="contratos"><Contratos /></Guard>} />
+          <Route path="treinamentos" element={<Guard mod="treinamentos"><Treinamentos /></Guard>} />
+          <Route path="planejamento" element={<Guard mod="planejamento"><Planejamento /></Guard>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
