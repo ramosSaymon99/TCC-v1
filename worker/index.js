@@ -42,9 +42,24 @@ function iguais(a, b) {
   for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return r === 0;
 }
+/**
+ * Chave que assina as sessões. Usa o secret AUTH_SECRET se ele existir; senão gera uma chave
+ * aleatória no primeiro uso e guarda no D1 (tabela `secrets`, nunca exposta pela API).
+ * Assim o sistema fica operacional sem nenhuma configuração manual.
+ */
+let segredoCache = null;
+async function segredo(env) {
+  if (env.AUTH_SECRET) return env.AUTH_SECRET;
+  if (segredoCache) return segredoCache;
+  await env.DB.prepare('CREATE TABLE IF NOT EXISTS secrets (key TEXT PRIMARY KEY, value TEXT NOT NULL)').run();
+  const novo = b64url(crypto.getRandomValues(new Uint8Array(32)));
+  await env.DB.prepare("INSERT OR IGNORE INTO secrets (key, value) VALUES ('auth', ?)").bind(novo).run();
+  const r = await env.DB.prepare("SELECT value FROM secrets WHERE key = 'auth'").first();
+  segredoCache = r.value;
+  return segredoCache;
+}
 async function hmac(env, msg) {
-  if (!env.AUTH_SECRET) throw new Error('AUTH_SECRET não configurado. Rode: npx wrangler secret put AUTH_SECRET');
-  const key = await crypto.subtle.importKey('raw', enc.encode(env.AUTH_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const key = await crypto.subtle.importKey('raw', enc.encode(await segredo(env)), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   return b64url(await crypto.subtle.sign('HMAC', key, enc.encode(msg)));
 }
 async function criarToken(env, userId) {
@@ -74,6 +89,16 @@ const upsertStmt = (env, col, item) => env.DB
 const configStmt = (env, key, data) => env.DB
   .prepare('INSERT INTO config (key, data) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET data = excluded.data')
   .bind(key, JSON.stringify(data));
+
+/** Cria as tabelas se ainda não existirem (banco novo ou recriado). */
+async function garantirEsquema(env) {
+  await env.DB.batch([
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS items (col TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (col, id))'),
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, data TEXT NOT NULL)'),
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS credentials (user_id TEXT PRIMARY KEY, salt TEXT NOT NULL, hash TEXT NOT NULL)'),
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS secrets (key TEXT PRIMARY KEY, value TEXT NOT NULL)'),
+  ]);
+}
 
 async function inicializado(env) {
   const r = await env.DB.prepare('SELECT COUNT(*) AS n FROM credentials').first();
@@ -118,7 +143,10 @@ async function api(req, env, url) {
   const body = ['POST', 'PUT'].includes(method) ? await req.json().catch(() => null) : null;
 
   // Públicas
-  if (path === '/status' && method === 'GET') return json({ ok: true, initialized: await inicializado(env) });
+  if (path === '/status' && method === 'GET') {
+    await garantirEsquema(env);
+    return json({ ok: true, initialized: await inicializado(env) });
+  }
 
   if (path === '/bootstrap' && method === 'POST') {
     if (await inicializado(env)) return erro('Banco já inicializado.', 409);
