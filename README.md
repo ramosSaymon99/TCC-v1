@@ -37,14 +37,25 @@ O app detecta sozinho onde está rodando:
 
 ## Publicar no Cloudflare (Worker + D1)
 
-O banco `techgest-db` já está criado e com as tabelas (`worker/schema.sql`). O `wrangler.toml` já aponta para ele.
+O banco `techgest-db` já está criado; o `wrangler.toml` aponta para ele e roda o build automaticamente antes de cada deploy. As tabelas e a chave que assina as sessões são criadas pelo próprio Worker no primeiro acesso.
+
+**Pelo painel, sem linha de comando (recomendado):**
+
+1. Cloudflare → **Workers & Pages** → **Create application** → **Import a repository**.
+2. Conecte o GitHub e escolha o repositório `TCC-v1`.
+3. Nome do projeto: `techgest` (precisa ser igual ao `name` do `wrangler.toml`).
+4. Branch de produção: a branch com este código. Build command: deixe em branco. Deploy command: `npx wrangler deploy`.
+5. **Save and Deploy**. A cada push na branch, o Cloudflare publica de novo.
+
+**Pela linha de comando:**
 
 ```bash
 npm install
-npx wrangler login                    # abre o navegador para autorizar sua conta
-npm run deploy                        # gera o index.html único e publica o Worker
-npx wrangler secret put AUTH_SECRET   # cole uma frase longa e aleatória (assina as sessões)
+npx wrangler login
+npm run deploy
 ```
+
+Opcional: `npx wrangler secret put AUTH_SECRET` define você mesmo a chave das sessões; sem ele, o Worker gera uma e guarda no D1.
 
 No primeiro acesso, o app popula o banco com os dados de demonstração. Todos os usuários começam com a senha `123456`; troque em **Configurações → Alterar minha senha** (o proprietário redefine a dos demais em **Usuários**).
 
