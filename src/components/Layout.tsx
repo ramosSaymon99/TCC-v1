@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Bell, BarChart3, Boxes, CalendarDays, ClipboardList, DollarSign, FileText, Filter, GraduationCap, Home, LogOut, Menu,
-  Monitor, Repeat, Settings, Tag, Target, UserCog, Users, Wrench,
+  Megaphone, Monitor, Repeat, Settings, Tag, Target, UserCog, Users, Wrench,
 } from 'lucide-react';
 import { BuscaGlobal } from './BuscaGlobal';
 import { useStore } from '../store/Store';
@@ -19,6 +19,7 @@ const NAV: { secao?: string; itens: NavItem[] }[] = [
     { to: '/orcamentos', label: 'Orçamentos', icon: <FileText size={18} />, mod: 'orcamentos' },
     { to: '/funil', label: 'Funil Comercial', icon: <Filter size={18} />, mod: 'funil' },
     { to: '/contratos', label: 'Contratos', icon: <Repeat size={18} />, mod: 'contratos' },
+    { to: '/social', label: 'Social Media', icon: <Megaphone size={18} />, mod: 'social' },
   ] },
   { secao: 'Operação', itens: [
     { to: '/ordens', label: 'Ordens de Serviço', icon: <Wrench size={18} />, mod: 'ordens' },

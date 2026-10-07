@@ -23,6 +23,7 @@ Sistema web de gestão comercial para pequenos negócios de tecnologia (treiname
 | 14 | Contratos | Suporte mensal, hospedagem, manutenção preventiva e domínios: MRR, peso na receita, renovações, churn, geração das cobranças do mês e clientes com perfil para contrato |
 | 15 | Treinamentos | Turmas com vagas, ocupação, ponto de equilíbrio por turma, alunos e pagamentos (viram receita) |
 | 16 | Planejamento | Ponto de equilíbrio com pró-labore, simulador de cenários com a alavanca de maior impacto e meta do mês por categoria |
+| 17 | Social Media | Calendário editorial, produção (ideia → publicado), métricas por post, engajamento por formato/pilar/rede, seguidores, sugestões de pauta baseadas nos dados do negócio e atribuição de leads e receita por canal (custo por lead e retorno do impulsionamento) |
 
 Funções transversais: busca global (Ctrl+K), proposta comercial e OS/termo de entrega em PDF, NPS de satisfação nas OS, menu agrupado por área e novos alertas no painel "Onde agir agora". Bases criadas na versão anterior são completadas automaticamente com os módulos novos, sem perder dados.
 

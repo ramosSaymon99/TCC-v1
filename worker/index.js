@@ -10,12 +10,13 @@
 
 const COLS = [
   'clientes', 'orcamentos', 'oportunidades', 'ordens', 'equipamentos', 'compromissos', 'tarefas', 'lancamentos', 'usuarios',
-  'servicos', 'pecas', 'movimentos', 'contratos', 'turmas',
+  'servicos', 'pecas', 'movimentos', 'contratos', 'turmas', 'posts', 'seguidores',
 ];
 const MODULO = {
   clientes: 'clientes', orcamentos: 'orcamentos', oportunidades: 'funil', ordens: 'ordens', equipamentos: 'equipamentos',
   compromissos: 'agenda', tarefas: 'agenda', lancamentos: 'financeiro', usuarios: 'usuarios',
   servicos: 'servicos', pecas: 'estoque', movimentos: 'estoque', contratos: 'contratos', turmas: 'treinamentos',
+  posts: 'social', seguidores: 'social',
 };
 const SENHA_PADRAO = '123456';
 const TOKEN_HORAS = 12;

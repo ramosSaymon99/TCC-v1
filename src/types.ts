@@ -43,6 +43,44 @@ export interface Oportunidade {
   clienteId?: string;
   criadoEm: string;
   atualizadoEm: string;
+  origem?: OrigemLead;   // canal que trouxe o lead (atribuição de marketing)
+  postId?: string;       // post de rede social que gerou o contato, quando houver
+}
+
+export type RedeSocial = 'Instagram' | 'Facebook' | 'LinkedIn' | 'WhatsApp' | 'TikTok';
+export type OrigemLead = RedeSocial | 'Google' | 'Site' | 'Indicação' | 'Cliente da base' | 'Outros';
+export type FormatoPost = 'Feed' | 'Carrossel' | 'Reels' | 'Stories' | 'Vídeo' | 'Artigo' | 'Status';
+export type PilarConteudo = 'Educativo' | 'Institucional' | 'Promocional' | 'Prova social' | 'Bastidores';
+export type StatusPost = 'Ideia' | 'Produzindo' | 'Agendado' | 'Publicado';
+
+export interface Post {
+  id: string;
+  titulo: string;
+  rede: RedeSocial;
+  formato: FormatoPost;
+  pilar: PilarConteudo;
+  categoria?: CategoriaServico; // serviço que o conteúdo divulga
+  data: string;                 // data de publicação (planejada ou real)
+  hora?: string;
+  status: StatusPost;
+  legenda?: string;
+  investimento: number;         // impulsionamento pago (R$)
+  // métricas (preenchidas após publicar)
+  alcance: number;
+  impressoes: number;
+  curtidas: number;
+  comentarios: number;
+  compartilhamentos: number;
+  salvamentos: number;
+  cliques: number;
+  mensagens: number;            // DMs / contatos recebidos pelo post
+}
+
+export interface Seguidores {
+  id: string;
+  rede: RedeSocial;
+  mes: string;                  // yyyy-mm
+  seguidores: number;
 }
 
 export type StatusOS = 'Aberta' | 'Em andamento' | 'Aguardando peças' | 'Finalizada' | 'Cancelada';
@@ -131,7 +169,7 @@ export interface Usuario {
 export type Modulo =
   | 'inicio' | 'clientes' | 'orcamentos' | 'funil' | 'ordens' | 'equipamentos'
   | 'agenda' | 'financeiro' | 'relatorios' | 'usuarios' | 'configuracoes'
-  | 'servicos' | 'estoque' | 'contratos' | 'treinamentos' | 'planejamento';
+  | 'servicos' | 'estoque' | 'contratos' | 'treinamentos' | 'planejamento' | 'social';
 
 export interface Servico {
   id: string;
@@ -207,6 +245,7 @@ export interface Empresa {
   metaMensal: number;
   diasAlertaOrcamento: number;
   versaoDados?: number;
+  metaPostsSemana?: number;
 }
 
 export interface Database {
@@ -224,6 +263,8 @@ export interface Database {
   movimentos: Movimento[];
   contratos: Contrato[];
   turmas: Turma[];
+  posts: Post[];
+  seguidores: Seguidores[];
   permissoes: Record<Perfil, Modulo[]>;
   empresa: Empresa;
 }

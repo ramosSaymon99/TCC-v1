@@ -1,5 +1,6 @@
 import type { Database, Lancamento } from '../types';
 import { addDays, diffDays, lastMonths, money, monthKey, pct, today, variation } from './format';
+import { insightsSocial } from './social';
 
 export const ABERTAS = ['Aberta', 'Em andamento', 'Aguardando peças'] as const;
 
@@ -271,6 +272,11 @@ export function gerarInsights(db: Database): Insight[] {
       detail: `${detratores.map((o) => `${o.numero} (nota ${o.avaliacao})`).join(', ')}. Um contato de recuperação reduz o risco de perda e de indicação negativa.`,
       action: 'Ver ordens de serviço', to: '/ordens',
     });
+  }
+
+  // 14. Social media: conteúdo dos próximos dias e retorno das redes
+  for (const s of insightsSocial(db, hoje).filter((x) => x.kind === 'risk' || x.title.startsWith('Impulsionamento'))) {
+    out.push({ ...s, peso: s.kind === 'risk' ? 52 : 38, action: 'Abrir Social Media', to: '/social' });
   }
 
   return out.sort((a, b) => b.peso - a.peso);

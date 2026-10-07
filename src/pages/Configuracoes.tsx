@@ -59,6 +59,9 @@ export default function Configuracoes() {
             <Field label="Alertar orçamentos que vencem em até (dias)">
               <input className="input" type="number" min={1} max={60} value={f.diasAlertaOrcamento} onChange={(e) => set('diasAlertaOrcamento', Number(e.target.value))} />
             </Field>
+            <Field label="Meta de posts por semana (redes sociais)" hint="Usada no indicador de frequência e nos alertas de Social Media.">
+              <input className="input" type="number" min={1} max={21} value={f.metaPostsSemana ?? 3} onChange={(e) => set('metaPostsSemana', Number(e.target.value))} />
+            </Field>
             <div className="full"><button className="btn btn-primary">Salvar configurações</button></div>
           </form>
         </div>

@@ -21,6 +21,7 @@ import Estoque from './pages/Estoque';
 import Contratos from './pages/Contratos';
 import Treinamentos from './pages/Treinamentos';
 import Planejamento from './pages/Planejamento';
+import SocialMedia from './pages/SocialMedia';
 
 function Guard({ mod, children }: { mod: Modulo; children: ReactNode }) {
   const { can } = useStore();
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="contratos" element={<Guard mod="contratos"><Contratos /></Guard>} />
           <Route path="treinamentos" element={<Guard mod="treinamentos"><Treinamentos /></Guard>} />
           <Route path="planejamento" element={<Guard mod="planejamento"><Planejamento /></Guard>} />
+          <Route path="social" element={<Guard mod="social"><SocialMedia /></Guard>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
