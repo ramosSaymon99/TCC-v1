@@ -50,7 +50,10 @@ h1, h2, h3, h4 { margin: 0; }
 .brand { display: flex; align-items: center; gap: 10px; padding: 22px 20px 18px; color: #fff; }
 .brand-name { font-weight: 700; font-size: 18px; letter-spacing: -0.02em; line-height: 1.1; }
 .brand-sub { font-size: 11px; color: #7fa6e3; }
-.nav { padding: 8px 12px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; flex: 1; }
+.nav { padding: 8px 12px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; flex: 1; min-height: 0;
+  overscroll-behavior: contain; scrollbar-width: none; -ms-overflow-style: none; }
+/* Menu rola com a roda do mouse / toque, mas sem barra de rolagem visível */
+.nav::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .nav-section { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: #5d7bb0; padding: 10px 10px 4px; }
 .nav a {
   display: flex; align-items: center; gap: 12px; padding: 7px 12px; border-radius: var(--radius-sm);
