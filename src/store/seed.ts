@@ -1,8 +1,9 @@
 import type {
   CategoriaServico, Cliente, Compromisso, Contrato, Database, Equipamento, Lancamento, Movimento, Oportunidade,
   Orcamento, OrdemServico, Peca, Servico, Tarefa, Turma, Usuario, Modulo, Perfil,
+  OrigemLead, Post, RedeSocial, FormatoPost, PilarConteudo, Seguidores,
 } from '../types';
-import { addDays, pad, toISODate } from '../utils/format';
+import { addDays, lastMonths, pad, toISODate } from '../utils/format';
 
 /** PRNG determinístico para que os dados de demonstração sejam sempre os mesmos. */
 function mulberry32(seed: number) {
@@ -26,7 +27,7 @@ export const CATEGORIAS_DESPESA = ['Peças e acessórios', 'Transporte', 'Market
 /** Receitas aceitam também a categoria de mensalidades de contratos. */
 export const CATEGORIAS_RECEITA = [...CATEGORIAS, 'Recorrência'];
 /** Versão do formato dos dados; ao subir, `migrar` completa bases antigas com os módulos novos. */
-export const VERSAO_DADOS = 2;
+export const VERSAO_DADOS = 3;
 
 /** Catálogo padrão: nome, categoria, preço de tabela, custo direto, horas. */
 const SERV_DEFS: [string, CategoriaServico, number, number, number][] = [
@@ -58,13 +59,14 @@ export const MODULOS: { id: Modulo; label: string }[] = [
   { id: 'financeiro', label: 'Financeiro' },
   { id: 'relatorios', label: 'Relatórios' },
   { id: 'planejamento', label: 'Planejamento' },
+  { id: 'social', label: 'Social Media' },
   { id: 'usuarios', label: 'Usuários' },
   { id: 'configuracoes', label: 'Configurações' },
 ];
 
 export const PERMISSOES_PADRAO: Record<Perfil, Modulo[]> = {
   'Proprietário': MODULOS.map((m) => m.id),
-  'Operador': ['inicio', 'clientes', 'orcamentos', 'funil', 'contratos', 'ordens', 'equipamentos', 'estoque', 'treinamentos', 'agenda', 'servicos'],
+  'Operador': ['inicio', 'clientes', 'orcamentos', 'funil', 'contratos', 'ordens', 'equipamentos', 'estoque', 'treinamentos', 'agenda', 'servicos', 'social'],
   'Financeiro': ['inicio', 'clientes', 'contratos', 'financeiro', 'relatorios', 'planejamento', 'servicos'],
   'Técnico': ['inicio', 'ordens', 'equipamentos', 'estoque', 'agenda'],
 };
@@ -203,10 +205,17 @@ export function createSeed(): Database {
     ['Comércio Santos', 'Site', 2800, 'Negociação', 10],
     ['Empresa Alfa', 'Site institucional', 2900, 'Fechados', 11], ['Marcelo Lima', 'Formatação', 220, 'Fechados', 12],
   ];
+  // Canal que trouxe cada oportunidade (atribuição de marketing)
+  const origens: OrigemLead[] = [
+    'LinkedIn', 'Instagram', 'Cliente da base', 'WhatsApp', 'Instagram', 'Instagram', 'Instagram', 'Facebook',
+    'Cliente da base', 'WhatsApp', 'Instagram', 'Google', 'Instagram', 'Indicação', 'Instagram', 'LinkedIn',
+    'Facebook', 'Indicação', 'Indicação', 'Google', 'Instagram', 'Instagram', 'Google',
+  ];
   const oportunidades: Oportunidade[] = funilDefs.map(([titulo, servico, valor, etapa, ci], i) => ({
     id: `f${i + 1}`, titulo, servico, valor, etapa,
     clienteId: ci !== undefined ? clientes[ci].id : undefined,
     criadoEm: d(-(30 - i)), atualizadoEm: d(-Math.floor(rnd() * 12)),
+    origem: origens[i],
   }));
 
   // ---------- Ordens de serviço ----------
@@ -375,19 +384,28 @@ export function createSeed(): Database {
     { id: 'tu4', curso: 'Excel Avançado', inicio: d(-60), fim: d(-30), horario: 'Ter e Qui · 19h–21h', local: 'Sala TechGest', vagas: 10, precoAluno: 520, custoTurma: 1800, status: 'Concluída', alunos: alunos(9) },
   ];
 
+  // ---------- Social media ----------
+  const { posts, seguidores } = gerarSocial(rnd, hoje);
+  // leads do Instagram ligados aos posts promocionais/prova social que os geraram
+  const geradores = posts.filter((p) => p.rede === 'Instagram' && p.status === 'Publicado' && (p.pilar === 'Promocional' || p.pilar === 'Prova social'));
+  oportunidades.filter((o) => o.origem === 'Instagram').forEach((o, i) => {
+    const anteriores = geradores.filter((p) => p.data <= o.criadoEm);
+    if (anteriores.length) o.postId = anteriores[anteriores.length - 1 - (i % Math.min(3, anteriores.length))].id;
+  });
+
   return {
     clientes, orcamentos, oportunidades, ordens, equipamentos, compromissos, tarefas, lancamentos, usuarios,
-    servicos, pecas, movimentos, contratos, turmas,
+    servicos, pecas, movimentos, contratos, turmas, posts, seguidores,
     permissoes: PERMISSOES_PADRAO,
     empresa: {
       nome: 'TechGest', cnpj: '45.123.456/0001-78', telefone: '(27) 99999-0000', email: 'contato@techgest.com',
-      endereco: 'Cariacica/ES', metaMensal: 12000, diasAlertaOrcamento: 5, versaoDados: VERSAO_DADOS,
+      endereco: 'Cariacica/ES', metaMensal: 12000, diasAlertaOrcamento: 5, versaoDados: VERSAO_DADOS, metaPostsSemana: 3,
     },
   };
 }
 
-const NOVAS_COLECOES = ['servicos', 'pecas', 'movimentos', 'contratos', 'turmas'] as const;
-const NOVOS_MODULOS: Modulo[] = ['servicos', 'estoque', 'contratos', 'treinamentos', 'planejamento'];
+const NOVAS_COLECOES = ['servicos', 'pecas', 'movimentos', 'contratos', 'turmas', 'posts', 'seguidores'] as const;
+const NOVOS_MODULOS: Modulo[] = ['servicos', 'estoque', 'contratos', 'treinamentos', 'planejamento', 'social'];
 
 /**
  * Completa uma base criada numa versão anterior com as coleções e permissões dos módulos novos,
@@ -415,6 +433,86 @@ export function migrar(db: Database): Database | null {
     permissoes[perfil] = [...atuais, ...novos];
   });
   out.permissoes = permissoes;
-  out.empresa = { ...out.empresa, versaoDados: VERSAO_DADOS };
+  out.empresa = { ...out.empresa, versaoDados: VERSAO_DADOS, metaPostsSemana: out.empresa.metaPostsSemana ?? 3 };
   return out;
+}
+
+/* ---------- Gerador de dados de social media (13 semanas publicadas + 2 planejadas) ---------- */
+const PAUTAS: Record<PilarConteudo, [string, CategoriaServico | undefined][]> = {
+  'Educativo': [
+    ['5 sinais de que seu notebook precisa de manutenção', 'Manutenção'], ['Como fazer backup na nuvem em 3 passos', 'Implantação'],
+    ['Atalhos do Excel que economizam 1h por semana', 'Treinamento'], ['Por que sua empresa precisa de um site em 2026', 'Desenvolvimento Web'],
+    ['Wi-Fi lento? 4 causas comuns', 'Implantação'], ['SSD ou HD: qual vale mais a pena?', 'Manutenção'],
+    ['Golpes por e-mail: como identificar', 'Consultoria'], ['Fórmulas PROCV e XLOOKUP explicadas', 'Treinamento'],
+  ],
+  'Promocional': [
+    ['Turma de Excel Básico: inscrições abertas', 'Treinamento'], ['Formatação + backup com preço especial', 'Manutenção'],
+    ['Pacote site + hospedagem por 12 meses', 'Desenvolvimento Web'], ['Revisão preventiva para empresas', 'Manutenção'],
+    ['Pacote Office Completo: últimas vagas', 'Treinamento'],
+  ],
+  'Prova social': [
+    ['Depoimento: Escola Saber', 'Treinamento'], ['Antes e depois: upgrade de PC', 'Manutenção'],
+    ['Site entregue: Loja Digital', 'Desenvolvimento Web'], ['Rede nova na Tech Solutions', 'Implantação'],
+  ],
+  'Bastidores': [
+    ['Um dia de manutenção preventiva na Clínica Vida', 'Manutenção'], ['Montando o laboratório do Instituto Educar', 'Implantação'],
+    ['Como planejamos um site do zero', 'Desenvolvimento Web'],
+  ],
+  'Institucional': [['Conheça a TechGest', undefined], ['Nossos serviços em 1 minuto', undefined], ['Atendemos toda a Grande Vitória', undefined]],
+};
+
+function gerarSocial(rnd: () => number, hoje: string): { posts: Post[]; seguidores: Seguidores[] } {
+  const pick = <T,>(a: T[]) => a[Math.floor(rnd() * a.length)];
+  const posts: Post[] = [];
+  const pilares: PilarConteudo[] = ['Educativo', 'Educativo', 'Educativo', 'Promocional', 'Promocional', 'Prova social', 'Prova social', 'Bastidores', 'Institucional'];
+  const redes: RedeSocial[] = ['Instagram', 'Instagram', 'Instagram', 'Instagram', 'Instagram', 'Instagram', 'Facebook', 'Facebook', 'LinkedIn', 'LinkedIn', 'WhatsApp'];
+  const formatos: Record<RedeSocial, FormatoPost[]> = {
+    Instagram: ['Reels', 'Reels', 'Carrossel', 'Carrossel', 'Feed', 'Stories'], Facebook: ['Feed', 'Vídeo'],
+    LinkedIn: ['Artigo', 'Feed'], WhatsApp: ['Status'], TikTok: ['Vídeo'],
+  };
+  const baseAlcance: Record<RedeSocial, number> = { Instagram: 850, Facebook: 380, LinkedIn: 320, WhatsApp: 110, TikTok: 600 };
+  const multFormato: Record<FormatoPost, number> = { Reels: 2.3, Carrossel: 1.3, Feed: 1, Stories: 0.55, Vídeo: 1.5, Artigo: 0.9, Status: 1 };
+  const taxaEng: Record<PilarConteudo, number> = { 'Educativo': 0.072, 'Prova social': 0.061, 'Bastidores': 0.055, 'Institucional': 0.03, 'Promocional': 0.026 };
+  const taxaMsg: Record<PilarConteudo, number> = { 'Promocional': 0.0075, 'Prova social': 0.0045, 'Educativo': 0.0018, 'Bastidores': 0.0012, 'Institucional': 0.001 };
+
+  let id = 1;
+  for (let w = -12; w <= 2; w++) {
+    // semanas -6 e -5 com baixa frequência (período de muita demanda operacional)
+    const qtd = w === -6 || w === -5 ? 1 : w > 0 ? 3 : 3 + (rnd() < 0.3 ? 1 : 0);
+    for (let k = 0; k < qtd; k++) {
+      const offset = w * 7 + Math.floor((k * 7) / qtd) + Math.floor(rnd() * 2) - 3;
+      const data = addDays(hoje, offset);
+      const pilar = pick(pilares);
+      const rede = pilar === 'Institucional' && rnd() < 0.5 ? 'LinkedIn' : pick(redes);
+      const formato = pick(formatos[rede]);
+      // evita repetir a mesma pauta em sequência
+      const opcoes = PAUTAS[pilar].filter(([t]) => !posts.slice(-8).some((x) => x.titulo === t));
+      const [titulo, categoria] = pick(opcoes.length ? opcoes : PAUTAS[pilar]);
+      const publicado = data <= hoje;
+      const boost = publicado && pilar === 'Promocional' && rede !== 'WhatsApp' && rnd() < 0.7 ? Math.round(30 + rnd() * 50) : 0;
+      const alcance = publicado ? Math.round(baseAlcance[rede] * multFormato[formato] * (0.75 + rnd() * 0.5) + boost * 28) : 0;
+      const eng = alcance * taxaEng[pilar] * (formato === 'Carrossel' ? 1.25 : 1) * (0.8 + rnd() * 0.4);
+      const status = publicado ? 'Publicado' : offset <= 4 ? 'Agendado' : offset <= 9 ? 'Produzindo' : 'Ideia';
+      posts.push({
+        id: `po${id++}`, titulo, rede, formato, pilar, categoria, data, hora: pick(['08:30', '12:00', '18:30', '19:30']), status,
+        investimento: boost,
+        alcance, impressoes: Math.round(alcance * (1.25 + rnd() * 0.25)),
+        curtidas: Math.round(eng * 0.72), comentarios: Math.round(eng * 0.08), compartilhamentos: Math.round(eng * 0.07),
+        salvamentos: Math.round(eng * (formato === 'Carrossel' || pilar === 'Educativo' ? 0.2 : 0.08)),
+        cliques: Math.round(alcance * (pilar === 'Promocional' ? 0.022 : 0.009) * (0.8 + rnd() * 0.4)),
+        mensagens: Math.round(alcance * taxaMsg[pilar] * (0.6 + rnd() * 0.8)),
+      });
+    }
+  }
+  posts.sort((a, b) => a.data.localeCompare(b.data));
+
+  const seguidores: Seguidores[] = [];
+  const inicial: Partial<Record<RedeSocial, [number, number]>> = { Instagram: [820, 0.065], Facebook: [1150, 0.008], LinkedIn: [310, 0.04] };
+  lastMonths(6).forEach((mes, i) => {
+    (Object.keys(inicial) as RedeSocial[]).forEach((rede) => {
+      const [base, cresc] = inicial[rede]!;
+      seguidores.push({ id: `sg-${rede}-${mes}`, rede, mes, seguidores: Math.round(base * Math.pow(1 + cresc, i) * (0.99 + rnd() * 0.02)) });
+    });
+  });
+  return { posts, seguidores };
 }

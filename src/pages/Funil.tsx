@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { AlertCircle, Plus, Target, TrendingUp, Trash2, Wallet, Timer } from 'lucide-react';
 import { useStore } from '../store/Store';
-import type { EtapaFunil, Oportunidade } from '../types';
+import type { EtapaFunil, Oportunidade, OrigemLead } from '../types';
+import { COR_REDE, isRede, ORIGENS } from '../utils/social';
 import { Confirm, Kpi, Modal, PageHeader } from '../components/ui';
 import { ClienteSelect, Field, Options, toNumber } from '../components/fields';
 import { diffDays, money, moneyShort, pct, today, uid } from '../utils/format';
@@ -83,6 +84,7 @@ export default function Funil() {
                       onClick={() => setEditing(o)}>
                       <div className="t">{o.titulo}</div>
                       <div className="s">{o.servico}</div>
+                      {o.origem && <div className="s" style={{ fontSize: 11, color: isRede(o.origem) ? COR_REDE[o.origem] : undefined, fontWeight: 600 }}>via {o.origem}</div>}
                       <div className="row">
                         <strong>{money(o.valor)}</strong>
                         {parado && <span className="stale row" style={{ gap: 3 }}><AlertCircle size={12} />{diffDays(hoje, o.atualizadoEm)}d parado</span>}
@@ -130,6 +132,20 @@ function OportunidadeForm({ o, onClose, onSave, onDelete }: { o: Oportunidade; o
         <Field label="Etapa">
           <select className="select" value={f.etapa} onChange={(e) => set('etapa', e.target.value as EtapaFunil)}><Options items={ETAPAS.map((x) => x.k)} /></select>
         </Field>
+        <Field label="Como nos conheceu (origem)" hint="Mede quais canais trazem clientes, inclusive as redes sociais.">
+          <select className="select" value={f.origem ?? ''} onChange={(e) => setF((x) => ({ ...x, origem: (e.target.value || undefined) as OrigemLead | undefined, postId: isRede(e.target.value) ? x.postId : undefined }))}>
+            <option value="">Não informado</option><Options items={ORIGENS} />
+          </select>
+        </Field>
+        {isRede(f.origem) && (
+          <Field label="Post de origem (opcional)" full>
+            <select className="select" value={f.postId ?? ''} onChange={(e) => set('postId', e.target.value || undefined)}>
+              <option value="">Não identificado</option>
+              {db.posts.filter((p) => p.rede === f.origem && p.status === 'Publicado').sort((a, b) => b.data.localeCompare(a.data)).slice(0, 30)
+                .map((p) => <option key={p.id} value={p.id}>{p.data.slice(8, 10)}/{p.data.slice(5, 7)} · {p.titulo}</option>)}
+            </select>
+          </Field>
+        )}
       </form>
     </Modal>
   );

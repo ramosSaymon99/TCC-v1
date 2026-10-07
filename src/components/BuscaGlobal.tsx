@@ -46,6 +46,8 @@ export function BuscaGlobal() {
         .map((s) => ({ tipo: 'Serviço', titulo: s.nome, sub: `${s.categoria} · ${money(s.preco)}`, to: '/servicos', mod: 'servicos' as Modulo })),
       ...db.turmas.filter((tu) => has(tu.curso, ...tu.alunos.map((a) => a.nome)))
         .map((tu) => ({ tipo: 'Turma', titulo: tu.curso, sub: `${tu.alunos.length}/${tu.vagas} alunos · ${tu.status}`, to: '/treinamentos', mod: 'treinamentos' as Modulo })),
+      ...db.posts.filter((p) => has(p.titulo, p.rede, p.pilar))
+        .map((p) => ({ tipo: 'Post', titulo: p.titulo, sub: `${p.rede} · ${p.status} · ${p.data.split('-').reverse().join('/')}`, to: '/social', mod: 'social' as Modulo })),
     ];
     return out.filter((r) => can(r.mod)).slice(0, 10);
   }, [q, db, nome, can]);
