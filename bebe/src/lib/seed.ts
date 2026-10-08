@@ -26,13 +26,13 @@ export async function criarFamiliaExemplo() {
   const tag = Math.random().toString(36).slice(2, 8);
   const senha = `demo-${tag}-${Math.random().toString(36).slice(2, 8)}`;
   const email = (p: string) => `${p}.${tag}@exemplo.ninho`;
-  await api.signup('Ana (exemplo)', email('ana'), senha);
-  const { id } = await api.createBaby({ name: 'Helena', birth_date: nascimentoDemo(), sex: 'F', color: '#E0708A', role: 'mae', routine: ROTINA_DEMO, notes: 'Exemplo: sem alergias conhecidas. Usa chupeta só para dormir.' });
+  await api.signup('Ana (exemplo)', email('ana'), senha, true);
+  const { id } = await api.createBaby({ name: 'Helena', birth_date: nascimentoDemo(), sex: 'F', color: '#E0708A', role: 'mae', guardian_consent: true, routine: ROTINA_DEMO, notes: 'Exemplo: sem alergias conhecidas. Usa chupeta só para dormir.' });
   const convidados = [['Rafael', 'pai', 'admin'], ['Dona Lúcia', 'avo_f', 'editor'], ['Marta', 'baba', 'editor']] as const;
   const codigos = [];
   for (const [, role, access] of convidados) codigos.push((await api.invite(id, role, access)).code);
   for (let i = 0; i < convidados.length; i++) {
-    await api.signup(convidados[i][0], email(convidados[i][1]), senha);
+    await api.signup(convidados[i][0], email(convidados[i][1]), senha, true);
     await api.acceptInvite(codigos[i], convidados[i][1]);
   }
   await api.login(email('ana'), senha);

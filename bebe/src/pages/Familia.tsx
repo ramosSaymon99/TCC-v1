@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Bell, Copy, Database, LogOut, Pencil, Plus, Share2, Trash2, UserPlus, X } from 'lucide-react';
+import { Bell, Copy, Database, Download, KeyRound, LogOut, Pencil, Plus, Share2, Shield, Trash2, UserPlus, X } from 'lucide-react';
 import { Avatar, PhotoPicker } from '../components/Avatar';
+import { PoliticaSheet } from '../components/Privacidade';
 import { useApp } from '../ctx';
 import { api, localCriarUsuarioDemo } from '../lib/api';
 import { ACESSOS, CORES_BEBE, PAPEIS, papel } from '../lib/constants';
@@ -18,6 +19,8 @@ export function Familia() {
   const [convite, setConvite] = useState(false);
   const [perfil, setPerfil] = useState(false);
   const [membro, setMembro] = useState<Member | null>(null);
+  const [excluir, setExcluir] = useState(false);
+  const [politica, setPolitica] = useState(false);
   const id = idade(baby.birth_date, agora);
 
   // Contribuição de cada cuidador nos últimos 7 dias
@@ -117,6 +120,11 @@ export function Familia() {
             <button className="btn sm" onClick={() => setPerfil(true)}><Pencil size={14} /> Nome e senha</button>
             <button className="btn sm" onClick={sair}><LogOut size={14} /> Sair</button>
           </div>
+          <hr className="sep" />
+          <div className="wrap-row">
+            <button className="btn sm ghost" onClick={() => setPolitica(true)}><Shield size={14} /> Privacidade e termos</button>
+            <button className="btn sm ghost danger" onClick={() => setExcluir(true)}><Trash2 size={14} /> Excluir minha conta</button>
+          </div>
         </div>
         <div className="card stack">
           <h2>Notificações</h2>
@@ -128,6 +136,13 @@ export function Familia() {
           <p className="muted row" style={{ gap: 6 }}><Database size={15} /> {modo === 'cloud' ? 'Banco Cloudflare D1 — sincronizado entre todos os cuidadores' : 'Modo local — dados apenas neste navegador'}</p>
           {podeAdmin && (
             <div className="wrap-row">
+              <button className="btn sm" onClick={() => act(async () => {
+                const blob = await api.exportBaby(baby.id);
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `ninho-${baby.name.split(' ')[0].toLowerCase()}-dados.json`;
+                a.click();
+              }, 'Exportação gerada')}><Download size={14} /> Exportar dados (JSON)</button>
               <button className="btn sm" onClick={carregarDemo}>Carregar dados de exemplo</button>
               <button className="btn sm danger" onClick={() => confirm(`Excluir ${baby.name} e TODOS os registros? Não dá para desfazer.`) && act(async () => { await api.deleteBaby(baby.id); await app.reloadMe(); }, 'Bebê excluído')}><Trash2 size={14} /> Excluir bebê</button>
             </div>
@@ -140,6 +155,8 @@ export function Familia() {
       {convite && <ConviteSheet onClose={() => setConvite(false)} />}
       {perfil && <PerfilSheet onClose={() => setPerfil(false)} />}
       {membro && <MembroSheet m={membro} onClose={() => setMembro(null)} />}
+      {excluir && <ExcluirContaSheet onClose={() => setExcluir(false)} />}
+      {politica && <PoliticaSheet onClose={() => setPolitica(false)} />}
     </div>
   );
 }
@@ -254,6 +271,7 @@ function MembroSheet({ m, onClose }: { m: Member; onClose: () => void }) {
   const [role, setRole] = useState(m.role);
   const [access, setAccess] = useState<Access>(m.access);
   const eu = m.user_id === user.id;
+  const [codigo, setCodigo] = useState<{ code: string; email: string } | null>(null);
   return (
     <Sheet title={<span className="row"><Avatar photo={m.photo} emoji={papel(m.role).emoji} size={36} /> {m.name}</span>} onClose={onClose} footer={<>
       <button className="btn danger" onClick={async () => confirm(eu ? `Deixar de acompanhar ${data.baby.name}?` : `Remover ${m.name}?`) && (await act(async () => { await api.removeMember(data.baby.id, m.user_id); if (eu) await reloadMe(); }, eu ? 'Você saiu' : 'Cuidador removido')) && onClose()}>{eu ? 'Sair do bebê' : 'Remover'}</button>
@@ -262,6 +280,20 @@ function MembroSheet({ m, onClose }: { m: Member; onClose: () => void }) {
       <p className="faint">{m.email} · desde {dataBr(m.created_at)}</p>
       <Field label="Papel"><div className="choice">{PAPEIS.map((p) => <button key={p.id} className={role === p.id ? 'on' : ''} onClick={() => setRole(p.id)}>{p.emoji} {p.label}</button>)}</div></Field>
       {podeAdmin && <Field label="Acesso"><Choice value={access} onChange={setAccess} options={(Object.keys(ACESSOS) as Access[]).map((a) => ({ v: a, l: ACESSOS[a].label }))} /></Field>}
+      {podeAdmin && !eu && m.access !== 'admin' && (
+        <div className="card" style={{ background: 'var(--surface-2)', boxShadow: 'none' }}>
+          <b>Esqueceu a senha?</b>
+          <p className="faint" style={{ margin: '4px 0 10px' }}>Gere um código e passe para {m.name.split(' ')[0]} pessoalmente ou por mensagem. Na tela de entrada: "Tenho um código". Vale 30 minutos, uma vez.</p>
+          {codigo ? (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: 5, color: 'var(--brand-ink)' }}>{codigo.code}</div>
+              <p className="faint">para {codigo.email}</p>
+            </div>
+          ) : (
+            <button className="btn sm" onClick={() => act(async () => { const r = await api.resetCode(data.baby.id, m.user_id); setCodigo(r); })}><KeyRound size={14} /> Gerar código de senha</button>
+          )}
+        </div>
+      )}
     </Sheet>
   );
 }
@@ -287,3 +319,34 @@ function PerfilSheet({ onClose }: { onClose: () => void }) {
   );
 }
 
+
+function ExcluirContaSheet({ onClose }: { onClose: () => void }) {
+  const { user, babies, toast, sair } = useApp();
+  const [senha, setSenha] = useState('');
+  const [confirma, setConfirma] = useState('');
+  const [busy, setBusy] = useState(false);
+  const sozinho = babies.length;
+  async function excluir() {
+    setBusy(true);
+    try {
+      const r = await api.deleteMe(senha);
+      toast(`Conta excluída.${r.bebesApagados ? ` ${r.bebesApagados} perfil(is) de bebê apagado(s).` : ''}`);
+      sair();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Não foi possível excluir.');
+    }
+    setBusy(false);
+  }
+  return (
+    <Sheet title="Excluir minha conta" onClose={onClose} footer={<button className="btn primary" style={{ background: 'var(--bad)', borderColor: 'var(--bad)' }} disabled={busy || confirma.trim().toUpperCase() !== 'EXCLUIR' || (!user.demo && senha.length < 1)} onClick={excluir}>{busy ? 'Excluindo…' : 'Excluir definitivamente'}</button>}>
+      <p className="muted">Isto apaga <b>definitivamente</b> seu nome, e-mail, senha, foto, aparelhos e preferências de notificação.</p>
+      <ul className="muted" style={{ margin: 0, paddingLeft: 18 }}>
+        <li>Bebês em que <b>só você</b> é cuidador: o perfil e todo o histórico também são apagados.</li>
+        <li>Bebês compartilhados: o histórico continua com a família (seus registros aparecem como "ex-cuidador"). Se você for o único administrador, a administração passa para o cuidador mais antigo.</li>
+      </ul>
+      <p className="faint">Você acompanha {sozinho} bebê(s). Dica: antes, use "Exportar dados (JSON)" se quiser guardar uma cópia.</p>
+      {!user.demo && <Field label="Sua senha"><input className="input" type="password" value={senha} onChange={(e) => setSenha(e.target.value)} autoComplete="current-password" /></Field>}
+      <Field label='Digite EXCLUIR para confirmar'><input className="input" value={confirma} onChange={(e) => setConfirma(e.target.value)} /></Field>
+    </Sheet>
+  );
+}

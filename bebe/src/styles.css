@@ -277,3 +277,12 @@ hr.sep { border: 0; border-top: 1px solid var(--line); margin: 6px 0; }
 .switch input:checked + span { background: var(--brand); }
 .switch input:checked + span::before { transform: translateX(18px); }
 .switch input:disabled + span { opacity: .5; cursor: default; }
+
+/* Textos legais e avisos */
+.legal h3 { margin-top: 6px; }
+.legal p, .legal li { color: var(--ink-2); font-size: 14px; }
+.legal ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.check { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; color: var(--ink-2); cursor: pointer; }
+.check input { width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px; accent-color: var(--brand); }
+.linkbtn { border: 0; background: none; padding: 0; color: var(--brand-ink); font-weight: 700; cursor: pointer; text-decoration: underline; font-size: inherit; }
+.demo-bar { background: var(--warn-soft); color: var(--warn); font-weight: 700; font-size: 13px; padding: 8px 16px; display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; text-align: center; }

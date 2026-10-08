@@ -60,3 +60,10 @@ CREATE TABLE IF NOT EXISTS push_subs (endpoint TEXT PRIMARY KEY, user_id TEXT NO
 CREATE INDEX IF NOT EXISTS idx_push_user ON push_subs (user_id);
 CREATE TABLE IF NOT EXISTS notif_prefs (user_id TEXT PRIMARY KEY, data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS notif_log (key TEXT PRIMARY KEY, at TEXT NOT NULL);
+-- Conta e privacidade (LGPD)
+ALTER TABLE users ADD COLUMN consent_at TEXT;
+ALTER TABLE users ADD COLUMN terms_version TEXT;
+ALTER TABLE babies ADD COLUMN guardian_consent_at TEXT;
+ALTER TABLE babies ADD COLUMN guardian_consent_by TEXT;
+CREATE TABLE IF NOT EXISTS login_attempts (key TEXT PRIMARY KEY, count INTEGER NOT NULL, window_start TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS password_resets (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, kind TEXT NOT NULL, created_by TEXT, expires_at TEXT NOT NULL, used_at TEXT, created_at TEXT NOT NULL);

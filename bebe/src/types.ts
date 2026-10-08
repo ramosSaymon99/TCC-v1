@@ -9,7 +9,7 @@ export interface Routine {
   feedIntervalMin?: number;
 }
 
-export interface User { id: string; name: string; email: string; photo?: string | null }
+export interface User { id: string; name: string; email: string; photo?: string | null; demo?: boolean; created_at?: string }
 
 export interface Baby {
   id: string;

@@ -11,6 +11,10 @@
 
 import { vapid, sendPush } from './push.js';
 import { CATEGORIAS, descreverEvento, lembretes, lerPrefs, nomePapel, notificar } from './notify.js';
+import {
+  DOMINIO_DEMO, VERSAO_TERMOS, bloqueado, codigoCurto, consumirRedefinicao, criarRedefinicao, emailConfigurado,
+  enviarEmailRedefinicao, excluirConta, limparContasDemo, limparFalhas, registrarFalha,
+} from './conta.js';
 
 const TOKEN_DIAS = 30;
 const FOTO_MAX = 400_000; // ~300 KB de imagem em base64 (o app envia 320×320 JPEG, ~25 KB)
@@ -64,16 +68,18 @@ async function hmac(env, msg) {
   const key = await crypto.subtle.importKey('raw', enc.encode(await segredo(env)), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   return b64url(await crypto.subtle.sign('HMAC', key, enc.encode(msg)));
 }
-async function criarToken(env, userId) {
-  const payload = `${userId}.${Date.now() + TOKEN_DIAS * 86400_000}`;
+/** Sessão = id.expiração.marca-da-senha.assinatura. Trocar a senha muda a marca e derruba as outras sessões. */
+const marcaSenha = (salt) => salt.replace(/[^A-Za-z0-9]/g, '').slice(0, 10);
+async function criarToken(env, user) {
+  const payload = `${user.id}.${Date.now() + TOKEN_DIAS * 86400_000}.${marcaSenha(user.salt)}`;
   return `${payload}.${await hmac(env, payload)}`;
 }
 async function validarToken(env, token) {
   const partes = (token || '').split('.');
-  if (partes.length !== 3) return null;
-  const [uid, exp, sig] = partes;
+  if (partes.length !== 4) return null;
+  const [uid, exp, marca, sig] = partes;
   if (Number(exp) < Date.now()) return null;
-  return iguais(sig, await hmac(env, `${uid}.${exp}`)) ? uid : null;
+  return iguais(sig, await hmac(env, `${uid}.${exp}.${marca}`)) ? { uid, marca } : null;
 }
 
 /* ---------------- Esquema ---------------- */
@@ -100,9 +106,15 @@ const ESQUEMA = [
   'CREATE INDEX IF NOT EXISTS idx_push_user ON push_subs (user_id)',
   'CREATE TABLE IF NOT EXISTS notif_prefs (user_id TEXT PRIMARY KEY, data TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS notif_log (key TEXT PRIMARY KEY, at TEXT NOT NULL)',
+  'CREATE TABLE IF NOT EXISTS login_attempts (key TEXT PRIMARY KEY, count INTEGER NOT NULL, window_start TEXT NOT NULL)',
+  'CREATE TABLE IF NOT EXISTS password_resets (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, kind TEXT NOT NULL, created_by TEXT, expires_at TEXT NOT NULL, used_at TEXT, created_at TEXT NOT NULL)',
 ];
 /** Colunas adicionadas depois da 1ª versão (bancos antigos recebem via ALTER). */
-const MIGRACOES = ['ALTER TABLE users ADD COLUMN photo_v TEXT', 'ALTER TABLE babies ADD COLUMN photo_v TEXT'];
+const MIGRACOES = [
+  'ALTER TABLE users ADD COLUMN photo_v TEXT', 'ALTER TABLE babies ADD COLUMN photo_v TEXT',
+  'ALTER TABLE users ADD COLUMN consent_at TEXT', 'ALTER TABLE users ADD COLUMN terms_version TEXT',
+  'ALTER TABLE babies ADD COLUMN guardian_consent_at TEXT', 'ALTER TABLE babies ADD COLUMN guardian_consent_by TEXT',
+];
 let esquemaOk = false;
 async function garantirEsquema(env) {
   if (esquemaOk) return;
@@ -121,7 +133,7 @@ async function fotoUrl(env, kind, id, v) {
 }
 const parseBaby = async (env, b) => b && { ...b, routine: b.routine ? JSON.parse(b.routine) : null, photo: await fotoUrl(env, 'baby', b.id, b.photo_v) };
 const parseEvent = (e) => ({ ...e, data: e.data ? JSON.parse(e.data) : {} });
-const publicUser = async (env, u) => u && { id: u.id, name: u.name, email: u.email, photo: await fotoUrl(env, 'user', u.id, u.photo_v) };
+const publicUser = async (env, u) => u && { id: u.id, name: u.name, email: u.email, photo: await fotoUrl(env, 'user', u.id, u.photo_v), demo: u.email.endsWith(DOMINIO_DEMO), created_at: u.created_at };
 
 /** Valida um data URL de imagem e devolve { mime, data } (base64). */
 function lerFoto(dataUrl) {
@@ -204,7 +216,8 @@ async function api(req, env, url, ctx) {
   await garantirEsquema(env);
   const path = url.pathname.replace(/^\/api/, '');
   const method = req.method;
-  const body = ['POST', 'PUT'].includes(method) ? await req.json().catch(() => ({})) : {};
+  const body = ['POST', 'PUT', 'DELETE'].includes(method) ? await req.json().catch(() => ({})) : {};
+  const ip = req.headers.get('cf-connecting-ip') || 'local';
 
   if (path === '/status' && method === 'GET') return json({ ok: true, push: true });
 
@@ -229,29 +242,91 @@ async function api(req, env, url, ctx) {
     if (name.length < 2) return erro('Informe seu nome.');
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return erro('E-mail inválido.');
     if (senha.length < 6) return erro('A senha deve ter ao menos 6 caracteres.');
+    if (body.consent !== true) return erro('Para criar a conta, aceite a Política de Privacidade e os Termos de Uso.');
+    const espera = await bloqueado(env, [`signup:${ip}`], [12]);
+    if (espera) return erro(`Muitos cadastros deste endereço. Tente de novo em ${espera} min.`, 429);
+    await registrarFalha(env, [`signup:${ip}`]); // conta cadastros por IP (não é falha, só limite)
     if (await env.DB.prepare('SELECT 1 FROM users WHERE email = ?').bind(email).first()) return erro('Este e-mail já tem cadastro. Entre com sua senha.', 409);
     const id = crypto.randomUUID();
     const { salt, hash } = await hashSenha(senha);
-    await env.DB.prepare('INSERT INTO users (id, name, email, salt, hash, created_at) VALUES (?, ?, ?, ?, ?, ?)').bind(id, name, email, salt, hash, agora()).run();
-    return json({ token: await criarToken(env, id), user: { id, name, email } });
+    const t = agora();
+    await env.DB.prepare('INSERT INTO users (id, name, email, salt, hash, created_at, consent_at, terms_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(id, name, email, salt, hash, t, t, VERSAO_TERMOS).run();
+    return json({ token: await criarToken(env, { id, salt }), user: { id, name, email, demo: email.endsWith(DOMINIO_DEMO), created_at: t } });
   }
 
   if (path === '/auth/login' && method === 'POST') {
     const email = String(body.email ?? '').trim().toLowerCase();
+    const chaves = [`login:${email}`, `ip:${ip}`];
+    const espera = await bloqueado(env, chaves, [5, 30]);
+    if (espera) return erro(`Muitas tentativas. Por segurança, tente de novo em ${espera} min ou use "Esqueci minha senha".`, 429);
     const u = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
     const ok = u ? iguais((await hashSenha(String(body.password ?? ''), u.salt)).hash, u.hash) : false;
-    if (!ok) return erro('E-mail ou senha inválidos.', 401);
-    return json({ token: await criarToken(env, u.id), user: await publicUser(env, u) });
+    if (!ok) {
+      await registrarFalha(env, chaves);
+      return erro('E-mail ou senha inválidos.', 401);
+    }
+    await limparFalhas(env, chaves[0]);
+    return json({ token: await criarToken(env, u), user: await publicUser(env, u) });
+  }
+
+  if (path === '/auth/config' && method === 'GET') return json({ email: emailConfigurado(env), termos: VERSAO_TERMOS });
+
+  // Esqueci a senha: resposta sempre igual (não revela se o e-mail tem conta)
+  if (path === '/auth/forgot' && method === 'POST') {
+    if (!emailConfigurado(env)) return json({ ok: true, email: false });
+    const email = String(body.email ?? '').trim().toLowerCase();
+    const espera = await bloqueado(env, [`forgot:${email}`, `forgotip:${ip}`], [3, 10]);
+    if (!espera) {
+      await registrarFalha(env, [`forgot:${email}`, `forgotip:${ip}`]);
+      const u = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
+      if (u && !u.email.endsWith(DOMINIO_DEMO)) {
+        const segredoLink = codigoCurto(32);
+        await criarRedefinicao(env, u.id, segredoLink, 'email');
+        ctx.waitUntil(enviarEmailRedefinicao(env, u.email, u.name, `${url.origin}/?reset=${segredoLink}`).catch(() => false));
+      }
+    }
+    return json({ ok: true, email: true });
+  }
+
+  // Nova senha com o link do e-mail ({ token }) ou com o código do administrador ({ email, code })
+  if (path === '/auth/reset' && method === 'POST') {
+    const nova = String(body.password ?? '');
+    if (nova.length < 6) return erro('A nova senha deve ter ao menos 6 caracteres.');
+    const chaves = [`reset:${ip}`];
+    const espera = await bloqueado(env, chaves, [10]);
+    if (espera) return erro(`Muitas tentativas. Tente de novo em ${espera} min.`, 429);
+    let userId = null;
+    if (body.token) userId = await consumirRedefinicao(env, String(body.token));
+    else if (body.email && body.code) {
+      const u = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(String(body.email).trim().toLowerCase()).first();
+      if (u) userId = await consumirRedefinicao(env, String(body.code).trim().toUpperCase(), u.id);
+    }
+    if (!userId) {
+      await registrarFalha(env, chaves);
+      return erro('Código ou link inválido ou expirado. Peça um novo.', 400);
+    }
+    const { salt, hash } = await hashSenha(nova);
+    await env.DB.prepare('UPDATE users SET salt = ?, hash = ? WHERE id = ?').bind(salt, hash, userId).run();
+    const u = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first();
+    await limparFalhas(env, `login:${u.email}`);
+    return json({ token: await criarToken(env, u), user: await publicUser(env, u) });
   }
 
   // ---- Autenticadas ----
-  const uid = await validarToken(env, (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, ''));
-  const me = uid ? await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(uid).first() : null;
-  if (!me) return erro('Sessão expirada. Entre novamente.', 401);
+  const sessao = await validarToken(env, (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, ''));
+  const me = sessao ? await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(sessao.uid).first() : null;
+  if (!me || sessao.marca !== marcaSenha(me.salt)) return erro('Sessão expirada. Entre novamente.', 401);
 
   if (path === '/me' && method === 'GET') {
     const babies = await env.DB.prepare('SELECT b.*, m.role, m.access FROM members m JOIN babies b ON b.id = m.baby_id WHERE m.user_id = ? ORDER BY b.birth_date DESC').bind(me.id).all();
     return json({ user: await publicUser(env, me), babies: await Promise.all(babies.results.map((b) => parseBaby(env, b))) });
+  }
+
+  if (path === '/me' && method === 'DELETE') {
+    if (!me.email.endsWith(DOMINIO_DEMO) && !iguais((await hashSenha(String(body.password ?? ''), me.salt)).hash, me.hash)) {
+      return erro('Senha incorreta.', 403);
+    }
+    return json({ ok: true, ...(await excluirConta(env, me.id)) });
   }
 
   if (path === '/me/photo' && method === 'PUT') return json({ photo: await salvarFoto(env, 'user', me.id, body.photo) });
@@ -309,6 +384,8 @@ async function api(req, env, url, ctx) {
       if (!iguais((await hashSenha(String(body.password ?? ''), me.salt)).hash, me.hash)) return erro('Senha atual incorreta.', 403);
       const { salt, hash } = await hashSenha(String(body.newPassword));
       await env.DB.prepare('UPDATE users SET name = ?, salt = ?, hash = ? WHERE id = ?').bind(name, salt, hash, me.id).run();
+      // As outras sessões caem; este aparelho recebe uma sessão nova
+      return json({ ok: true, token: await criarToken(env, { id: me.id, salt }) });
     } else {
       await env.DB.prepare('UPDATE users SET name = ? WHERE id = ?').bind(name, me.id).run();
     }
@@ -320,12 +397,13 @@ async function api(req, env, url, ctx) {
     const name = String(body.name ?? '').trim();
     if (!name) return erro('Informe o nome do bebê.');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(body.birth_date ?? ''))) return erro('Informe a data de nascimento.');
+    if (body.guardian_consent !== true) return erro('Confirme que você é responsável legal pela criança ou tem autorização de um responsável.');
     const role = PAPEIS.includes(body.role) ? body.role : 'outro';
     const id = crypto.randomUUID();
     const t = agora();
     const stmts = [
-      env.DB.prepare('INSERT INTO babies (id, name, birth_date, sex, color, routine, notes, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-        .bind(id, name, body.birth_date, body.sex ?? null, body.color ?? null, JSON.stringify(body.routine ?? null), body.notes ?? null, me.id, t),
+      env.DB.prepare('INSERT INTO babies (id, name, birth_date, sex, color, routine, notes, created_by, created_at, guardian_consent_at, guardian_consent_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(id, name, body.birth_date, body.sex ?? null, body.color ?? null, JSON.stringify(body.routine ?? null), body.notes ?? null, me.id, t, t, me.id),
       env.DB.prepare('INSERT INTO members (baby_id, user_id, role, access, created_at) VALUES (?, ?, ?, ?, ?)').bind(id, me.id, role, 'admin', t),
     ];
     if (body.weight_g || body.height_cm) {
@@ -374,6 +452,17 @@ async function api(req, env, url, ctx) {
     return json({ ok: true });
   }
 
+  // Portabilidade (LGPD): todos os dados do bebê em JSON
+  if (sub === '/export' && method === 'GET') {
+    if (!pode('admin')) return erro('Somente administradores exportam os dados do bebê.', 403);
+    const d = await dadosDoBebe(env, babyId, '1970-01-01');
+    d.members = d.members.map(({ photo, ...m }) => m);
+    delete d.baby.photo;
+    return new Response(JSON.stringify({ exportado_em: agora(), app: 'Ninho', ...d }, null, 2), {
+      headers: { 'content-type': 'application/json; charset=utf-8', 'content-disposition': `attachment; filename="ninho-${babyId.slice(0, 8)}.json"`, 'cache-control': 'no-store' },
+    });
+  }
+
   if (sub === '/photo') {
     if (!pode('admin')) return erro('Somente administradores trocam a foto do bebê.', 403);
     if (method === 'PUT') return json({ photo: await salvarFoto(env, 'baby', babyId, body.photo) });
@@ -399,6 +488,24 @@ async function api(req, env, url, ctx) {
     const expires = new Date(Date.now() + 7 * 86400_000).toISOString();
     await env.DB.prepare('INSERT INTO invites (code, baby_id, role, access, created_by, expires_at) VALUES (?, ?, ?, ?, ?, ?)').bind(code, babyId, role, access, me.id, expires).run();
     return json({ code, expires_at: expires });
+  }
+
+  // Esqueceu a senha e o app não tem e-mail configurado: um administrador gera um código (30 min, uso único).
+  // Só vale para quem não é administrador e não acompanha bebês fora do alcance deste administrador.
+  const mrc = sub.match(/^\/members\/([A-Za-z0-9-]+)\/reset-code$/);
+  if (mrc && method === 'POST') {
+    if (!pode('admin')) return erro('Somente administradores geram código de redefinição.', 403);
+    const alvo = mrc[1];
+    if (alvo === me.id) return erro('Para trocar a sua senha, use Meu perfil.', 400);
+    const vinculosAlvo = (await env.DB.prepare('SELECT baby_id, access FROM members WHERE user_id = ?').bind(alvo).all()).results;
+    if (!vinculosAlvo.some((x) => x.baby_id === babyId)) return erro('Cuidador não encontrado.', 404);
+    if (vinculosAlvo.some((x) => x.access === 'admin')) return erro('Administradores redefinem a senha pelo e-mail ou com a ajuda do suporte.', 403);
+    const meusAdmin = new Set((await env.DB.prepare("SELECT baby_id FROM members WHERE user_id = ? AND access = 'admin'").bind(me.id).all()).results.map((x) => x.baby_id));
+    if (vinculosAlvo.some((x) => !meusAdmin.has(x.baby_id))) return erro('Esta pessoa acompanha outros bebês; ela precisa redefinir a senha pelo e-mail.', 403);
+    const code = codigoCurto(8);
+    await criarRedefinicao(env, alvo, code, 'admin', me.id);
+    const quem = await env.DB.prepare('SELECT name, email FROM users WHERE id = ?').bind(alvo).first();
+    return json({ code, email: quem.email, expira_min: 30 });
   }
 
   const mm = sub.match(/^\/members\/([A-Za-z0-9-]+)$/);
@@ -581,6 +688,7 @@ export default {
     ctx.waitUntil((async () => {
       await garantirEsquema(env);
       await lembretes(env);
+      await limparContasDemo(env);
     })());
   },
 };

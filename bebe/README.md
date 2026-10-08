@@ -72,6 +72,19 @@ Intervalo desde a última mamada acima do planejado · sem cocô há mais de 3 d
 
 > As referências (AAP, AASM, SBP, PNI) são gerais. O app organiza os dados para conversar com o pediatra; não faz diagnóstico.
 
+## Segurança, privacidade e LGPD
+
+| Proteção | Como funciona |
+|---|---|
+| **Consentimento** | Cadastro exige aceite da Política de Privacidade e dos Termos (versão registrada). Ao cadastrar uma criança, quem cadastra declara ser responsável legal ou autorizado (LGPD, art. 14) — data e autor ficam registrados. |
+| **Política de Privacidade** | Na tela de entrada e em Família → Meu perfil. Defina o contato do controlador com `VITE_CONTATO_PRIVACIDADE` no build. Texto-base: revise com assessoria jurídica antes de uso comercial. |
+| **Limite de tentativas** | 5 erros de senha por e-mail ou 30 por IP em 15 min bloqueiam novas tentativas; também limita cadastros, pedidos de redefinição e códigos. |
+| **Sessões** | Assinadas (HMAC) e amarradas à senha: **trocar ou redefinir a senha derruba as sessões dos outros aparelhos**. |
+| **Esqueci minha senha** | (a) **Por e-mail**, com link de uso único válido por 1 h — liga sozinho quando os secrets `RESEND_API_KEY` e `EMAIL_FROM` existem (`npx wrangler secret put …`). (b) **Sem e-mail**, um administrador do bebê gera um **código de 8 caracteres** (30 min, uso único) em Família → cuidador → "Gerar código de senha". Por segurança, não vale para administradores nem para quem acompanha bebês fora do alcance desse administrador. Só o hash do código/link fica no banco. |
+| **Exclusão de conta** | Família → Meu perfil → *Excluir minha conta* (senha + digitar EXCLUIR). Apaga nome, e-mail, senha, foto, aparelhos e preferências. Bebê em que a pessoa era a única cuidadora é apagado por inteiro; nos compartilhados, o histórico fica com a família e, se ela era a única administradora, a administração passa ao cuidador mais antigo. |
+| **Portabilidade** | Família → Dados → *Exportar dados (JSON)* (administradores): todo o histórico do bebê. |
+| **Contas de exemplo** | Marcadas com aviso no topo e **apagadas automaticamente 24 h** após a criação (Cron), junto com tentativas de login e códigos expirados. |
+
 ## Banco de dados (Cloudflare D1)
 
 Banco **`ninho-db`** (id `13f1a93c-7d59-4dd7-93cd-47297ede0756`), já criado e com as tabelas aplicadas. Esquema em `worker/schema.sql` (o Worker também cria tudo sozinho no primeiro acesso):
@@ -85,6 +98,7 @@ users ──< members >── babies ──< events        (mamada, mamadeira, s
                         │    ──< vaccines      (vacinas aplicadas)
                         └────< invites         (códigos de convite)
 photos (fotos do bebê e dos cuidadores) · push_subs (aparelhos inscritos) · notif_prefs (preferências) · notif_log (evita aviso repetido)
+login_attempts (limite de tentativas) · password_resets (hash dos códigos/links de redefinição)
 ```
 
 Segurança: senhas com PBKDF2 (100 mil iterações), sessão assinada com HMAC (30 dias), e **toda rota de bebê verifica o vínculo e o nível de acesso no servidor**.
@@ -130,6 +144,7 @@ Na tela inicial, **"Explorar com uma família de exemplo"** cria mãe, pai, avó
 | Arquivo | Função |
 |---|---|
 | `worker/index.js` | API (`/api/auth/*`, `/me`, `/babies/:id`, convites, cuidadores, eventos, crescimento, mural, recados, consultas, vacinas, `/seed`) e entrega do app |
+| `worker/conta.js` | Limite de tentativas, redefinição de senha, exclusão de conta e limpeza das contas de exemplo |
 | `worker/push.js` | Web Push: chaves VAPID, assinatura ES256 e criptografia aes128gcm |
 | `worker/notify.js` | Quem recebe o quê (preferências, silêncio) e lembretes do Cron |
 | `public/sw.js` | Service worker: mostra a notificação e abre o app no lugar certo |

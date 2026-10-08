@@ -58,10 +58,26 @@ function guardarSessao(r: { token: string; user: User }) {
 }
 
 export const api = {
-  signup: async (name: string, email: string, password: string) => guardarSessao(await req('POST', '/auth/signup', { name, email, password })),
+  signup: async (name: string, email: string, password: string, consent: boolean) => guardarSessao(await req('POST', '/auth/signup', { name, email, password, consent })),
+  authConfig: () => req<{ email: boolean; termos: string }>('GET', '/auth/config'),
+  forgot: (email: string) => req<{ ok: boolean; email: boolean }>('POST', '/auth/forgot', { email }),
+  reset: async (b: { token?: string; email?: string; code?: string; password: string }) => guardarSessao(await req('POST', '/auth/reset', b)),
+  deleteMe: (password: string) => req<{ ok: boolean; bebesApagados: number; administracaoTransferida: number }>('DELETE', '/me', { password }),
+  resetCode: (id: string, userId: string) => req<{ code: string; email: string; expira_min: number }>('POST', `/babies/${id}/members/${userId}/reset-code`),
+  /** Exportação completa (LGPD – portabilidade) em JSON. */
+  exportBaby: async (id: string): Promise<Blob> => {
+    if (modo === 'local') return new Blob([JSON.stringify(local('GET', `/babies/${id}/export`, undefined), null, 2)], { type: 'application/json' });
+    const r = await fetch(`./api/babies/${id}/export`, { headers: { authorization: `Bearer ${token}` } });
+    if (!r.ok) throw new ApiError((await r.json().catch(() => ({}))).error || 'Falha ao exportar.', r.status);
+    return r.blob();
+  },
   login: async (email: string, password: string) => guardarSessao(await req('POST', '/auth/login', { email, password })),
   me: () => req<{ user: User; babies: Baby[] }>('GET', '/me'),
-  updateMe: (b: { name: string; password?: string; newPassword?: string }) => req('PUT', '/me', b),
+  updateMe: async (b: { name: string; password?: string; newPassword?: string }) => {
+    const r = await req<{ ok: boolean; token?: string }>('PUT', '/me', b);
+    if (r.token) { token = r.token; gravarLS('ninho-token', token); } // trocar a senha encerra as outras sessões
+    return r;
+  },
   createBaby: (b: Record<string, unknown>) => req<{ id: string }>('POST', '/babies', b),
   getBaby: (id: string, since: string) => req<BabyData>('GET', `/babies/${id}?since=${encodeURIComponent(since)}`),
   updateBaby: (id: string, b: Partial<Baby>) => req('PUT', `/babies/${id}`, b),
@@ -136,6 +152,7 @@ function local(method: string, path: string, body: any): unknown {
     if (String(body.name ?? '').trim().length < 2) falha('Informe seu nome.');
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) falha('E-mail inválido.');
     if (String(body.password ?? '').length < 6) falha('A senha deve ter ao menos 6 caracteres.');
+    if (body.consent !== true) falha('Para criar a conta, aceite a Política de Privacidade e os Termos de Uso.');
     if (D.users.some((u) => u.email === email)) falha('Este e-mail já tem cadastro. Entre com sua senha.', 409);
     const u = { id: uid(), name: String(body.name).trim(), email, password: String(body.password) };
     D.users.push(u); salvar();
@@ -147,10 +164,41 @@ function local(method: string, path: string, body: any): unknown {
     return { token: u!.id, user: { id: u!.id, name: u!.name, email: u!.email } };
   }
 
+  if (r('GET', '/auth/config')) return { email: false, termos: '2026-10' };
+  if (r('POST', '/auth/forgot')) return { ok: true, email: false };
+  if (r('POST', '/auth/reset')) {
+    const u = D.users.find((x) => x.email === String(body.email ?? '').trim().toLowerCase()) as Row | undefined;
+    if (!u || !u.resetCode || u.resetCode.code !== String(body.code ?? '').trim().toUpperCase() || u.resetCode.exp < Date.now()) falha('Código ou link inválido ou expirado. Peça um novo.');
+    if (String(body.password ?? '').length < 6) falha('A nova senha deve ter ao menos 6 caracteres.');
+    u!.password = body.password;
+    u!.resetCode = null;
+    salvar();
+    return { token: u!.id, user: { id: u!.id, name: u!.name, email: u!.email, photo: u!.photo ?? null } };
+  }
   const me = D.users.find((u) => u.id === token);
   if (!me) falha('Sessão expirada. Entre novamente.', 401);
   const myId = me!.id;
 
+  if (r('DELETE', '/me')) {
+    if (!String(me!.email).endsWith('@exemplo.ninho') && body?.password !== me!.password) falha('Senha incorreta.', 403);
+    let bebesApagados = 0;
+    let administracaoTransferida = 0;
+    for (const v of D.members.filter((m) => m.user_id === myId)) {
+      const outros = D.members.filter((m) => m.baby_id === v.baby_id && m.user_id !== myId);
+      if (!outros.length) {
+        for (const k of ['events', 'growth', 'supplies', 'notes', 'appointments', 'vaccines', 'invites'] as const) D[k] = D[k].filter((x) => x.baby_id !== v.baby_id);
+        D.babies = D.babies.filter((b) => b.id !== v.baby_id);
+        bebesApagados++;
+      } else if (v.access === 'admin' && !outros.some((o) => o.access === 'admin')) {
+        outros[0].access = 'admin';
+        administracaoTransferida++;
+      }
+    }
+    D.members = D.members.filter((m) => m.user_id !== myId);
+    D.users = D.users.filter((u) => u.id !== myId);
+    salvar();
+    return { ok: true, bebesApagados, administracaoTransferida };
+  }
   if (r('PUT', '/me/photo')) { (me as Row).photo = body.photo; salvar(); return { photo: body.photo }; }
   if (r('DELETE', '/me/photo')) { (me as Row).photo = null; salvar(); return { ok: true }; }
   if (r('GET', '/push')) {
@@ -174,6 +222,7 @@ function local(method: string, path: string, body: any): unknown {
   }
   if (r('POST', '/babies')) {
     if (!String(body.name ?? '').trim()) falha('Informe o nome do bebê.');
+    if (body.guardian_consent !== true) falha('Confirme que você é responsável legal pela criança ou tem autorização de um responsável.');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(body.birth_date ?? ''))) falha('Informe a data de nascimento.');
     const id = uid();
     D.babies.push({ id, name: body.name.trim(), birth_date: body.birth_date, sex: body.sex ?? null, color: body.color ?? null, routine: body.routine ?? null, notes: body.notes ?? null, created_by: myId, created_at: agora });
@@ -242,6 +291,20 @@ function local(method: string, path: string, body: any): unknown {
     D.invites.push({ code, baby_id: babyId, role: body.role, access: body.access, created_by: myId, expires_at });
     salvar();
     return { code, expires_at };
+  }
+  if (method === 'GET' && sub === '/export') {
+    if (!pode('admin')) falha('Somente administradores exportam os dados do bebê.', 403);
+    return { exportado_em: agora, app: 'Ninho', ...(local('GET', `/babies/${babyId}?since=`, undefined) as Row) };
+  }
+  const mrc = sub.match(/^\/members\/([^/]+)\/reset-code$/);
+  if (mrc && method === 'POST') {
+    if (!pode('admin')) falha('Somente administradores geram código de redefinição.', 403);
+    const u = D.users.find((x) => x.id === mrc[1]) as Row | undefined;
+    if (!u || u.id === myId) falha('Cuidador não encontrado.', 404);
+    const code = Array.from({ length: 8 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
+    u!.resetCode = { code, exp: Date.now() + 30 * 60_000 };
+    salvar();
+    return { code, email: u!.email, expira_min: 30 };
   }
   const mm = sub.match(/^\/members\/([^/]+)$/);
   if (mm) {

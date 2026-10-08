@@ -285,6 +285,12 @@ export default function App() {
               </button>
             </div>
           </header>
+          {user.demo && (
+            <div className="demo-bar">
+              ✨ Conta de exemplo — dados fictícios, apagados em até {Math.max(1, Math.round((Date.parse(user.created_at ?? new Date().toISOString()) + 24 * 3600_000 - agora) / 3600_000))} h.
+              <button className="btn sm" onClick={sair}>Criar minha conta</button>
+            </div>
+          )}
           <main className="wrap"><Pagina /></main>
         </div>
         <nav className="bnav">

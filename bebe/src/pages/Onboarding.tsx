@@ -15,6 +15,7 @@ export function Onboarding({ onDone, onCancel, userName }: { onDone: (babyId: st
   const [f, setF] = useState({ name: '', birth_date: '', sex: undefined as 'F' | 'M' | undefined, role: 'mae', peso: '', altura: '', consult_date: ymd(Date.now()), color: CORES_BEBE[0] });
   const [rotina, setRotina] = useState<Routine | null>(null);
   const [foto, setFoto] = useState<string | null>(null);
+  const [responsavel, setResponsavel] = useState(false);
   const [code, setCode] = useState('');
   const [erro, setErro] = useState('');
   const [busy, setBusy] = useState(false);
@@ -28,11 +29,12 @@ export function Onboarding({ onDone, onCancel, userName }: { onDone: (babyId: st
     setPasso(2);
   }
   async function criar(semRotina = false) {
+    if (!responsavel) return setErro('Confirme que você é responsável legal pela criança ou tem autorização de um responsável.');
     setBusy(true);
     setErro('');
     try {
       const peso = num(f.peso);
-      const r = await api.createBaby({ name: f.name.trim(), birth_date: f.birth_date, sex: f.sex ?? null, color: f.color, role: f.role, weight_g: peso ? Math.round(peso * 1000) : null, height_cm: num(f.altura), consult_date: f.consult_date, routine: semRotina ? null : rotina });
+      const r = await api.createBaby({ name: f.name.trim(), birth_date: f.birth_date, sex: f.sex ?? null, color: f.color, role: f.role, weight_g: peso ? Math.round(peso * 1000) : null, height_cm: num(f.altura), consult_date: f.consult_date, routine: semRotina ? null : rotina, guardian_consent: true });
       if (foto) await api.setBabyPhoto(r.id, foto).catch(() => undefined);
       onDone(r.id);
     } catch (x) { setErro(x instanceof Error ? x.message : 'Erro'); }
@@ -88,11 +90,15 @@ export function Onboarding({ onDone, onCancel, userName }: { onDone: (babyId: st
             <>
               <p className="faint">Sugerimos uma rotina para {idade(f.birth_date).texto} — ajuste aos horários reais de {f.name.split(' ')[0]}. Dá para mudar depois.</p>
               {rotina && <RotinaEditor r={rotina} onChange={setRotina} />}
-              {erro && <div className="chip bad">{erro}</div>}
+              <label className="check" style={{ marginTop: 6 }}>
+                <input type="checkbox" checked={responsavel} onChange={(e) => setResponsavel(e.target.checked)} />
+                <span>Sou mãe, pai ou responsável legal por {f.name.split(' ')[0] || 'esta criança'} (ou tenho autorização de um deles) e autorizo o registro dos dados dela no Ninho, compartilhados só com os cuidadores que eu convidar.</span>
+              </label>
+              {erro && <div className="chip bad" style={{ whiteSpace: 'normal' }}>{erro}</div>}
               <div className="row">
                 <button className="btn" onClick={() => setPasso(1)}>Voltar</button>
-                <button className="btn ghost" onClick={() => criar(true)} disabled={busy}>Pular</button>
-                <button className="btn primary grow" onClick={() => criar()} disabled={busy}>{busy ? 'Criando…' : 'Concluir cadastro'}</button>
+                <button className="btn ghost" onClick={() => criar(true)} disabled={busy || !responsavel}>Pular rotina</button>
+                <button className="btn primary grow" onClick={() => criar()} disabled={busy || !responsavel}>{busy ? 'Criando…' : 'Concluir cadastro'}</button>
               </div>
             </>
           )}
