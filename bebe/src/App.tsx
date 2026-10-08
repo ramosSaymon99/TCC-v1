@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BarChart3, Bell, ChevronDown, Home, LayoutGrid, LogOut, Stethoscope, Users } from 'lucide-react';
 import { AppCtx, type Aba, type Ctx } from './ctx';
-import { api, ApiError, detectarModo, getToken, sair as sairApi, temSessao, type Modo } from './lib/api';
+import { api, ApiError, definirUsuarioAtual, detectarModo, getToken, SEM_REDE, sair as sairApi, sincronizar, temSessao, type Modo } from './lib/api';
+import { aplicarPendentes, lerCacheBebe, lerCacheMe, limparCaches, pendentesDoBebe, salvarCacheBebe, salvarCacheMe } from './lib/offline';
 import { papel } from './lib/constants';
 import { criarFamiliaExemplo } from './lib/seed';
 import { addDays, idade, startOfDay } from './lib/time';
@@ -41,13 +42,15 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [babies, setBabies] = useState<Baby[]>([]);
   const [babyId, setBabyId] = useState<string | null>(null);
-  const [data, setData] = useState<BabyData | null>(null);
+  const [base, setData] = useState<BabyData | null>(null);
+  const [filaV, setFilaV] = useState(0);
+  const [online, setOnline] = useState(() => navigator.onLine !== false);
   const [aba, setAbaState] = useState<Aba>(lerAba());
   const [agora, setAgora] = useState(Date.now());
   const [registro, setRegistro] = useState<{ tipo: EventType; ev?: BabyEvent } | null>(null);
   const [onboarding, setOnboarding] = useState(false);
   const [trocar, setTrocar] = useState(false);
-  const [msg, setMsg] = useState('');
+  const [msg, setMsg] = useState<{ texto: string; acao?: { label: string; fn: () => void } } | null>(null);
   const [central, setCentral] = useState(false);
   const [configNotif, setConfigNotif] = useState(false);
   const [relatorio, setRelatorio] = useState(false);
@@ -56,21 +59,35 @@ export default function App() {
   const [carregando, setCarregando] = useState(true);
   const toastT = useRef<number>();
 
-  const toast = useCallback((m: string) => {
-    setMsg(m);
+  const toast = useCallback((texto: string, acao?: { label: string; fn: () => void }) => {
+    setMsg({ texto, acao });
     clearTimeout(toastT.current);
-    toastT.current = window.setTimeout(() => setMsg(''), 2800);
+    toastT.current = window.setTimeout(() => setMsg(null), acao ? 6000 : 2800);
   }, []);
+  // A tela mostra os dados do servidor + o que está na fila offline
+  const data = useMemo(() => (base && user ? aplicarPendentes(base, user.id) : base), [base, user, filaV]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pendentes = useMemo(() => (base ? pendentesDoBebe(base.baby.id) : 0), [base, filaV]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sair = useCallback(() => {
     desativarPush().catch(() => undefined); // aparelho compartilhado não continua recebendo avisos de outra pessoa
     limparSessaoSW();
+    limparCaches();
     sairApi();
     setUser(null); setBabies([]); setData(null); setBabyId(null);
   }, []);
 
   const reloadMe = useCallback(async (selecionar?: string) => {
-    const r = await api.me();
+    let r: Awaited<ReturnType<typeof api.me>>;
+    try {
+      r = await api.me();
+      salvarCacheMe(r);
+    } catch (e) {
+      // Sem internet: abre com a última cópia salva
+      const c = e instanceof ApiError && e.status === SEM_REDE ? lerCacheMe() : null;
+      if (!c) throw e;
+      r = c;
+    }
+    definirUsuarioAtual(r.user.id);
     setUser(r.user);
     salvarSessaoSW(getToken(), r.user.id);
     setBabies(r.babies);
@@ -84,7 +101,9 @@ export default function App() {
     if (!babyId) return;
     const since = addDays(startOfDay(Date.now()), -66);
     try {
+      if (navigator.onLine !== false && pendentesDoBebe(babyId)) await sincronizar();
       const d = await api.getBaby(babyId, new Date(since).toISOString());
+      salvarCacheBebe(d);
       // Aviso dentro do app quando outro cuidador registra algo enquanto a tela está aberta
       const ids = new Set(d.events.map((e) => e.id));
       if (conhecidos.current && user) {
@@ -99,6 +118,10 @@ export default function App() {
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) sair();
       else if (e instanceof ApiError && e.status === 403) await reloadMe();
+      else if (e instanceof ApiError && e.status === SEM_REDE) {
+        setOnline(false);
+        setData((atual) => atual ?? lerCacheBebe(babyId));
+      }
     }
   }, [babyId, sair, reloadMe, user, toast]);
 
@@ -107,7 +130,7 @@ export default function App() {
     (async () => {
       setModo(await detectarModo());
       if (temSessao()) {
-        try { await reloadMe(); } catch { sairApi(); }
+        try { await reloadMe(); } catch (e) { if (!(e instanceof ApiError && e.status === SEM_REDE)) sairApi(); }
       }
       setCarregando(false);
     })();
@@ -121,6 +144,23 @@ export default function App() {
     conhecidos.current = null;
     refresh();
   }, [babyId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sem internet / voltou a conexão: envia a fila e atualiza
+  useEffect(() => {
+    const fila = () => setFilaV((x) => x + 1);
+    const off = () => setOnline(false);
+    const on = async () => {
+      setOnline(true);
+      const r = await sincronizar();
+      if (r.enviados) toast(`✓ ${r.enviados} registro(s) feito(s) sem internet foram enviados`);
+      if (r.falhas.length) toast(`${r.falhas.length} registro(s) não puderam ser enviados: ${r.falhas[0]}`);
+      refresh();
+    };
+    window.addEventListener('ninho-fila', fila);
+    window.addEventListener('offline', off);
+    window.addEventListener('online', on);
+    return () => { window.removeEventListener('ninho-fila', fila); window.removeEventListener('offline', off); window.removeEventListener('online', on); };
+  }, [refresh, toast]);
 
   // Sincroniza com os outros cuidadores a cada 30 s (quando a aba está visível)
   useEffect(() => {
@@ -174,10 +214,19 @@ export default function App() {
       podeEditar: data.access !== 'leitor',
       podeAdmin: data.access === 'admin',
       refresh, reloadMe, toast, setAba,
-      act: async (fn, ok) => {
+      online, pendentes,
+      act: async (fn, ok, desfazer) => {
         try {
           await fn();
-          if (ok) toast(ok);
+          if (ok || desfazer) {
+            toast(ok ?? 'Feito', desfazer ? {
+              label: 'Desfazer',
+              fn: async () => {
+                setMsg(null);
+                try { await desfazer(); await refresh(); toast('Desfeito ↩︎'); } catch (e) { toast(e instanceof Error ? e.message : 'Não foi possível desfazer.'); }
+              },
+            } : undefined);
+          }
           await refresh();
           setAgora(Date.now());
           return true;
@@ -200,7 +249,7 @@ export default function App() {
       abrirRelatorio: () => setRelatorio(true),
       sair,
     };
-  }, [user, data, modo, babies, agora, refresh, reloadMe, toast, setAba, sair]);
+  }, [user, data, modo, babies, agora, refresh, reloadMe, toast, setAba, sair, online, pendentes]);
 
   // Executa a ação pedida pelo atalho/notificação assim que o bebê estiver carregado
   useEffect(() => {
@@ -237,7 +286,7 @@ export default function App() {
           onCancel={babies.length ? () => setOnboarding(false) : sair}
           onDone={async (id) => { setOnboarding(false); await reloadMe(id); setAba('hoje'); }}
         />
-        {msg && <div className="toast">{msg}</div>}
+        {msg && <div className="toast" role="status">{msg.texto}{msg.acao && <button className="toast-acao" onClick={msg.acao.fn}>{msg.acao.label}</button>}</div>}
       </>
     );
   }
@@ -285,6 +334,11 @@ export default function App() {
               </button>
             </div>
           </header>
+          {(!online || pendentes > 0) && (
+            <div className={`net-bar ${online ? 'sync' : ''}`}>
+              {online ? `⏳ Enviando ${pendentes} registro(s) feito(s) sem internet…` : `📴 Sem internet — ${pendentes ? `${pendentes} registro(s) guardado(s) neste aparelho` : 'você pode continuar registrando'}; tudo será enviado quando a conexão voltar.`}
+            </div>
+          )}
           {user.demo && (
             <div className="demo-bar">
               ✨ Conta de exemplo — dados fictícios, apagados em até {Math.max(1, Math.round((Date.parse(user.created_at ?? new Date().toISOString()) + 24 * 3600_000 - agora) / 3600_000))} h.
@@ -316,7 +370,7 @@ export default function App() {
       {central && <CentralSheet onClose={() => setCentral(false)} onConfig={ctx.abrirConfigNotif} />}
       {configNotif && <ConfigNotificacoes onClose={() => setConfigNotif(false)} />}
       {relatorio && <RelatorioSheet onClose={() => setRelatorio(false)} />}
-      {msg && <div className="toast">{msg}</div>}
+      {msg && <div className="toast" role="status">{msg.texto}{msg.acao && <button className="toast-acao" onClick={msg.acao.fn}>{msg.acao.label}</button>}</div>}
     </AppCtx.Provider>
   );
 }

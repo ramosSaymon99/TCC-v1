@@ -2,10 +2,53 @@
  * - Mostra as notificações push no formato da tela de bloqueio (título curto, horário do fato, ações).
  * - Executa ações direto da notificação ("Acordou", "Eu compro") sem abrir o app, usando a sessão salva.
  * - Mantém o contador no ícone do app (tela inicial) com a Badging API.
+ * - Guarda o app (HTML, JS, CSS, ícones) para ele abrir mesmo sem internet.
  */
 const CACHE = 'ninho-sessao';
-self.addEventListener('install', () => self.skipWaiting());
+const SHELL = 'ninho-app-v1';
+
+/** Baixa a página e os arquivos que ela referencia (nomes com hash mudam a cada versão). */
+async function guardarApp() {
+  const c = await caches.open(SHELL);
+  const r = await fetch('./', { cache: 'no-cache' });
+  if (!r.ok) return;
+  const html = await r.clone().text();
+  await c.put('./', r);
+  const arquivos = [...html.matchAll(/(?:src|href)="\.?\/?((?:assets\/)[^"]+)"/g)].map((m) => `./${m[1]}`);
+  await Promise.all([...arquivos, './manifest.webmanifest', './icon-192.png', './badge-96.png', './favicon.svg'].map((u) => c.add(u).catch(() => undefined)));
+}
+self.addEventListener('install', (e) => { e.waitUntil(guardarApp().catch(() => undefined)); self.skipWaiting(); });
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  const url = new URL(req.url);
+  if (req.method !== 'GET' || url.origin !== self.location.origin || url.pathname.includes('/api/')) return;
+  // Página: rede primeiro (sempre a versão nova), cache se estiver sem internet
+  if (req.mode === 'navigate') {
+    event.respondWith((async () => {
+      try {
+        const r = await fetch(req);
+        if (r.ok) (await caches.open(SHELL)).put('./', r.clone());
+        return r;
+      } catch {
+        return (await caches.match('./', { cacheName: SHELL })) || Response.error();
+      }
+    })());
+    return;
+  }
+  // Arquivos estáticos com hash e ícones: cache primeiro
+  if (url.pathname.includes('/assets/') || /\.(png|svg|webmanifest)$/.test(url.pathname)) {
+    event.respondWith((async () => {
+      const c = await caches.open(SHELL);
+      const hit = await c.match(req);
+      if (hit) return hit;
+      const r = await fetch(req);
+      if (r.ok) c.put(req, r.clone());
+      return r;
+    })());
+  }
+});
 
 async function lerSessao() {
   const r = await (await caches.open(CACHE)).match('./__sessao');

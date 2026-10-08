@@ -5,6 +5,7 @@
  */
 import type { Baby, BabyData, NotifPrefs, Resource, User } from '../types';
 import { uid } from './time';
+import { enfileirar, enfileiravel, fila, removerDaFila, type Pendente } from './offline';
 
 export type Modo = 'cloud' | 'local';
 let modo: Modo = 'local';
@@ -18,13 +19,17 @@ function gravarLS(k: string, v: string | null) {
 }
 
 export async function detectarModo(): Promise<Modo> {
+  let r: Response;
   try {
-    const r = await fetch('./api/status', { headers: { accept: 'application/json' } });
-    const j = await r.json();
-    modo = j?.ok ? 'cloud' : 'local';
+    r = await fetch('./api/status', { headers: { accept: 'application/json' } });
   } catch {
-    modo = 'local';
+    // Sem internet: se este aparelho já usou a versão publicada, continua nela (com cache e fila offline)
+    modo = lerLS('ninho-modo') === 'cloud' ? 'cloud' : 'local';
+    return modo;
   }
+  const j = await r.json().catch(() => null);
+  modo = j?.ok ? 'cloud' : 'local';
+  gravarLS('ninho-modo', modo);
   return modo;
 }
 export const getModo = () => modo;
@@ -39,16 +44,71 @@ export class ApiError extends Error {
   constructor(msg: string, public status: number) { super(msg); }
 }
 
-async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
-  if (modo === 'local') return local(method, path, body) as T;
-  const r = await fetch(`./api${path}`, {
-    method,
-    headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+export const SEM_REDE = 0;
+let usuarioAtual = '';
+export const definirUsuarioAtual = (id: string) => { usuarioAtual = id; };
+
+async function enviar(method: string, path: string, body?: unknown) {
+  let r: Response;
+  try {
+    r = await fetch(`./api${path}`, {
+      method,
+      headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError('Sem conexão com a internet.', SEM_REDE);
+  }
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new ApiError(j.error || 'Falha de comunicação com o servidor.', r.status);
-  return j as T;
+  return j;
+}
+
+async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
+  if (modo === 'local') return local(method, path, body) as T;
+  // Alterações de um bebê: se já há fila ou não há rede, entram na fila e são enviadas depois (na ordem)
+  if (enfileiravel(method, path)) {
+    const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    if (!offline && !fila().length) {
+      try {
+        return (await enviar(method, path, body)) as T;
+      } catch (e) {
+        if (!(e instanceof ApiError) || e.status !== SEM_REDE) throw e;
+      }
+    }
+    enfileirar({ method: method as Pendente['method'], path, body: body as Record<string, unknown>, userId: usuarioAtual });
+    if (!offline) void sincronizar();
+    return { id: (body as { id?: string })?.id, ok: true, offline: true } as T;
+  }
+  return (await enviar(method, path, body)) as T;
+}
+
+let sincronizando: Promise<{ enviados: number; falhas: string[] }> | null = null;
+/** Envia a fila na ordem. Para no primeiro erro de rede; descarta (e informa) o que o servidor recusar. */
+export function sincronizar() {
+  if (modo === 'local' || !token) return Promise.resolve({ enviados: 0, falhas: [] as string[] });
+  sincronizando ??= (async () => {
+    let enviados = 0;
+    const falhas: string[] = [];
+    try {
+      for (const op of fila()) {
+        if (op.userId && usuarioAtual && op.userId !== usuarioAtual) { removerDaFila(op.qid); continue; } // fila de outra conta neste aparelho
+        try {
+          await enviar(op.method, op.path, op.body);
+          enviados++;
+          removerDaFila(op.qid);
+        } catch (e) {
+          if (e instanceof ApiError && (e.status === SEM_REDE || e.status === 401 || e.status === 429 || e.status >= 500)) break;
+          falhas.push(e instanceof Error ? e.message : 'erro');
+          removerDaFila(op.qid);
+        }
+      }
+    } finally {
+      sincronizando = null;
+    }
+    return { enviados, falhas };
+  })();
+  return sincronizando;
 }
 
 function guardarSessao(r: { token: string; user: User }) {

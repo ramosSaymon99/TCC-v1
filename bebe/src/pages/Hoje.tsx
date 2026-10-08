@@ -57,7 +57,11 @@ export function Hoje() {
   const meusHoje = events.filter((e) => e.user_id === user.id && t(e.start_at) >= hoje).length;
   const fixados = data.notes.filter((n) => n.pinned && !n.done).slice(0, 3);
 
-  const encerrar = (e: BabyEvent) => act(() => api.update('events', baby.id, e.id, { end_at: new Date().toISOString() }), `${TIPOS[e.type].label} encerrada: ${duracao((Date.now() - t(e.start_at)) / MIN)}`);
+  const encerrar = (e: BabyEvent) => act(
+    () => api.update('events', baby.id, e.id, { end_at: new Date().toISOString() }),
+    `${TIPOS[e.type].label} encerrada: ${duracao((Date.now() - t(e.start_at)) / MIN)}`,
+    () => api.update('events', baby.id, e.id, { end_at: null }),
+  );
 
   return (
     <div className="page">
@@ -149,7 +153,7 @@ export function Hoje() {
                     <span className="tl-ico" style={{ background: `${TIPOS[e.type].cor}22` }}>{e.type === 'fralda' && e.data.diaper !== 'xixi' && e.data.diaper !== 'seca' ? '💩' : TIPOS[e.type].emoji}</span>
                     <div className="grow">
                       <div style={{ fontWeight: 700 }}>{descreve(e, agora)}</div>
-                      <div className="faint">{nome(e.user_id)}{e.note ? ` · ${e.note}` : ''}</div>
+                      <div className="faint">{nome(e.user_id)}{e.note ? ` · ${e.note}` : ''}{e.pendente && <span className="pend"> · ⏳ aguardando internet</span>}</div>
                     </div>
                     {(() => { const m = data.members.find((x) => x.user_id === e.user_id); return m ? <Avatar photo={m.photo} emoji={papel(m.role).emoji} size={28} /> : null; })()}
                   </div>

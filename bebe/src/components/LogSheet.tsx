@@ -3,7 +3,7 @@ import { Play, Trash2 } from 'lucide-react';
 import { useApp } from '../ctx';
 import { api } from '../lib/api';
 import { TIPOS } from '../lib/constants';
-import { MIN, fromLocalInput, t, toLocalInput } from '../lib/time';
+import { MIN, fromLocalInput, t, toLocalInput, uid } from '../lib/time';
 import type { BabyEvent, EventData, EventType } from '../types';
 import { Choice, Field, Sheet } from './ui';
 
@@ -41,13 +41,21 @@ export function LogSheet({ tipo, ev, onClose }: { tipo: EventType; ev?: BabyEven
       alert('O término não pode ser antes do início.');
       return;
     }
-    const ok = await act(() => (ev ? api.update('events', data.baby.id, ev.id, body) : api.create('events', data.baby.id, body)), timer ? `${info.label} iniciada ⏱️` : 'Registro salvo ✓');
+    const babyId = data.baby.id;
+    const novoId = uid();
+    const anterior = ev && { type: ev.type, start_at: ev.start_at, end_at: ev.end_at ?? null, data: ev.data, note: ev.note ?? null };
+    const ok = await act(
+      () => (ev ? api.update('events', babyId, ev.id, body) : api.create('events', babyId, { id: novoId, ...body })),
+      ev ? 'Registro alterado ✓' : timer ? `${info.label} iniciada ⏱️` : 'Registro salvo ✓',
+      ev ? () => api.update('events', babyId, ev.id, anterior!) : () => api.remove('events', babyId, novoId),
+    );
     setSalvando(false);
     if (ok) onClose();
   }
   async function excluir() {
-    if (!ev || !confirm('Excluir este registro?')) return;
-    if (await act(() => api.remove('events', data.baby.id, ev.id), 'Registro excluído')) onClose();
+    if (!ev) return;
+    const copia = { id: ev.id, type: ev.type, start_at: ev.start_at, end_at: ev.end_at ?? null, data: ev.data, note: ev.note ?? null };
+    if (await act(() => api.remove('events', data.baby.id, ev.id), 'Registro excluído', () => api.create('events', data.baby.id, copia))) onClose();
   }
 
   return (

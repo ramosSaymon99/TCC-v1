@@ -286,3 +286,10 @@ hr.sep { border: 0; border-top: 1px solid var(--line); margin: 6px 0; }
 .check input { width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px; accent-color: var(--brand); }
 .linkbtn { border: 0; background: none; padding: 0; color: var(--brand-ink); font-weight: 700; cursor: pointer; text-decoration: underline; font-size: inherit; }
 .demo-bar { background: var(--warn-soft); color: var(--warn); font-weight: 700; font-size: 13px; padding: 8px 16px; display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; text-align: center; }
+
+/* Sem internet e desfazer */
+.net-bar { background: var(--info-soft); color: var(--info); font-weight: 700; font-size: 13px; padding: 8px 16px; text-align: center; }
+.net-bar:not(.sync) { background: var(--ink); color: var(--bg); }
+.toast { display: flex; align-items: center; gap: 14px; }
+.toast-acao { border: 0; background: none; color: var(--brand); font-weight: 900; cursor: pointer; padding: 4px 2px; font-size: 14px; text-transform: uppercase; letter-spacing: .03em; }
+.pend { font-size: 11px; font-weight: 800; color: var(--info); }

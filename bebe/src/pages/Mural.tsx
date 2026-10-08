@@ -4,7 +4,7 @@ import { useApp } from '../ctx';
 import { api } from '../lib/api';
 import { CATEGORIAS_MURAL, papel } from '../lib/constants';
 import { coberturaDias, statusSupply } from '../lib/metrics';
-import { dataCurta, t } from '../lib/time';
+import { dataCurta, t, uid } from '../lib/time';
 import type { Supply } from '../types';
 import { Empty, Field, Seg, Sheet } from '../components/ui';
 import { Avatar } from '../components/Avatar';
@@ -18,12 +18,17 @@ export function Mural() {
 
   const compras = data.supplies.filter((s) => statusSupply(s) !== 'ok' || (coberturaDias(s, data.events, agora) ?? 99) < 3);
   const porCat = CATEGORIAS_MURAL.map((c) => ({ c, itens: data.supplies.filter((s) => (s.category || 'Outros') === c) })).filter((g) => g.itens.length);
-  const mudarQtd = (s: Supply, delta: number) => act(() => api.update('supplies', babyId, s.id, { qty: Math.max(0, s.qty + delta) }));
+  const mudarQtd = (s: Supply, delta: number) => act(
+    () => api.update('supplies', babyId, s.id, { qty: Math.max(0, s.qty + delta) }),
+    `${s.name}: ${Math.max(0, s.qty + delta)} ${s.unit || 'un'}`,
+    () => api.update('supplies', babyId, s.id, { qty: s.qty }),
+  );
   const assumir = (s: Supply) => act(() => api.update('supplies', babyId, s.id, { buyer_id: s.buyer_id === user.id ? null : user.id }), s.buyer_id === user.id ? 'Compra liberada' : 'Combinado: você compra 🛒');
 
   async function addRecado() {
     if (!texto.trim()) return;
-    if (await act(() => api.create('notes', babyId, { text: texto.trim(), pinned: 0, done: 0 }), 'Recado publicado')) setTexto('');
+    const id = uid();
+    if (await act(() => api.create('notes', babyId, { id, text: texto.trim(), pinned: 0, done: 0 }), 'Recado publicado', () => api.remove('notes', babyId, id))) setTexto('');
   }
 
   return (
@@ -91,7 +96,7 @@ export function Mural() {
                 {podeEditar && (
                   <div className="stack" style={{ gap: 6 }}>
                     <button className={`btn sm ${s.buyer_id === user.id ? '' : 'primary'}`} onClick={() => assumir(s)}>{s.buyer_id === user.id ? 'Desistir' : 'Eu compro'}</button>
-                    <button className="btn sm" onClick={() => act(() => api.update('supplies', babyId, s.id, { qty: s.qty + sugestao, buyer_id: null }), `Comprado: +${sugestao} ${s.unit || 'un'}`)}><Check size={14} /> Comprado</button>
+                    <button className="btn sm" onClick={() => act(() => api.update('supplies', babyId, s.id, { qty: s.qty + sugestao, buyer_id: null }), `Comprado: +${sugestao} ${s.unit || 'un'}`, () => api.update('supplies', babyId, s.id, { qty: s.qty, buyer_id: s.buyer_id ?? null }))}><Check size={14} /> Comprado</button>
                   </div>
                 )}
               </div>
@@ -121,7 +126,7 @@ export function Mural() {
                         <div className="row" style={{ gap: 4 }}>
                           <button className="btn sm ghost" title={n.pinned ? 'Desafixar' : 'Fixar'} onClick={() => act(() => api.update('notes', babyId, n.id, { pinned: n.pinned ? 0 : 1 }))}>{n.pinned ? <PinOff size={14} /> : <Pin size={14} />}</button>
                           <button className="btn sm ghost" title="Concluído" onClick={() => act(() => api.update('notes', babyId, n.id, { done: n.done ? 0 : 1 }))}><Check size={14} /></button>
-                          <button className="btn sm ghost" title="Excluir" onClick={() => confirm('Excluir recado?') && act(() => api.remove('notes', babyId, n.id))}><Trash2 size={14} /></button>
+                          <button className="btn sm ghost" title="Excluir" onClick={() => act(() => api.remove('notes', babyId, n.id), 'Recado excluído', () => api.create('notes', babyId, { id: n.id, text: n.text, pinned: n.pinned, done: n.done }))}><Trash2 size={14} /></button>
                         </div>
                       )}
                     </div>

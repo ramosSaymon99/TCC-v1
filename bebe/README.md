@@ -72,6 +72,12 @@ Intervalo desde a última mamada acima do planejado · sem cocô há mais de 3 d
 
 > As referências (AAP, AASM, SBP, PNI) são gerais. O app organiza os dados para conversar com o pediatra; não faz diagnóstico.
 
+## Sem internet, desfazer e fuso horário
+
+- **Funciona sem internet.** O app fica guardado no aparelho (service worker) e abre mesmo offline, com a última cópia dos dados. Registros, cronômetros, mural, recados, saúde e vacinas feitos sem conexão entram numa **fila** e aparecem na hora (marcados "⏳ aguardando internet"). Quando a conexão volta, tudo é enviado na ordem e o app avisa quantos foram. O servidor é idempotente pelo id do registro: reenviar não duplica nem baixa o estoque duas vezes. Encerrar um cronômetro ou editar algo que ainda está na fila junta na mesma operação; excluir algo que ainda não subiu simplesmente cancela o envio. Se o servidor recusar um item (ex.: acesso removido), ele sai da fila e o app informa.
+- **Desfazer em 1 toque.** Depois de registrar, editar ou excluir um registro, encerrar um cronômetro, mexer no estoque do mural ou publicar/excluir recado, o aviso mostra **DESFAZER** por 6 segundos (funciona também offline).
+- **Fuso horário por pessoa.** Cada aparelho inscrito guarda seu fuso; os horários dentro das notificações saem no fuso de quem recebe (ex.: avó em Lisboa vê 18:05, pai em São Paulo vê 14:05).
+
 ## Segurança, privacidade e LGPD
 
 | Proteção | Como funciona |
@@ -149,5 +155,6 @@ Na tela inicial, **"Explorar com uma família de exemplo"** cria mãe, pai, avó
 | `worker/notify.js` | Quem recebe o quê (preferências, silêncio) e lembretes do Cron |
 | `public/sw.js` | Service worker: mostra a notificação e abre o app no lugar certo |
 | `src/lib/metrics.ts` | Indicadores, referências por idade, aderência à rotina, cobertura do mural e insights |
-| `src/lib/api.ts` | Cliente da API + modo local com o mesmo contrato |
+| `src/lib/api.ts` | Cliente da API + modo local com o mesmo contrato + envio da fila offline |
+| `src/lib/offline.ts` | Fila de registros sem internet, aplicação otimista e cache dos dados |
 | `src/lib/demo.ts` | Rotina sugerida por idade e gerador de dados de exemplo |

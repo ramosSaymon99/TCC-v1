@@ -41,6 +41,21 @@ export const lerPrefs = (raw) => {
 };
 
 const fmtDur = (min) => (min < 60 ? `${Math.round(min)} min` : `${Math.floor(min / 60)}h${String(Math.round(min % 60)).padStart(2, '0')}`);
+/** Horário no fuso de quem recebe (cada inscrição guarda o fuso do aparelho). */
+export function horaTz(iso, tz) {
+  try {
+    return new Intl.DateTimeFormat('pt-BR', { timeZone: tz || 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+  } catch {
+    return iso.slice(11, 16);
+  }
+}
+export function dataHoraTz(iso, tz) {
+  try {
+    return new Intl.DateTimeFormat('pt-BR', { timeZone: tz || 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }).format(new Date(iso));
+  } catch {
+    return iso.slice(0, 16).replace('T', ' ');
+  }
+}
 const diaLocal = (iso, tz) => {
   try {
     return new Intl.DateTimeFormat('en-CA', { timeZone: tz || 'America/Sao_Paulo' }).format(new Date(iso));
@@ -85,9 +100,7 @@ export async function notificar(env, babyId, categoria, msg, exceto = null) {
   if (!baby) return 0;
   // Formato pensado para a tela de bloqueio: título curto (≤ ~40 car.), corpo em até 2–3 linhas,
   // agrupamento por `tag` (substitui em vez de empilhar), horário do fato (`ts`), botões de ação e prioridade.
-  const payload = {
-    title: msg.title ?? baby.name,
-    body: msg.body,
+  const base = {
     tag: msg.tag ?? `${categoria}-${babyId}`,
     url: `./?baby=${babyId}${msg.acao ? `&acao=${msg.acao}` : ''}#${msg.aba ?? 'hoje'}`,
     icon: './icon-192.png',
@@ -106,6 +119,8 @@ export async function notificar(env, babyId, categoria, msg, exceto = null) {
     if (exceto && s.user_id === exceto) return;
     const prefs = lerPrefs(s.prefs);
     if (!prefs[categoria] || emSilencio(prefs, s.tz)) return;
+    const noFuso = (v) => (typeof v === 'function' ? v(s.tz) : v);
+    const payload = { ...base, title: noFuso(msg.title) ?? baby.name, body: noFuso(msg.body) };
     try {
       const st = await sendPush(env, s, payload, categoria === 'lembretes' ? 'high' : 'normal');
       if (st === 404 || st === 410) await env.DB.prepare('DELETE FROM push_subs WHERE endpoint = ?').bind(s.endpoint).run();
@@ -140,8 +155,6 @@ export async function lembretes(env) {
   ).all()).results;
   for (const b of bebes) {
     const nome = b.name.split(' ')[0];
-    // Fuso horário de quem acompanha (para mostrar os horários certos no texto)
-    const tz = (await env.DB.prepare('SELECT p.tz FROM push_subs p JOIN members m ON m.user_id = p.user_id WHERE m.baby_id = ? AND p.tz IS NOT NULL LIMIT 1').bind(b.id).first())?.tz;
 
     // 1) Mamada atrasada em relação ao intervalo planejado
     const max = intervaloMaxMin(b);
@@ -153,7 +166,7 @@ export async function lembretes(env) {
           const dormindo = await env.DB.prepare("SELECT 1 FROM events WHERE baby_id = ? AND type = 'sono' AND end_at IS NULL").bind(b.id).first();
           await notificar(env, b.id, 'lembretes', {
             title: `🍼 ${nome} · hora da mamada`,
-            body: `Última às ${hora(ult.start_at, tz)} (há ${fmtDur(min)}). Planejado: até ${fmtDur(max)}.${dormindo ? ' Está dormindo.' : ''}`,
+            body: (tz) => `Última às ${hora(ult.start_at, tz)} (há ${fmtDur(min)}). Planejado: até ${fmtDur(max)}.${dormindo ? ' Está dormindo.' : ''}`,
             tag: `feed-${b.id}`,
             sticky: true,
             actions: [{ action: 'registrar', title: '🍼 Registrar mamada' }, { action: 'abrir', title: 'Ver' }],
@@ -170,7 +183,7 @@ export async function lembretes(env) {
       if ((e.type === 'mamada' ? min > 75 : min > 600) && (await primeiraVez(env, `timer:${e.id}`))) {
         await notificar(env, b.id, 'lembretes', {
           title: `⏱️ ${nome} · cronômetro ainda ligado`,
-          body: `${e.type === 'sono' ? 'Sono' : 'Mamada'} desde ${hora(e.start_at, tz)} (há ${fmtDur(min)}). Esqueceu de encerrar?`,
+          body: (tz) => `${e.type === 'sono' ? 'Sono' : 'Mamada'} desde ${hora(e.start_at, tz)} (há ${fmtDur(min)}). Esqueceu de encerrar?`,
           tag: `timer-${e.id}`,
           ts: Date.parse(e.start_at),
           sticky: true,
@@ -187,8 +200,8 @@ export async function lembretes(env) {
       const chave = h <= 2 ? `appt2:${a.id}` : `appt24:${a.id}`;
       if (await primeiraVez(env, chave)) {
         await notificar(env, b.id, 'consultas', {
-          title: `🩺 ${nome} · ${h <= 2 ? 'consulta em breve' : diaLocal(a.date, tz) === diaLocal(new Date(agora).toISOString(), tz) ? 'consulta hoje' : 'consulta amanhã'}`,
-          body: `${a.title} às ${hora(a.date, tz)}${a.doctor ? ` · ${a.doctor}` : ''}. Leve o relatório do Ninho.`,
+          title: (tz) => `🩺 ${nome} · ${h <= 2 ? 'consulta em breve' : diaLocal(a.date, tz) === diaLocal(new Date(agora).toISOString(), tz) ? 'consulta hoje' : 'consulta amanhã'}`,
+          body: (tz) => `${a.title} às ${hora(a.date, tz)}${a.doctor ? ` · ${a.doctor}` : ''}. Leve o relatório do Ninho.`,
           tag: `appt-${a.id}`,
           aba: 'saude',
           ts: Date.parse(a.date),

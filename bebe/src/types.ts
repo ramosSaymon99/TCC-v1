@@ -51,6 +51,8 @@ export interface BabyEvent {
   note?: string | null;
   user_id: string;
   created_at?: string;
+  /** Feito sem internet, ainda na fila de envio. */
+  pendente?: boolean;
 }
 
 export interface Growth { id: string; date: string; weight_g?: number | null; height_cm?: number | null; head_cm?: number | null; source?: string | null; note?: string | null; user_id: string }

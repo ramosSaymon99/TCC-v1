@@ -15,8 +15,11 @@ export interface Ctx {
   refresh: () => Promise<void>;
   reloadMe: (selecionar?: string) => Promise<void>;
   /** Executa uma alteração, mostra o resultado e recarrega os dados. */
-  act: (fn: () => Promise<unknown>, ok?: string) => Promise<boolean>;
-  toast: (msg: string) => void;
+  /** `desfazer`: mostra o botão "Desfazer" no aviso por alguns segundos. */
+  act: (fn: () => Promise<unknown>, ok?: string, desfazer?: () => Promise<unknown>) => Promise<boolean>;
+  toast: (msg: string, acao?: { label: string; fn: () => void }) => void;
+  online: boolean;
+  pendentes: number;
   nome: (userId?: string | null) => string;
   setAba: (a: Aba) => void;
   abrirRegistro: (tipo: EventType, ev?: BabyEvent) => void;
