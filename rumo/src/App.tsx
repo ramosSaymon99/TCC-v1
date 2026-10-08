@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, Command, FileText, GitCompare, Link2, Moon, Search, SlidersHorizontal, Sun } from 'lucide-react';
+import { CalendarDays, Command, FileText, GitCompare, Link2, Monitor, Moon, Search, SlidersHorizontal, Sun } from 'lucide-react';
 import { Campaign } from './model';
 import { PRESETS } from './presets';
-import { AppState, initialState, useAppState, useTheme } from './state';
+import { AppState, ThemePref, initialState, useAppState, useTheme } from './state';
 import Simulador from './tabs/Simulador';
 import Links from './tabs/Links';
 import Calendario from './tabs/Calendario';
@@ -17,6 +17,12 @@ const TABS = [
   { id: 'plano', label: 'Plano', icon: FileText, key: '5' },
 ] as const;
 type TabId = (typeof TABS)[number]['id'];
+
+const THEMES: { id: ThemePref; label: string; hint: string; icon: typeof Sun }[] = [
+  { id: 'light', label: 'Claro', hint: 'Tema claro', icon: Sun },
+  { id: 'dark', label: 'Escuro', hint: 'Tema escuro', icon: Moon },
+  { id: 'system', label: 'Auto', hint: 'Segue o tema do sistema', icon: Monitor },
+];
 
 const tabFromHash = (): TabId => {
   const h = window.location.hash.replace(/^#\/?/, '');
@@ -35,7 +41,7 @@ interface Cmd {
 
 export default function App() {
   const [state, setState] = useAppState();
-  const [theme, setTheme] = useTheme();
+  const { pref: themePref, setPref: setThemePref } = useTheme();
   const [tab, setTab] = useState<TabId>(tabFromHash);
   const [palette, setPalette] = useState(false);
   const [optimizeSignal, setOptimizeSignal] = useState(0);
@@ -85,7 +91,7 @@ export default function App() {
         flash('Cenário salvo');
       },
     },
-    { id: 'theme', label: theme === 'dark' ? 'Usar tema claro' : 'Usar tema escuro', run: () => setTheme(theme === 'dark' ? 'light' : 'dark') },
+    ...THEMES.map((t) => ({ id: `theme-${t.id}`, label: `Tema: ${t.label.toLowerCase()}`, hint: t.hint, run: () => setThemePref(t.id) })),
     {
       id: 'print',
       label: 'Imprimir / salvar o plano em PDF',
@@ -153,14 +159,21 @@ export default function App() {
                 <Command size={11} />K
               </kbd>
             </button>
-            <button
-              className="icon-btn"
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              aria-label={theme === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'}
-              title={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
-            >
-              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
+            <div className="theme-switch" role="radiogroup" aria-label="Tema">
+              {THEMES.map((t) => (
+                <button
+                  key={t.id}
+                  role="radio"
+                  aria-checked={themePref === t.id}
+                  className={themePref === t.id ? 'on' : ''}
+                  onClick={() => setThemePref(t.id)}
+                  title={t.hint}
+                >
+                  <t.icon size={15} />
+                  <span>{t.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </header>
 

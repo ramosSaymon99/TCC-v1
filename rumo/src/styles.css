@@ -383,6 +383,64 @@ kbd {
   }
 }
 
+/* seletor de tema: visível e rotulado, não escondido num ícone */
+.theme-switch {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.theme-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.theme-switch button:hover {
+  color: var(--text);
+}
+
+.theme-switch button.on {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.theme-switch button.on svg {
+  color: var(--accent-2);
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    flex-wrap: wrap;
+  }
+  .title-block {
+    flex-basis: 100%;
+  }
+  .campaign-name {
+    width: 100%;
+    field-sizing: fixed;
+    text-overflow: ellipsis;
+  }
+  .title-block .chip {
+    display: none;
+  }
+  .top-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
 /* ---------- componentes ---------- */
 
 .card {

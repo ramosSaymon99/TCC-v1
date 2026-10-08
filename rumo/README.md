@@ -7,7 +7,7 @@ Ferramenta web para planejar uma campanha de marketing digital antes de gastar o
 | | |
 |---|---|
 | <img src="docs/3-cenarios.png" width="440" alt="Comparação de cenários" /> | <img src="docs/7-comandos.png" width="440" alt="Paleta de comandos" /> |
-| <img src="docs/5-calendario.png" width="440" alt="Calendário por fase" /> | <img src="docs/8-tema-claro.png" width="440" alt="Tema claro" /> |
+| <img src="docs/5-calendario.png" width="440" alt="Calendário por fase" /> | <img src="docs/8-tema-escuro.png" width="440" alt="Tema escuro" /> |
 | <img src="docs/4-links.png" width="440" alt="Links UTM e QR code" /> | <img src="docs/9-celular.png" width="200" alt="Versão celular" /> |
 
 ## O problema
@@ -43,7 +43,7 @@ A maior parte das campanhas é planejada com um orçamento dividido "no olho" en
 - Qualquer cenário pode voltar a ser o plano atual com um clique.
 
 **Paleta de comandos (Ctrl+K)**
-- Navegar, otimizar, salvar cenário, trocar o tema, imprimir o plano e carregar exemplos, tudo pelo teclado. Alt+1 a Alt+5 alternam as seções.
+- Navegar, otimizar, salvar cenário, trocar o tema (claro, escuro ou automático), imprimir o plano e carregar exemplos, tudo pelo teclado. Alt+1 a Alt+5 alternam as seções.
 
 **Links e QR**
 - URLs com `utm_source`, `utm_medium`, `utm_campaign` (gerado do nome, sem acentos) e `utm_content` por variação de anúncio.
@@ -81,7 +81,7 @@ As premissas que vêm com os exemplos são referências para demonstração. O a
 - **React 18 + TypeScript + Vite**, sem biblioteca de UI ou de gráficos: curvas, histograma e barras são SVG/HTML desenhados à mão, com ícones da Lucide. A única dependência extra é `qrcode`.
 - **O Monte Carlo usa um gerador com semente** (mulberry32 + Box-Muller): o mesmo plano sempre produz a mesma distribuição, então os números não "pulam" entre recarregamentos.
 - **Os cálculos pesados ficam fora da interação.** Os insights (que varrem orçamentos) e o risco (2.000 execuções) usam `useDeferredValue`, então sliders e animação continuam fluidos.
-- **Interface:** tema escuro por padrão e tema claro, tipografia Geist com números em Geist Mono, navegação lateral (inferior no celular) e respeito a `prefers-reduced-motion`.
+- **Interface:** seletor de tema visível no topo com **Claro** (padrão), **Escuro** e **Auto** (segue o sistema). A escolha fica salva e é aplicada antes do primeiro desenho, sem piscar. Tipografia Geist com números em Geist Mono, navegação lateral (inferior no celular) e respeito a `prefers-reduced-motion`.
 - **As cores dos canais seguem uma paleta categórica validada para daltonismo**, uma para cada tema, em ordem fixa. Toda barra tem rótulo e valor em texto, e existe a tabela equivalente.
 - **O estado fica salvo no navegador** (`localStorage`). O app funciona offline e não precisa de back-end.
 - Responsivo, com navegação por teclado e foco visível, e com layout de impressão próprio (sempre claro) para o plano.

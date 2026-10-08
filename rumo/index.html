@@ -1,11 +1,20 @@
 <!doctype html>
-<html lang="pt-BR" data-theme="dark">
+<html lang="pt-BR" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-    <meta name="theme-color" content="#070B16" />
+    <meta name="theme-color" content="#F3F5FA" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Rumo: planeje sua campanha, simule orçamento × resultado por canal, gere links UTM com QR code e o calendário de conteúdo." />
+    <script>
+      (function () {
+        try {
+          var p = localStorage.getItem('rumo.theme') || 'light';
+          var t = p === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : p;
+          document.documentElement.dataset.theme = t === 'dark' ? 'dark' : 'light';
+        } catch (e) {}
+      })();
+    </script>
     <title>Rumo · Planejador de campanhas</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />

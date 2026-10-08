@@ -57,25 +57,47 @@ export function useAppState() {
 }
 
 export type Theme = 'dark' | 'light';
+export type ThemePref = Theme | 'system';
 
-/** Tema por pessoa: escuro por padrão, lembrado no navegador e aplicado no <html>. */
+const systemTheme = (): Theme => (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+
+/**
+ * Preferência de tema por pessoa: claro (padrão), escuro ou automático (segue o sistema).
+ * Fica salva no navegador e é aplicada no <html>; no modo automático acompanha mudanças do sistema.
+ */
 export function useTheme() {
-  const [theme, setTheme] = useState<Theme>(() => {
+  const [pref, setPref] = useState<ThemePref>(() => {
     try {
       const t = localStorage.getItem(THEME_KEY);
-      if (t === 'dark' || t === 'light') return t;
+      if (t === 'dark' || t === 'light' || t === 'system') return t;
     } catch {
       /* sem armazenamento */
     }
-    return 'dark';
+    return 'light';
   });
+  const [system, setSystem] = useState<Theme>(systemTheme);
+  const theme: Theme = pref === 'system' ? system : pref;
+
+  useEffect(() => {
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+    if (!mq) return;
+    const on = () => setSystem(mq.matches ? 'dark' : 'light');
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#070B16' : '#F3F5FA');
+  }, [theme]);
+
+  useEffect(() => {
     try {
-      localStorage.setItem(THEME_KEY, theme);
+      localStorage.setItem(THEME_KEY, pref);
     } catch {
       /* ignora */
     }
-  }, [theme]);
-  return [theme, setTheme] as const;
+  }, [pref]);
+
+  return { pref, theme, setPref };
 }
