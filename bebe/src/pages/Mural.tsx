@@ -7,6 +7,7 @@ import { coberturaDias, statusSupply } from '../lib/metrics';
 import { dataCurta, t } from '../lib/time';
 import type { Supply } from '../types';
 import { Empty, Field, Seg, Sheet } from '../components/ui';
+import { Avatar } from '../components/Avatar';
 
 export function Mural() {
   const { data, act, podeEditar, user, nome, agora } = useApp();
@@ -115,7 +116,7 @@ export function Mural() {
                   <div key={n.id} className={`note ${n.done ? 'done' : ''}`}>
                     <div style={{ whiteSpace: 'pre-wrap', fontWeight: 600 }}>{n.text}</div>
                     <div className="between" style={{ marginTop: 8 }}>
-                      <span style={{ fontSize: 12, opacity: 0.75 }}>{m ? papel(m.role).emoji : ''} {nome(n.user_id)} · {dataCurta(t(n.created_at))}</span>
+                      <span className="row" style={{ fontSize: 12, opacity: 0.8, gap: 6 }}>{m && <Avatar photo={m.photo} emoji={papel(m.role).emoji} size={22} />} {nome(n.user_id)} · {dataCurta(t(n.created_at))}</span>
                       {podeEditar && (
                         <div className="row" style={{ gap: 4 }}>
                           <button className="btn sm ghost" title={n.pinned ? 'Desafixar' : 'Fixar'} onClick={() => act(() => api.update('notes', babyId, n.id, { pinned: n.pinned ? 0 : 1 }))}>{n.pinned ? <PinOff size={14} /> : <Pin size={14} />}</button>

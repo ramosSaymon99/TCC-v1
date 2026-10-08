@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, ChevronDown, Home, LayoutGrid, LogOut, Stethoscope, Users } from 'lucide-react';
+import { BarChart3, Bell, ChevronDown, Home, LayoutGrid, LogOut, Stethoscope, Users } from 'lucide-react';
 import { AppCtx, type Aba, type Ctx } from './ctx';
 import { api, ApiError, detectarModo, sair as sairApi, temSessao, type Modo } from './lib/api';
 import { papel } from './lib/constants';
@@ -8,6 +8,10 @@ import { addDays, idade, startOfDay } from './lib/time';
 import type { Baby, BabyData, BabyEvent, EventType, User } from './types';
 import { LogSheet } from './components/LogSheet';
 import { Sheet } from './components/ui';
+import { Avatar } from './components/Avatar';
+import { CentralSheet, ConfigNotificacoes, contarNaoLidas, lerVisto, montarFeed } from './components/Notificacoes';
+import { desativarPush } from './lib/push';
+import { TIPOS } from './lib/constants';
 import { Auth } from './pages/Auth';
 import { Onboarding } from './pages/Onboarding';
 import { Hoje } from './pages/Hoje';
@@ -24,6 +28,9 @@ const ABAS: { id: Aba; label: string; Icon: typeof Home }[] = [
   { id: 'familia', label: 'Família', Icon: Users },
 ];
 const LS_BABY = 'ninho-baby';
+/** Link vindo de uma notificação: ?baby=<id>#aba */
+let bebeDaUrl: string | null = new URLSearchParams(location.search).get('baby');
+const consumirBebeDaUrl = () => { const b = bebeDaUrl; bebeDaUrl = null; return b; };
 const lerAba = (): Aba => (ABAS.some((a) => `#${a.id}` === location.hash) ? (location.hash.slice(1) as Aba) : 'hoje');
 
 export default function App() {
@@ -38,6 +45,9 @@ export default function App() {
   const [onboarding, setOnboarding] = useState(false);
   const [trocar, setTrocar] = useState(false);
   const [msg, setMsg] = useState('');
+  const [central, setCentral] = useState(false);
+  const [configNotif, setConfigNotif] = useState(false);
+  const conhecidos = useRef<Set<string> | null>(null);
   const [carregando, setCarregando] = useState(true);
   const toastT = useRef<number>();
 
@@ -48,6 +58,7 @@ export default function App() {
   }, []);
 
   const sair = useCallback(() => {
+    desativarPush().catch(() => undefined); // aparelho compartilhado não continua recebendo avisos de outra pessoa
     sairApi();
     setUser(null); setBabies([]); setData(null); setBabyId(null);
   }, []);
@@ -56,7 +67,7 @@ export default function App() {
     const r = await api.me();
     setUser(r.user);
     setBabies(r.babies);
-    let alvo = selecionar ?? babyId ?? localStorage.getItem(LS_BABY);
+    let alvo = selecionar ?? consumirBebeDaUrl() ?? babyId ?? localStorage.getItem(LS_BABY);
     if (!r.babies.some((b) => b.id === alvo)) alvo = r.babies[0]?.id ?? null;
     setBabyId(alvo);
     if (!alvo) setData(null);
@@ -66,12 +77,23 @@ export default function App() {
     if (!babyId) return;
     const since = addDays(startOfDay(Date.now()), -66);
     try {
-      setData(await api.getBaby(babyId, new Date(since).toISOString()));
+      const d = await api.getBaby(babyId, new Date(since).toISOString());
+      // Aviso dentro do app quando outro cuidador registra algo enquanto a tela está aberta
+      const ids = new Set(d.events.map((e) => e.id));
+      if (conhecidos.current && user) {
+        const novos = d.events.filter((e) => !conhecidos.current!.has(e.id) && e.user_id !== user.id);
+        if (novos.length) {
+          const m = d.members.find((x) => x.user_id === novos[0].user_id);
+          toast(`${TIPOS[novos[0].type].emoji} ${m?.name.split(' ')[0] ?? 'Alguém'} registrou ${TIPOS[novos[0].type].label.toLowerCase()}${novos.length > 1 ? ` (+${novos.length - 1})` : ''}`);
+        }
+      }
+      conhecidos.current = ids;
+      setData(d);
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) sair();
       else if (e instanceof ApiError && e.status === 403) await reloadMe();
     }
-  }, [babyId, sair, reloadMe]);
+  }, [babyId, sair, reloadMe, user, toast]);
 
   // Inicialização: descobre se há API (Cloudflare) e se há sessão
   useEffect(() => {
@@ -89,6 +111,7 @@ export default function App() {
     if (!babyId) return;
     try { localStorage.setItem(LS_BABY, babyId); } catch { /* sem storage */ }
     setData(null);
+    conhecidos.current = null;
     refresh();
   }, [babyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -107,7 +130,23 @@ export default function App() {
     return () => clearInterval(i);
   }, [temTimer]);
 
+  // Toque numa notificação com o app já aberto: o service worker manda a URL de destino
   useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const h = (ev: MessageEvent) => {
+      if (ev.data?.tipo !== 'abrir') return;
+      const u = new URL(ev.data.url);
+      const b = u.searchParams.get('baby');
+      if (b) setBabyId(b);
+      const a = u.hash.slice(1) as Aba;
+      if (ABAS.some((x) => x.id === a)) setAba(a);
+    };
+    navigator.serviceWorker.addEventListener('message', h);
+    return () => navigator.serviceWorker.removeEventListener('message', h);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (location.search) history.replaceState(null, '', location.pathname + location.hash);
     const h = () => setAbaState(lerAba());
     window.addEventListener('hashchange', h);
     return () => window.removeEventListener('hashchange', h);
@@ -148,6 +187,7 @@ export default function App() {
       abrirRegistro: (tipo, ev) => setRegistro({ tipo, ev }),
       trocarBebe: (id) => { setBabyId(id); setTrocar(false); },
       novoBebe: () => { setTrocar(false); setOnboarding(true); },
+      abrirConfigNotif: () => { setCentral(false); setConfigNotif(true); },
       sair,
     };
   }, [user, data, modo, babies, agora, refresh, reloadMe, toast, setAba, sair]);
@@ -184,7 +224,9 @@ export default function App() {
 
   const { baby } = ctx.data;
   const Pagina = { hoje: Hoje, indicadores: Indicadores, mural: Mural, saude: Saude, familia: Familia }[aba];
-  const avatar = <div className="av" style={{ background: baby.color || 'var(--brand)', borderColor: 'transparent' }}>{baby.sex === 'M' ? '👦' : baby.sex === 'F' ? '👧' : '👶'}</div>;
+  const emojiBebe = (b: Baby) => (b.sex === 'M' ? '👦' : b.sex === 'F' ? '👧' : '👶');
+  const avatar = <Avatar photo={baby.photo} emoji={emojiBebe(baby)} color={baby.color || 'var(--brand)'} size={42} ring />;
+  const naoLidas = contarNaoLidas(montarFeed(ctx.data, user.id, agora), lerVisto(user.id, baby.id));
 
   return (
     <AppCtx.Provider value={ctx}>
@@ -195,7 +237,10 @@ export default function App() {
             <button key={id} className={`navitem ${aba === id ? 'on' : ''}`} onClick={() => setAba(id)}><Icon size={19} /> {label}</button>
           ))}
           <div style={{ marginTop: 'auto' }} className="stack">
-            <div className="faint" style={{ padding: '0 8px' }}>{papel(ctx.data.role).emoji} {user.name}<br />{modo === 'cloud' ? '☁️ Sincronizado (D1)' : '💾 Modo local'}</div>
+            <div className="row" style={{ padding: '0 8px' }}>
+              <Avatar photo={user.photo} emoji={papel(ctx.data.role).emoji} size={34} />
+              <div className="faint">{user.name}<br />{modo === 'cloud' ? '☁️ Sincronizado (D1)' : '💾 Modo local'}</div>
+            </div>
             <button className="navitem" onClick={sair}><LogOut size={18} /> Sair</button>
           </div>
         </aside>
@@ -209,7 +254,13 @@ export default function App() {
                   <div className="faint">{idade(baby.birth_date, agora).texto}</div>
                 </div>
               </button>
-              <span className="chip hide-mob">{ctx.data.members.length} cuidador(es)</span>
+              <div className="av-stack hide-mob">
+                {ctx.data.members.slice(0, 5).map((m) => <Avatar key={m.user_id} photo={m.photo} emoji={papel(m.role).emoji} size={32} />)}
+              </div>
+              <button className="icon-btn bell" onClick={() => setCentral(true)} aria-label="Notificações">
+                <Bell size={19} />
+                {naoLidas > 0 && <span className="badge">{naoLidas > 9 ? '9+' : naoLidas}</span>}
+              </button>
             </div>
           </header>
           <main className="wrap"><Pagina /></main>
@@ -226,7 +277,7 @@ export default function App() {
         <Sheet title="Bebês" onClose={() => setTrocar(false)}>
           {babies.map((b) => (
             <button key={b.id} className="list-item babybtn" style={{ width: '100%' }} onClick={() => ctx.trocarBebe(b.id)}>
-              <div className="av" style={{ background: b.color || 'var(--brand)', borderColor: 'transparent' }}>{b.sex === 'M' ? '👦' : b.sex === 'F' ? '👧' : '👶'}</div>
+              <Avatar photo={b.photo} emoji={emojiBebe(b)} color={b.color || 'var(--brand)'} size={44} />
               <div className="grow"><div className="nm">{b.name}</div><div className="faint">{idade(b.birth_date, agora).texto} · você é {papel(b.role).label.toLowerCase()}</div></div>
               {b.id === baby.id && <span className="chip brand">atual</span>}
             </button>
@@ -234,6 +285,8 @@ export default function App() {
           <button className="btn block" onClick={ctx.novoBebe}>+ Cadastrar outro bebê ou entrar com código</button>
         </Sheet>
       )}
+      {central && <CentralSheet onClose={() => setCentral(false)} onConfig={ctx.abrirConfigNotif} />}
+      {configNotif && <ConfigNotificacoes onClose={() => setConfigNotif(false)} />}
       {msg && <div className="toast">{msg}</div>}
     </AppCtx.Provider>
   );

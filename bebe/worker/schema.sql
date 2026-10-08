@@ -51,3 +51,12 @@ CREATE TABLE IF NOT EXISTS vaccines (
   baby_id TEXT NOT NULL, code TEXT NOT NULL, date TEXT NOT NULL, user_id TEXT NOT NULL, PRIMARY KEY (baby_id, code)
 );
 CREATE TABLE IF NOT EXISTS secrets (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+-- Fotos de perfil (bebê e cuidadores), servidas por link assinado
+CREATE TABLE IF NOT EXISTS photos (kind TEXT NOT NULL, id TEXT NOT NULL, mime TEXT NOT NULL, data TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (kind, id));
+ALTER TABLE users ADD COLUMN photo_v TEXT;
+ALTER TABLE babies ADD COLUMN photo_v TEXT;
+-- Notificações push: aparelhos inscritos, preferências por pessoa e controle de duplicidade dos lembretes
+CREATE TABLE IF NOT EXISTS push_subs (endpoint TEXT PRIMARY KEY, user_id TEXT NOT NULL, p256dh TEXT NOT NULL, auth TEXT NOT NULL, tz TEXT, ua TEXT, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_push_user ON push_subs (user_id);
+CREATE TABLE IF NOT EXISTS notif_prefs (user_id TEXT PRIMARY KEY, data TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS notif_log (key TEXT PRIMARY KEY, at TEXT NOT NULL);

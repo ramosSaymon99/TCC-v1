@@ -3,7 +3,7 @@
  *  - Publicado no Cloudflare (/api/status responde): dados no D1, compartilhados entre os cuidadores.
  *  - Aberto localmente / hospedagem estática: modo local, mesmo contrato da API, dados no navegador.
  */
-import type { Baby, BabyData, Resource, User } from '../types';
+import type { Baby, BabyData, NotifPrefs, Resource, User } from '../types';
 import { uid } from './time';
 
 export type Modo = 'cloud' | 'local';
@@ -75,6 +75,15 @@ export const api = {
   setVaccine: (id: string, code: string, date: string) => req('PUT', `/babies/${id}/vaccines/${code}`, { date }),
   removeVaccine: (id: string, code: string) => req('DELETE', `/babies/${id}/vaccines/${code}`),
   seed: (id: string, data: Record<string, unknown[]>) => req('POST', `/babies/${id}/seed`, data),
+  setMyPhoto: (photo: string) => req<{ photo: string }>('PUT', '/me/photo', { photo }),
+  removeMyPhoto: () => req('DELETE', '/me/photo'),
+  setBabyPhoto: (id: string, photo: string) => req<{ photo: string }>('PUT', `/babies/${id}/photo`, { photo }),
+  removeBabyPhoto: (id: string) => req('DELETE', `/babies/${id}/photo`),
+  push: () => req<{ publicKey: string | null; prefs: NotifPrefs; devices: number }>('GET', '/push'),
+  pushPrefs: (p: Partial<NotifPrefs>) => req<{ prefs: NotifPrefs }>('PUT', '/push/prefs', p),
+  pushSubscribe: (sub: PushSubscriptionJSON, tz: string) => req('POST', '/push/subscribe', { ...sub, tz }),
+  pushUnsubscribe: (endpoint: string) => req('POST', '/push/unsubscribe', { endpoint }),
+  pushTest: () => req<{ enviados: number; aparelhos: number }>('POST', '/push/test'),
 };
 
 /* =====================================================================
@@ -141,9 +150,17 @@ function local(method: string, path: string, body: any): unknown {
   if (!me) falha('Sessão expirada. Entre novamente.', 401);
   const myId = me!.id;
 
+  if (r('PUT', '/me/photo')) { (me as Row).photo = body.photo; salvar(); return { photo: body.photo }; }
+  if (r('DELETE', '/me/photo')) { (me as Row).photo = null; salvar(); return { ok: true }; }
+  if (r('GET', '/push')) {
+    const prefs = { atividade: false, recados: true, lembretes: true, estoque: true, consultas: true, familia: true, silencio: { on: false, de: '22:00', ate: '06:00' }, ...((me as Row).notifPrefs ?? {}) };
+    return { publicKey: null, prefs, devices: 0 };
+  }
+  if (r('PUT', '/push/prefs')) { (me as Row).notifPrefs = { ...((me as Row).notifPrefs ?? {}), ...body }; salvar(); return { prefs: (me as Row).notifPrefs }; }
+  if (rota.startsWith('/push/')) falha('Notificações no celular exigem o app publicado no Cloudflare.', 400);
   if (r('GET', '/me')) {
     const babies = D.members.filter((m) => m.user_id === myId).map((m) => ({ ...D.babies.find((b) => b.id === m.baby_id), role: m.role, access: m.access }) as Row).filter((b) => b.id);
-    return { user: { id: myId, name: me!.name, email: me!.email }, babies };
+    return { user: { id: myId, name: me!.name, email: me!.email, photo: (me as Row).photo ?? null }, babies };
   }
   if (r('PUT', '/me')) {
     if (body.newPassword) {
@@ -188,7 +205,7 @@ function local(method: string, path: string, body: any): unknown {
     const baby = D.babies.find((b) => b.id === babyId);
     return structuredClone({
       baby,
-      members: doBebe(D.members).map((m) => { const u = D.users.find((x) => x.id === m.user_id); return { ...m, name: u?.name ?? '?', email: u?.email ?? '' }; }),
+      members: doBebe(D.members).map((m) => { const u = D.users.find((x) => x.id === m.user_id) as Row | undefined; return { ...m, name: u?.name ?? '?', email: u?.email ?? '', photo: u?.photo ?? null }; }),
       events: doBebe(D.events).filter((e) => e.start_at >= since || !e.end_at).sort((a, b) => a.start_at.localeCompare(b.start_at)),
       growth: doBebe(D.growth).sort((a, b) => a.date.localeCompare(b.date)),
       supplies: doBebe(D.supplies).sort((a, b) => a.name.localeCompare(b.name)),
@@ -203,6 +220,12 @@ function local(method: string, path: string, body: any): unknown {
     Object.assign(D.babies.find((b) => b.id === babyId)!, Object.fromEntries(['name', 'birth_date', 'sex', 'color', 'routine', 'notes'].filter((k) => k in body).map((k) => [k, body[k]])));
     salvar();
     return { ok: true };
+  }
+  if (sub === '/photo') {
+    if (!pode('admin')) falha('Somente administradores trocam a foto do bebê.', 403);
+    D.babies.find((b) => b.id === babyId)!.photo = method === 'PUT' ? body.photo : null;
+    salvar();
+    return { photo: method === 'PUT' ? body.photo : null };
   }
   if (method === 'DELETE' && sub === '') {
     if (!pode('admin')) falha('Somente administradores excluem o bebê.', 403);

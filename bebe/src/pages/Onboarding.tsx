@@ -6,6 +6,7 @@ import { idade, ymd } from '../lib/time';
 import type { Routine } from '../types';
 import { Choice, Field } from '../components/ui';
 import { RotinaEditor } from './Familia';
+import { PhotoPicker } from '../components/Avatar';
 
 /** Cadastro do bebê (registro central) ou entrada em um bebê existente por código de convite. */
 export function Onboarding({ onDone, onCancel, userName }: { onDone: (babyId: string) => void; onCancel?: () => void; userName: string }) {
@@ -13,6 +14,7 @@ export function Onboarding({ onDone, onCancel, userName }: { onDone: (babyId: st
   const [passo, setPasso] = useState(1);
   const [f, setF] = useState({ name: '', birth_date: '', sex: undefined as 'F' | 'M' | undefined, role: 'mae', peso: '', altura: '', consult_date: ymd(Date.now()), color: CORES_BEBE[0] });
   const [rotina, setRotina] = useState<Routine | null>(null);
+  const [foto, setFoto] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const [erro, setErro] = useState('');
   const [busy, setBusy] = useState(false);
@@ -31,6 +33,7 @@ export function Onboarding({ onDone, onCancel, userName }: { onDone: (babyId: st
     try {
       const peso = num(f.peso);
       const r = await api.createBaby({ name: f.name.trim(), birth_date: f.birth_date, sex: f.sex ?? null, color: f.color, role: f.role, weight_g: peso ? Math.round(peso * 1000) : null, height_cm: num(f.altura), consult_date: f.consult_date, routine: semRotina ? null : rotina });
+      if (foto) await api.setBabyPhoto(r.id, foto).catch(() => undefined);
       onDone(r.id);
     } catch (x) { setErro(x instanceof Error ? x.message : 'Erro'); }
     setBusy(false);
@@ -66,6 +69,7 @@ export function Onboarding({ onDone, onCancel, userName }: { onDone: (babyId: st
             </>
           ) : passo === 1 ? (
             <>
+              <PhotoPicker photo={foto} emoji={f.sex === 'M' ? '👦' : f.sex === 'F' ? '👧' : '👶'} color={f.color} onPick={setFoto} onRemove={() => setFoto(null)} />
               <Field label="Nome do bebê"><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="ex.: Helena" /></Field>
               <div className="grid g2">
                 <Field label="Data de nascimento" hint={f.birth_date ? idade(f.birth_date).texto : undefined}><input className="input" type="date" value={f.birth_date} max={ymd(Date.now())} onChange={(e) => setF({ ...f, birth_date: e.target.value })} /></Field>

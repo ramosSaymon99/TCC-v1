@@ -1,5 +1,5 @@
 // Gera um index.html único (JS + CSS embutidos) a partir do build do Vite.
-import { readFileSync, writeFileSync, readdirSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, mkdirSync, copyFileSync } from 'node:fs';
 
 const out = process.argv[2] || 'cloudflare-dist';
 const assets = readdirSync('dist/assets');
@@ -15,4 +15,6 @@ let html = readFileSync('dist/index.html', 'utf8')
 
 mkdirSync(out, { recursive: true });
 writeFileSync(`${out}/index.html`, html);
+// Arquivos que precisam existir separados: service worker (notificações), manifesto e ícones do app
+for (const f of readdirSync('public')) if (f !== 'favicon.svg') copyFileSync(`public/${f}`, `${out}/${f}`);
 console.log(`${out}/index.html gerado (${(html.length / 1024).toFixed(0)} KB)`);

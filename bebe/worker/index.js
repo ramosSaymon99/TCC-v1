@@ -9,7 +9,11 @@
  *   leitor → só acompanha (ex.: avós que moram longe)
  */
 
+import { vapid, sendPush } from './push.js';
+import { CATEGORIAS, descreverEvento, lembretes, lerPrefs, nomePapel, notificar } from './notify.js';
+
 const TOKEN_DIAS = 30;
+const FOTO_MAX = 400_000; // ~300 KB de imagem em base64 (o app envia 320×320 JPEG, ~25 KB)
 const PBKDF2_ITER = 100000;
 const NIVEL = { leitor: 1, editor: 2, admin: 3 };
 const PAPEIS = ['mae', 'pai', 'avo_m', 'avo_f', 'baba', 'tio', 'tia', 'irmao', 'irma', 'padrinho', 'madrinha', 'outro'];
@@ -91,18 +95,56 @@ const ESQUEMA = [
   'CREATE INDEX IF NOT EXISTS idx_appointments_baby ON appointments (baby_id, date)',
   'CREATE TABLE IF NOT EXISTS vaccines (baby_id TEXT NOT NULL, code TEXT NOT NULL, date TEXT NOT NULL, user_id TEXT NOT NULL, PRIMARY KEY (baby_id, code))',
   'CREATE TABLE IF NOT EXISTS secrets (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
+  'CREATE TABLE IF NOT EXISTS photos (kind TEXT NOT NULL, id TEXT NOT NULL, mime TEXT NOT NULL, data TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (kind, id))',
+  'CREATE TABLE IF NOT EXISTS push_subs (endpoint TEXT PRIMARY KEY, user_id TEXT NOT NULL, p256dh TEXT NOT NULL, auth TEXT NOT NULL, tz TEXT, ua TEXT, created_at TEXT NOT NULL)',
+  'CREATE INDEX IF NOT EXISTS idx_push_user ON push_subs (user_id)',
+  'CREATE TABLE IF NOT EXISTS notif_prefs (user_id TEXT PRIMARY KEY, data TEXT NOT NULL)',
+  'CREATE TABLE IF NOT EXISTS notif_log (key TEXT PRIMARY KEY, at TEXT NOT NULL)',
 ];
+/** Colunas adicionadas depois da 1ª versão (bancos antigos recebem via ALTER). */
+const MIGRACOES = ['ALTER TABLE users ADD COLUMN photo_v TEXT', 'ALTER TABLE babies ADD COLUMN photo_v TEXT'];
 let esquemaOk = false;
 async function garantirEsquema(env) {
   if (esquemaOk) return;
   await env.DB.batch(ESQUEMA.map((s) => env.DB.prepare(s)));
+  for (const m of MIGRACOES) {
+    try { await env.DB.prepare(m).run(); } catch { /* coluna já existe */ }
+  }
   esquemaOk = true;
 }
 
 /* ---------------- Helpers de dados ---------------- */
-const parseBaby = (b) => b && { ...b, routine: b.routine ? JSON.parse(b.routine) : null };
+/** URL assinada da foto: só quem recebeu o link pela API (cuidadores vinculados) consegue abrir. */
+async function fotoUrl(env, kind, id, v) {
+  if (!v) return null;
+  return `./api/photo/${kind}/${id}?v=${encodeURIComponent(v)}&s=${(await hmac(env, `foto:${kind}:${id}:${v}`)).slice(0, 24)}`;
+}
+const parseBaby = async (env, b) => b && { ...b, routine: b.routine ? JSON.parse(b.routine) : null, photo: await fotoUrl(env, 'baby', b.id, b.photo_v) };
 const parseEvent = (e) => ({ ...e, data: e.data ? JSON.parse(e.data) : {} });
-const publicUser = (u) => u && { id: u.id, name: u.name, email: u.email };
+const publicUser = async (env, u) => u && { id: u.id, name: u.name, email: u.email, photo: await fotoUrl(env, 'user', u.id, u.photo_v) };
+
+/** Valida um data URL de imagem e devolve { mime, data } (base64). */
+function lerFoto(dataUrl) {
+  const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl ?? ''));
+  if (!m) throw Object.assign(new Error('Imagem inválida. Use JPG, PNG ou WebP.'), { status: 400 });
+  if (m[2].length > FOTO_MAX) throw Object.assign(new Error('Imagem muito grande.'), { status: 413 });
+  return { mime: m[1], data: m[2] };
+}
+async function salvarFoto(env, kind, id, dataUrl) {
+  const { mime, data } = lerFoto(dataUrl);
+  const v = Date.now().toString(36);
+  await env.DB.batch([
+    env.DB.prepare('INSERT INTO photos (kind, id, mime, data, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(kind, id) DO UPDATE SET mime = excluded.mime, data = excluded.data, updated_at = excluded.updated_at').bind(kind, id, mime, data, agora()),
+    env.DB.prepare(`UPDATE ${kind === 'baby' ? 'babies' : 'users'} SET photo_v = ? WHERE id = ?`).bind(v, id),
+  ]);
+  return fotoUrl(env, kind, id, v);
+}
+async function removerFoto(env, kind, id) {
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM photos WHERE kind = ? AND id = ?').bind(kind, id),
+    env.DB.prepare(`UPDATE ${kind === 'baby' ? 'babies' : 'users'} SET photo_v = NULL WHERE id = ?`).bind(id),
+  ]);
+}
 
 async function vinculo(env, babyId, userId) {
   return env.DB.prepare('SELECT role, access FROM members WHERE baby_id = ? AND user_id = ?').bind(babyId, userId).first();
@@ -122,6 +164,11 @@ function limparValores(res, body) {
   return out;
 }
 
+async function estoque(env, babyId) {
+  const r = (await env.DB.prepare('SELECT id, name, qty, min_qty, unit, buyer_id FROM supplies WHERE baby_id = ?').bind(babyId).all()).results;
+  return Object.fromEntries(r.map((s) => [s.id, s]));
+}
+
 /** Baixa automática no mural: cada fralda registrada consome os itens marcados com auto_type = 'fralda'. */
 const ajusteEstoque = (env, babyId, tipo, sinal) => env.DB
   .prepare('UPDATE supplies SET qty = MAX(0, qty + ? * COALESCE(per_use, 1)), updated_at = ? WHERE baby_id = ? AND auto_type = ?')
@@ -130,7 +177,7 @@ const ajusteEstoque = (env, babyId, tipo, sinal) => env.DB
 async function dadosDoBebe(env, babyId, since) {
   const [baby, members, events, growth, supplies, notes, appointments, vaccines] = await Promise.all([
     env.DB.prepare('SELECT * FROM babies WHERE id = ?').bind(babyId).first(),
-    env.DB.prepare('SELECT m.user_id, m.role, m.access, m.created_at, u.name, u.email FROM members m JOIN users u ON u.id = m.user_id WHERE m.baby_id = ? ORDER BY m.created_at').bind(babyId).all(),
+    env.DB.prepare('SELECT m.user_id, m.role, m.access, m.created_at, u.name, u.email, u.photo_v FROM members m JOIN users u ON u.id = m.user_id WHERE m.baby_id = ? ORDER BY m.created_at').bind(babyId).all(),
     env.DB.prepare('SELECT * FROM events WHERE baby_id = ? AND (start_at >= ? OR end_at IS NULL) ORDER BY start_at').bind(babyId, since).all(),
     env.DB.prepare('SELECT * FROM growth WHERE baby_id = ? ORDER BY date').bind(babyId).all(),
     env.DB.prepare('SELECT * FROM supplies WHERE baby_id = ? ORDER BY name').bind(babyId).all(),
@@ -139,8 +186,8 @@ async function dadosDoBebe(env, babyId, since) {
     env.DB.prepare('SELECT * FROM vaccines WHERE baby_id = ?').bind(babyId).all(),
   ]);
   return {
-    baby: parseBaby(baby),
-    members: members.results,
+    baby: await parseBaby(env, baby),
+    members: await Promise.all(members.results.map(async ({ photo_v, ...m }) => ({ ...m, photo: await fotoUrl(env, 'user', m.user_id, photo_v) }))),
     events: events.results.map(parseEvent),
     growth: growth.results,
     supplies: supplies.results,
@@ -151,13 +198,29 @@ async function dadosDoBebe(env, babyId, since) {
 }
 
 /* ---------------- Rotas ---------------- */
-async function api(req, env, url) {
+async function api(req, env, url, ctx) {
+  /** Dispara notificações sem atrasar a resposta. */
+  const avisar = (babyId, cat, msg, exceto) => ctx.waitUntil(notificar(env, babyId, cat, msg, exceto).catch(() => 0));
   await garantirEsquema(env);
   const path = url.pathname.replace(/^\/api/, '');
   const method = req.method;
   const body = ['POST', 'PUT'].includes(method) ? await req.json().catch(() => ({})) : {};
 
-  if (path === '/status' && method === 'GET') return json({ ok: true });
+  if (path === '/status' && method === 'GET') return json({ ok: true, push: true });
+
+  // Fotos: link assinado (gerado só para quem tem acesso) e cache longo, pois a versão muda a cada troca
+  const mf = path.match(/^\/photo\/(baby|user)\/([A-Za-z0-9-]+)$/);
+  if (mf && method === 'GET') {
+    const [, kind, id] = mf;
+    const v = url.searchParams.get('v') || '';
+    const s = url.searchParams.get('s') || '';
+    if (!iguais(s, (await hmac(env, `foto:${kind}:${id}:${v}`)).slice(0, 24))) return erro('Link inválido.', 403);
+    const f = await env.DB.prepare('SELECT mime, data FROM photos WHERE kind = ? AND id = ?').bind(kind, id).first();
+    if (!f) return erro('Foto não encontrada.', 404);
+    return new Response(Uint8Array.from(atob(f.data), (c) => c.charCodeAt(0)), {
+      headers: { 'content-type': f.mime, 'cache-control': 'private, max-age=31536000, immutable' },
+    });
+  }
 
   if (path === '/auth/signup' && method === 'POST') {
     const name = String(body.name ?? '').trim();
@@ -178,7 +241,7 @@ async function api(req, env, url) {
     const u = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
     const ok = u ? iguais((await hashSenha(String(body.password ?? ''), u.salt)).hash, u.hash) : false;
     if (!ok) return erro('E-mail ou senha inválidos.', 401);
-    return json({ token: await criarToken(env, u.id), user: publicUser(u) });
+    return json({ token: await criarToken(env, u.id), user: await publicUser(env, u) });
   }
 
   // ---- Autenticadas ----
@@ -188,7 +251,54 @@ async function api(req, env, url) {
 
   if (path === '/me' && method === 'GET') {
     const babies = await env.DB.prepare('SELECT b.*, m.role, m.access FROM members m JOIN babies b ON b.id = m.baby_id WHERE m.user_id = ? ORDER BY b.birth_date DESC').bind(me.id).all();
-    return json({ user: publicUser(me), babies: babies.results.map(parseBaby) });
+    return json({ user: await publicUser(env, me), babies: await Promise.all(babies.results.map((b) => parseBaby(env, b))) });
+  }
+
+  if (path === '/me/photo' && method === 'PUT') return json({ photo: await salvarFoto(env, 'user', me.id, body.photo) });
+  if (path === '/me/photo' && method === 'DELETE') {
+    await removerFoto(env, 'user', me.id);
+    return json({ ok: true });
+  }
+
+  /* ---- Notificações push ---- */
+  if (path === '/push' && method === 'GET') {
+    const prefs = await env.DB.prepare('SELECT data FROM notif_prefs WHERE user_id = ?').bind(me.id).first();
+    const n = (await env.DB.prepare('SELECT COUNT(*) AS n FROM push_subs WHERE user_id = ?').bind(me.id).first()).n;
+    return json({ publicKey: (await vapid(env)).publicKey, prefs: lerPrefs(prefs?.data), devices: n });
+  }
+  if (path === '/push/prefs' && method === 'PUT') {
+    const atual = lerPrefs((await env.DB.prepare('SELECT data FROM notif_prefs WHERE user_id = ?').bind(me.id).first())?.data);
+    const novo = { ...atual };
+    for (const k of CATEGORIAS) if (typeof body[k] === 'boolean') novo[k] = body[k];
+    if (body.silencio && typeof body.silencio === 'object') {
+      const hh = (x, d) => (/^\d{2}:\d{2}$/.test(String(x)) ? x : d);
+      novo.silencio = { on: !!body.silencio.on, de: hh(body.silencio.de, atual.silencio.de), ate: hh(body.silencio.ate, atual.silencio.ate) };
+    }
+    await env.DB.prepare('INSERT INTO notif_prefs (user_id, data) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET data = excluded.data').bind(me.id, JSON.stringify(novo)).run();
+    return json({ prefs: novo });
+  }
+  if (path === '/push/subscribe' && method === 'POST') {
+    const endpoint = String(body.endpoint ?? '');
+    const { p256dh, auth } = body.keys ?? {};
+    // PUSH_DEV_HTTP só existe em testes locais (wrangler dev --var PUSH_DEV_HTTP:1)
+    if (!(/^https:\/\//.test(endpoint) || (env.PUSH_DEV_HTTP && /^http:\/\/127\.0\.0\.1/.test(endpoint))) || !p256dh || !auth) return erro('Inscrição inválida.');
+    await env.DB.prepare('INSERT INTO push_subs (endpoint, user_id, p256dh, auth, tz, ua, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth, tz = excluded.tz, ua = excluded.ua')
+      .bind(endpoint, me.id, p256dh, auth, String(body.tz ?? '').slice(0, 64) || null, String(req.headers.get('user-agent') ?? '').slice(0, 200), agora()).run();
+    return json({ ok: true });
+  }
+  if (path === '/push/unsubscribe' && method === 'POST') {
+    await env.DB.prepare('DELETE FROM push_subs WHERE endpoint = ? AND user_id = ?').bind(String(body.endpoint ?? ''), me.id).run();
+    return json({ ok: true });
+  }
+  if (path === '/push/test' && method === 'POST') {
+    const subs = (await env.DB.prepare('SELECT * FROM push_subs WHERE user_id = ?').bind(me.id).all()).results;
+    let ok = 0;
+    for (const s of subs) {
+      const st = await sendPush(env, s, { title: '🔔 Notificações ativadas', body: `Tudo certo, ${me.name.split(' ')[0]}! Você vai receber os avisos do Ninho neste aparelho.`, tag: 'teste', url: './#familia', icon: './icon-192.png' });
+      if (st === 404 || st === 410) await env.DB.prepare('DELETE FROM push_subs WHERE endpoint = ?').bind(s.endpoint).run();
+      else if (st < 300) ok++;
+    }
+    return json({ enviados: ok, aparelhos: subs.length });
   }
 
   if (path === '/me' && method === 'PUT') {
@@ -236,6 +346,7 @@ async function api(req, env, url) {
       env.DB.prepare('UPDATE invites SET used_by = ? WHERE code = ?').bind(me.id, code),
       ...(ja ? [] : [env.DB.prepare('INSERT INTO members (baby_id, user_id, role, access, created_at) VALUES (?, ?, ?, ?, ?)').bind(inv.baby_id, me.id, role, inv.access, agora())]),
     ]);
+    if (!ja) avisar(inv.baby_id, 'familia', { title: '👋 Novo cuidador', body: `${me.name} entrou como ${nomePapel(role)}.`, aba: 'familia' }, me.id);
     return json({ babyId: inv.baby_id });
   }
 
@@ -263,10 +374,19 @@ async function api(req, env, url) {
     return json({ ok: true });
   }
 
+  if (sub === '/photo') {
+    if (!pode('admin')) return erro('Somente administradores trocam a foto do bebê.', 403);
+    if (method === 'PUT') return json({ photo: await salvarFoto(env, 'baby', babyId, body.photo) });
+    if (method === 'DELETE') {
+      await removerFoto(env, 'baby', babyId);
+      return json({ ok: true });
+    }
+  }
+
   if (sub === '' && method === 'DELETE') {
     if (!pode('admin')) return erro('Somente administradores excluem o bebê.', 403);
     await env.DB.batch(['events', 'growth', 'supplies', 'notes', 'appointments', 'vaccines', 'invites', 'members'].map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE baby_id = ?`).bind(babyId))
-      .concat(env.DB.prepare('DELETE FROM babies WHERE id = ?').bind(babyId)));
+      .concat(env.DB.prepare('DELETE FROM babies WHERE id = ?').bind(babyId), env.DB.prepare("DELETE FROM photos WHERE kind = 'baby' AND id = ?").bind(babyId)));
     return json({ ok: true });
   }
 
@@ -338,6 +458,37 @@ async function api(req, env, url) {
     return json({ ok: true, inseridos: stmts.length });
   }
 
+  /** Notificações disparadas pelas alterações (vão para os outros cuidadores, conforme as preferências de cada um). */
+  async function aposGravar(res, metodo, item, antes, antesEstoque) {
+    const bb = await env.DB.prepare('SELECT name FROM babies WHERE id = ?').bind(babyId).first();
+    const nome = bb.name.split(' ')[0];
+    const quem = `${me.name.split(' ')[0]} (${nomePapel(v.role)})`;
+    if (res === 'events') {
+      const data = typeof item.data === 'string' ? JSON.parse(item.data || '{}') : item.data;
+      const terminou = metodo === 'PUT' && antes && !antes.end_at && item.end_at;
+      if (metodo === 'POST' || terminou) avisar(babyId, 'atividade', { title: nome, body: `${nome} ${descreverEvento(item, data)} · por ${quem}`, tag: `ev-${item.id}` }, me.id);
+    }
+    if (res === 'notes' && metodo === 'POST') avisar(babyId, 'recados', { title: `📌 Recado de ${quem}`, body: String(item.text).slice(0, 180), aba: 'mural', tag: `nota-${item.id}` }, me.id);
+    if (res === 'appointments' && metodo === 'POST') avisar(babyId, 'consultas', { title: `🩺 ${item.title}`, body: `Agendada por ${quem} para ${new Date(item.date).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })}.`, aba: 'saude' }, me.id);
+    // Estoque: avisa quando um item cruza o mínimo (por ajuste manual ou baixa automática de fralda)
+    const anterior = antesEstoque ?? (res === 'supplies' && antes ? { [antes.id]: antes } : null);
+    if (!anterior) return;
+    const depois = await estoque(env, babyId);
+    for (const s of Object.values(depois)) {
+      const a = anterior[s.id];
+      if (!a) continue;
+      const acabou = s.qty <= 0 && a.qty > 0;
+      const baixou = s.qty < s.min_qty && a.qty >= a.min_qty;
+      if (acabou || baixou) {
+        avisar(babyId, 'estoque', {
+          title: acabou ? `🛒 ${s.name} acabou` : `🛒 ${s.name} está acabando`,
+          body: `Restam ${s.qty} ${s.unit || 'un'} (mínimo ${s.min_qty}).${s.buyer_id ? '' : ' Ninguém assumiu a compra ainda.'}`,
+          aba: 'mural', tag: `estoque-${s.id}`,
+        });
+      }
+    }
+  }
+
   // CRUD genérico dos recursos filhos
   const mr = sub.match(/^\/(events|growth|supplies|notes|appointments)(?:\/([A-Za-z0-9_-]+))?$/);
   if (mr) {
@@ -353,17 +504,21 @@ async function api(req, env, url) {
       const t = agora();
       const stmts = [env.DB.prepare(`INSERT INTO ${res} (id, baby_id, user_id, created_at, updated_at, ${cols.join(', ')}) VALUES (?, ?, ?, ?, ?, ${cols.map(() => '?').join(', ')})`)
         .bind(id, babyId, me.id, t, t, ...Object.values(vals))];
+      const antesEstoque = res === 'events' && body.type === 'fralda' ? await estoque(env, babyId) : null;
       if (res === 'events' && body.type === 'fralda') stmts.push(ajusteEstoque(env, babyId, 'fralda', -1));
       await env.DB.batch(stmts);
+      await aposGravar(res, 'POST', { id, ...body }, null, antesEstoque);
       return json({ id });
     }
     if (itemId && method === 'PUT') {
       const vals = limparValores(res, body);
       const cols = Object.keys(vals);
       if (!cols.length) return erro('Nada para atualizar.');
+      const antes = await env.DB.prepare(`SELECT * FROM ${res} WHERE id = ? AND baby_id = ?`).bind(itemId, babyId).first();
       const r = await env.DB.prepare(`UPDATE ${res} SET ${cols.map((c) => `${c} = ?`).join(', ')}, updated_at = ? WHERE id = ? AND baby_id = ?`)
         .bind(...Object.values(vals), agora(), itemId, babyId).run();
       if (!r.meta.changes) return erro('Registro não encontrado.', 404);
+      await aposGravar(res, 'PUT', { ...antes, ...body }, antes, null);
       return json({ ok: true });
     }
     if (itemId && method === 'DELETE') {
@@ -380,15 +535,22 @@ async function api(req, env, url) {
 }
 
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     const url = new URL(req.url);
     if (url.pathname.startsWith('/api/')) {
       try {
-        return await api(req, env, url);
+        return await api(req, env, url, ctx);
       } catch (e) {
-        return erro(e instanceof Error ? e.message : 'Erro interno.', 500);
+        return erro(e instanceof Error ? e.message : 'Erro interno.', e?.status || 500);
       }
     }
     return env.ASSETS.fetch(req);
+  },
+  /** Cron Trigger (wrangler.toml): lembretes de mamada, cronômetro esquecido e consultas. */
+  async scheduled(_event, env, ctx) {
+    ctx.waitUntil((async () => {
+      await garantirEsquema(env);
+      await lembretes(env);
+    })());
   },
 };

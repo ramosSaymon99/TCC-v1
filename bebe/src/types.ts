@@ -9,7 +9,7 @@ export interface Routine {
   feedIntervalMin?: number;
 }
 
-export interface User { id: string; name: string; email: string }
+export interface User { id: string; name: string; email: string; photo?: string | null }
 
 export interface Baby {
   id: string;
@@ -19,12 +19,13 @@ export interface Baby {
   color?: string | null;
   routine?: Routine | null;
   notes?: string | null;
+  photo?: string | null;
   created_by?: string;
   role?: string;
   access?: Access;
 }
 
-export interface Member { user_id: string; role: string; access: Access; name: string; email: string; created_at: string }
+export interface Member { user_id: string; role: string; access: Access; name: string; email: string; created_at: string; photo?: string | null }
 
 export interface EventData {
   side?: 'E' | 'D' | 'ambos';
@@ -75,3 +76,13 @@ export interface BabyData {
 }
 
 export type Resource = 'events' | 'growth' | 'supplies' | 'notes' | 'appointments';
+
+export interface NotifPrefs {
+  atividade: boolean;
+  recados: boolean;
+  lembretes: boolean;
+  estoque: boolean;
+  consultas: boolean;
+  familia: boolean;
+  silencio: { on: boolean; de: string; ate: string };
+}

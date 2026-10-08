@@ -255,3 +255,25 @@ textarea.input { min-height: 80px; resize: vertical; }
 hr.sep { border: 0; border-top: 1px solid var(--line); margin: 6px 0; }
 .recharts-text { fill: var(--ink-3); font-size: 11px; }
 .recharts-cartesian-grid line { stroke: var(--line); }
+
+/* Fotos de perfil */
+.photo-pick { position: relative; border: 0; background: none; padding: 0; cursor: pointer; border-radius: 50%; }
+.photo-pick:disabled { cursor: default; opacity: .7; }
+.photo-cam { position: absolute; right: -2px; bottom: -2px; width: 28px; height: 28px; border-radius: 50%; background: var(--brand); color: #fff; display: grid; place-items: center; border: 2px solid var(--surface); }
+.av-stack { display: flex; }
+.av-stack > .av { margin-left: -8px; border: 2px solid var(--surface); }
+.av-stack > .av:first-child { margin-left: 0; }
+
+/* Notificações */
+.bell { position: relative; }
+.bell .badge { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--bad); color: #fff; font-size: 11px; font-weight: 900; display: grid; place-items: center; border: 2px solid var(--bg); }
+.notif { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); align-items: flex-start; }
+.notif:last-child { border-bottom: 0; }
+.notif.novo { background: linear-gradient(90deg, var(--brand-soft), transparent 70%); margin: 0 -16px; padding: 10px 16px; }
+.switch { position: relative; width: 46px; height: 28px; flex-shrink: 0; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch span { position: absolute; inset: 0; background: var(--line); border-radius: 14px; transition: .15s; cursor: pointer; }
+.switch span::before { content: ''; position: absolute; left: 3px; top: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: .15s; }
+.switch input:checked + span { background: var(--brand); }
+.switch input:checked + span::before { transform: translateX(18px); }
+.switch input:disabled + span { opacity: .5; cursor: default; }

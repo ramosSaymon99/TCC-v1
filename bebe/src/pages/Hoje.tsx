@@ -8,6 +8,7 @@ import { DIA, MIN, addDays, cronometro, dataCurta, diaSemana, duracao, haQuanto,
 import type { BabyEvent, EventType } from '../types';
 import { Delta, Empty } from '../components/ui';
 import { InsightList } from '../components/Insights';
+import { Avatar } from '../components/Avatar';
 
 const RAPIDOS: EventType[] = ['mamada', 'mamadeira', 'sono', 'fralda', 'remedio', 'banho', 'alimentacao', 'outro'];
 
@@ -62,7 +63,7 @@ export function Hoje() {
     <div className="page">
       <div className="between" style={{ alignItems: 'flex-end' }}>
         <div>
-          <p className="faint">{meuPapel.emoji} Olá, {user.name.split(' ')[0]} · {meuPapel.label}</p>
+          <p className="faint">Olá, {user.name.split(' ')[0]} · {meuPapel.emoji} {meuPapel.label}</p>
           <h1>{baby.name.split(' ')[0]} tem {id.texto}</h1>
         </div>
         <span className="chip brand hide-mob">Você registrou {meusHoje} hoje</span>
@@ -150,6 +151,7 @@ export function Hoje() {
                       <div style={{ fontWeight: 700 }}>{descreve(e, agora)}</div>
                       <div className="faint">{nome(e.user_id)}{e.note ? ` · ${e.note}` : ''}</div>
                     </div>
+                    {(() => { const m = data.members.find((x) => x.user_id === e.user_id); return m ? <Avatar photo={m.photo} emoji={papel(m.role).emoji} size={28} /> : null; })()}
                   </div>
                 ))}
               </div>

@@ -7,6 +7,7 @@ import { ehNoturno, estatisticas, fimEvento, mediaDiaria, referencias, serieDiar
 import { DIA, MIN, addDays, dataCurta, diaSemana, duracao, hm, idade, startOfDay, t } from '../lib/time';
 import { Delta, Empty, Seg } from '../components/ui';
 import { descreve } from './Hoje';
+import { Avatar } from '../components/Avatar';
 
 type Periodo = 'dia' | 'semana' | 'mes';
 const N: Record<Periodo, number> = { dia: 1, semana: 7, mes: 30 };
@@ -218,7 +219,8 @@ function Cuidadores({ dias }: { dias: Stats[] }) {
         <div className="stack" style={{ gap: 10 }}>
           {lista.map(({ m, n }) => (
             <div key={m.user_id} className="hbar">
-              <span style={{ width: 110, fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{papel(m.role).emoji} {m.user_id === user.id ? 'Você' : m.name.split(' ')[0]}</span>
+              <Avatar photo={m.photo} emoji={papel(m.role).emoji} size={28} />
+              <span style={{ width: 84, fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.user_id === user.id ? 'Você' : m.name.split(' ')[0]}</span>
               <div className="track"><div className="fill" style={{ width: `${(n / soma) * 100}%`, background: 'var(--brand)' }} /></div>
               <span className="num" style={{ width: 44, textAlign: 'right', fontWeight: 800, fontSize: 13 }}>{Math.round((n / soma) * 100)}%</span>
             </div>

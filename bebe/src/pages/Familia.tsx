@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Copy, Database, LogOut, Pencil, Plus, Share2, Trash2, UserPlus, X } from 'lucide-react';
+import { Bell, Copy, Database, LogOut, Pencil, Plus, Share2, Trash2, UserPlus, X } from 'lucide-react';
+import { Avatar, PhotoPicker } from '../components/Avatar';
 import { useApp } from '../ctx';
 import { api, localCriarUsuarioDemo } from '../lib/api';
 import { ACESSOS, CORES_BEBE, PAPEIS, papel } from '../lib/constants';
@@ -48,7 +49,7 @@ export function Familia() {
 
       <div className="card">
         <div className="row" style={{ gap: 14, alignItems: 'flex-start' }}>
-          <div className="av lg" style={{ background: baby.color || 'var(--brand)', borderColor: 'transparent' }}>{baby.sex === 'M' ? '👦' : baby.sex === 'F' ? '👧' : '👶'}</div>
+          <Avatar photo={baby.photo} emoji={baby.sex === 'M' ? '👦' : baby.sex === 'F' ? '👧' : '👶'} color={baby.color || 'var(--brand)'} size={72} ring />
           <div className="grow">
             <h2 style={{ fontSize: 20 }}>{baby.name}</h2>
             <p className="muted">{id.texto} · nasceu em {dataBr(baby.birth_date)}</p>
@@ -92,7 +93,7 @@ export function Familia() {
           const share = soma && c ? c.total / soma : 0;
           return (
             <div key={m.user_id} className="list-item" style={{ alignItems: 'flex-start' }}>
-              <div className="av">{papel(m.role).emoji}</div>
+              <Avatar photo={m.photo} emoji={papel(m.role).emoji} size={44} />
               <div className="grow">
                 <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
                   <b>{m.name}{m.user_id === user.id ? ' (você)' : ''}</b>
@@ -111,11 +112,16 @@ export function Familia() {
       <div className="grid md2">
         <div className="card stack">
           <h2>Meu perfil</h2>
-          <p className="muted">{user.name} · {user.email}</p>
+          <div className="row"><Avatar photo={user.photo} emoji={papel(data.role).emoji} size={48} /><p className="muted">{user.name}<br />{user.email}</p></div>
           <div className="wrap-row">
             <button className="btn sm" onClick={() => setPerfil(true)}><Pencil size={14} /> Nome e senha</button>
             <button className="btn sm" onClick={sair}><LogOut size={14} /> Sair</button>
           </div>
+        </div>
+        <div className="card stack">
+          <h2>Notificações</h2>
+          <p className="muted">Avisos no celular de mamada atrasada, recados, materiais acabando, consultas e novos cuidadores.</p>
+          <div className="wrap-row"><button className="btn sm primary" onClick={app.abrirConfigNotif}><Bell size={14} /> Configurar notificações</button></div>
         </div>
         <div className="card stack">
           <h2>Dados</h2>
@@ -144,6 +150,11 @@ function BebeSheet({ onClose }: { onClose: () => void }) {
   const [f, setF] = useState({ name: b.name, birth_date: b.birth_date, sex: b.sex ?? null, color: b.color ?? CORES_BEBE[0], notes: b.notes ?? '' });
   return (
     <Sheet title="Perfil do bebê" onClose={onClose} footer={<button className="btn primary" onClick={async () => (await act(async () => { await api.updateBaby(b.id, f); await reloadMe(b.id); }, 'Perfil atualizado')) && onClose()}>Salvar</button>}>
+      <PhotoPicker
+        photo={b.photo} emoji={f.sex === 'M' ? '👦' : f.sex === 'F' ? '👧' : '👶'} color={f.color}
+        onPick={(foto) => act(async () => { await api.setBabyPhoto(b.id, foto); await reloadMe(b.id); }, 'Foto atualizada 📸')}
+        onRemove={() => act(async () => { await api.removeBabyPhoto(b.id); await reloadMe(b.id); }, 'Foto removida')}
+      />
       <Field label="Nome"><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
       <Field label="Data de nascimento"><input className="input" type="date" value={f.birth_date} onChange={(e) => setF({ ...f, birth_date: e.target.value })} /></Field>
       <Field label="Sexo"><Choice value={f.sex ?? undefined} onChange={(v) => setF({ ...f, sex: v })} options={[{ v: 'F', l: 'Menina' }, { v: 'M', l: 'Menino' }]} /></Field>
@@ -244,7 +255,7 @@ function MembroSheet({ m, onClose }: { m: Member; onClose: () => void }) {
   const [access, setAccess] = useState<Access>(m.access);
   const eu = m.user_id === user.id;
   return (
-    <Sheet title={`${papel(m.role).emoji} ${m.name}`} onClose={onClose} footer={<>
+    <Sheet title={<span className="row"><Avatar photo={m.photo} emoji={papel(m.role).emoji} size={36} /> {m.name}</span>} onClose={onClose} footer={<>
       <button className="btn danger" onClick={async () => confirm(eu ? `Deixar de acompanhar ${data.baby.name}?` : `Remover ${m.name}?`) && (await act(async () => { await api.removeMember(data.baby.id, m.user_id); if (eu) await reloadMe(); }, eu ? 'Você saiu' : 'Cuidador removido')) && onClose()}>{eu ? 'Sair do bebê' : 'Remover'}</button>
       <button className="btn primary" onClick={async () => (await act(() => api.updateMember(data.baby.id, m.user_id, podeAdmin ? { role, access } : { role }), 'Vínculo atualizado')) && onClose()}>Salvar</button>
     </>}>
@@ -256,12 +267,17 @@ function MembroSheet({ m, onClose }: { m: Member; onClose: () => void }) {
 }
 
 function PerfilSheet({ onClose }: { onClose: () => void }) {
-  const { user, act, reloadMe } = useApp();
+  const { user, act, reloadMe, data } = useApp();
   const [name, setName] = useState(user.name);
   const [senha, setSenha] = useState('');
   const [nova, setNova] = useState('');
   return (
     <Sheet title="Meu perfil" onClose={onClose} footer={<button className="btn primary" onClick={async () => (await act(async () => { await api.updateMe({ name, ...(nova ? { password: senha, newPassword: nova } : {}) }); await reloadMe(); }, 'Perfil atualizado')) && onClose()}>Salvar</button>}>
+      <PhotoPicker
+        photo={user.photo} emoji={papel(data.role).emoji}
+        onPick={(foto) => act(async () => { await api.setMyPhoto(foto); await reloadMe(); }, 'Sua foto foi atualizada 📸')}
+        onRemove={() => act(async () => { await api.removeMyPhoto(); await reloadMe(); }, 'Foto removida')}
+      />
       <Field label="Nome"><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></Field>
       <div className="grid g2">
         <Field label="Senha atual"><input className="input" type="password" value={senha} onChange={(e) => setSenha(e.target.value)} autoComplete="current-password" /></Field>

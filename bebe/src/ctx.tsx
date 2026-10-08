@@ -22,6 +22,7 @@ export interface Ctx {
   abrirRegistro: (tipo: EventType, ev?: BabyEvent) => void;
   trocarBebe: (id: string) => void;
   novoBebe: () => void;
+  abrirConfigNotif: () => void;
   sair: () => void;
 }
 export const AppCtx = createContext<Ctx>(null as unknown as Ctx);

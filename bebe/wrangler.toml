@@ -10,6 +10,10 @@ preview_urls = true
 [build]
 command = "npm install && npm run build:single"
 
+# Lembretes (mamada atrasada, cronômetro esquecido, consultas) a cada 15 minutos
+[triggers]
+crons = ["*/15 * * * *"]
+
 [assets]
 directory = "./cloudflare-dist"
 binding = "ASSETS"
