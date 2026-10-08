@@ -2,6 +2,8 @@
 
 Sistema web de gestão comercial para pequenos negócios de tecnologia (treinamentos de informática, manutenção de computadores e criação de sites), desenvolvido como TCC.
 
+> Este repositório também traz o **[Vértice](vertice/README.md)**, um app de agendamento online para barbearia feito para o portfólio. Ele fica na pasta `vertice/` e é independente do TechGest.
+
 ## Telas
 
 | # | Tela | Destaques |
