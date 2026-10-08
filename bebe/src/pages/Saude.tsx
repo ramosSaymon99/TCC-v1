@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Plus, Trash2 } from 'lucide-react';
+import { FileText, Plus, Trash2 } from 'lucide-react';
 import { useApp } from '../ctx';
 import { api } from '../lib/api';
 import { TIPOS, VACINAS } from '../lib/constants';
@@ -10,7 +10,7 @@ import type { Appointment, Growth } from '../types';
 import { Empty, Field, Seg, Sheet } from '../components/ui';
 
 export function Saude() {
-  const { data, act, podeEditar, agora, nome, abrirRegistro } = useApp();
+  const { data, act, podeEditar, agora, nome, abrirRegistro, abrirRelatorio } = useApp();
   const [aba, setAba] = useState<'crescimento' | 'consultas' | 'vacinas' | 'remedios'>('crescimento');
   const [gEdit, setGEdit] = useState<Growth | 'novo' | null>(null);
   const [cEdit, setCEdit] = useState<Appointment | 'novo' | null>(null);
@@ -34,9 +34,12 @@ export function Saude() {
 
   return (
     <div className="page">
-      <div>
-        <h1>Saúde</h1>
-        <p className="faint">Crescimento, consultas, vacinas e remédios de {baby.name.split(' ')[0]}</p>
+      <div className="between" style={{ flexWrap: 'wrap' }}>
+        <div>
+          <h1>Saúde</h1>
+          <p className="faint">Crescimento, consultas, vacinas e remédios de {baby.name.split(' ')[0]}</p>
+        </div>
+        <button className="btn primary" onClick={abrirRelatorio}><FileText size={16} /> Relatório para o pediatra</button>
       </div>
 
       <div className="grid g4">

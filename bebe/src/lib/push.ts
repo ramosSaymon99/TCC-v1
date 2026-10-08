@@ -45,3 +45,25 @@ export async function desativarPush() {
   await api.pushUnsubscribe(sub.endpoint).catch(() => undefined);
   await sub.unsubscribe().catch(() => undefined);
 }
+
+/* ---- Sessão para ações direto da notificação e contador no ícone (tela inicial) ---- */
+const CACHE = 'ninho-sessao';
+
+/** Guarda a sessão para o service worker executar ações ("Acordou", "Eu compro") sem abrir o app. */
+export async function salvarSessaoSW(token: string, userId: string) {
+  try { await (await caches.open(CACHE)).put('./__sessao', new Response(JSON.stringify({ token, userId }))); } catch { /* sem Cache Storage */ }
+}
+export async function limparSessaoSW() {
+  try { await caches.delete(CACHE); } catch { /* sem Cache Storage */ }
+  definirBadge(0);
+}
+
+/** Número no ícone do app (iOS 16.4+ instalado, Android, Windows, macOS). */
+export async function definirBadge(n: number) {
+  try { await (await caches.open(CACHE)).put('./__badge', new Response(String(n))); } catch { /* sem Cache Storage */ }
+  const nav = navigator as Navigator & { setAppBadge?: (n?: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
+  try {
+    if (n > 0) await nav.setAppBadge?.(n);
+    else await nav.clearAppBadge?.();
+  } catch { /* plataforma sem contador */ }
+}

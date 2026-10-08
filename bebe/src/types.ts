@@ -84,5 +84,6 @@ export interface NotifPrefs {
   estoque: boolean;
   consultas: boolean;
   familia: boolean;
+  cronometro: boolean;
   silencio: { on: boolean; de: string; ate: string };
 }

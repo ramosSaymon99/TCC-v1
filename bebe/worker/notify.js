@@ -11,6 +11,7 @@ export const PREFS_PADRAO = {
   estoque: true,
   consultas: true,
   familia: true, // alguém entrou no perfil do bebê
+  cronometro: true, // sono/mamada em andamento fica fixo na tela de bloqueio (estilo "atividade ao vivo")
   silencio: { on: false, de: '22:00', ate: '06:00' },
 };
 
@@ -40,6 +41,13 @@ export const lerPrefs = (raw) => {
 };
 
 const fmtDur = (min) => (min < 60 ? `${Math.round(min)} min` : `${Math.floor(min / 60)}h${String(Math.round(min % 60)).padStart(2, '0')}`);
+const diaLocal = (iso, tz) => {
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: tz || 'America/Sao_Paulo' }).format(new Date(iso));
+  } catch {
+    return iso.slice(0, 10);
+  }
+};
 const hora = (iso, tz) => {
   try {
     return new Intl.DateTimeFormat('pt-BR', { timeZone: tz || 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
@@ -75,12 +83,23 @@ export async function notificar(env, babyId, categoria, msg, exceto = null) {
   ).bind(babyId).all()).results;
   const baby = await env.DB.prepare('SELECT id, name, photo_v FROM babies WHERE id = ?').bind(babyId).first();
   if (!baby) return 0;
+  // Formato pensado para a tela de bloqueio: título curto (≤ ~40 car.), corpo em até 2–3 linhas,
+  // agrupamento por `tag` (substitui em vez de empilhar), horário do fato (`ts`), botões de ação e prioridade.
   const payload = {
     title: msg.title ?? baby.name,
     body: msg.body,
     tag: msg.tag ?? `${categoria}-${babyId}`,
-    url: `./?baby=${babyId}#${msg.aba ?? 'hoje'}`,
-    icon: msg.icon ?? './icon-192.png',
+    url: `./?baby=${babyId}${msg.acao ? `&acao=${msg.acao}` : ''}#${msg.aba ?? 'hoje'}`,
+    icon: './icon-192.png',
+    image: msg.image,
+    ts: msg.ts ?? Date.now(),
+    silent: !!msg.silent,
+    sticky: !!msg.sticky,
+    renotify: msg.renotify ?? !msg.silent,
+    actions: msg.actions ?? [],
+    acoes: msg.acoes ?? {},
+    categoria,
+    babyId,
   };
   let enviados = 0;
   await Promise.all(subs.map(async (s) => {
@@ -133,9 +152,12 @@ export async function lembretes(env) {
         if (min > max && min < max + 180 && (await primeiraVez(env, `feed:${ult.id}`))) {
           const dormindo = await env.DB.prepare("SELECT 1 FROM events WHERE baby_id = ? AND type = 'sono' AND end_at IS NULL").bind(b.id).first();
           await notificar(env, b.id, 'lembretes', {
-            title: `🍼 ${nome}: hora da mamada`,
-            body: `Última mamada há ${fmtDur(min)} (às ${hora(ult.start_at, tz)}). O intervalo planejado é de até ${fmtDur(max)}.${dormindo ? ` ${nome} está dormindo.` : ''}`,
+            title: `🍼 ${nome} · hora da mamada`,
+            body: `Última às ${hora(ult.start_at, tz)} (há ${fmtDur(min)}). Planejado: até ${fmtDur(max)}.${dormindo ? ' Está dormindo.' : ''}`,
             tag: `feed-${b.id}`,
+            sticky: true,
+            actions: [{ action: 'registrar', title: '🍼 Registrar mamada' }, { action: 'abrir', title: 'Ver' }],
+            acoes: { registrar: { url: `./?baby=${b.id}&acao=mamada#hoje` } },
           });
         }
       }
@@ -147,9 +169,13 @@ export async function lembretes(env) {
       const min = (agora - Date.parse(e.start_at)) / 60000;
       if ((e.type === 'mamada' ? min > 75 : min > 600) && (await primeiraVez(env, `timer:${e.id}`))) {
         await notificar(env, b.id, 'lembretes', {
-          title: `⏱️ Cronômetro de ${e.type === 'sono' ? 'sono' : 'mamada'} ainda rodando`,
-          body: `Começou às ${hora(e.start_at, tz)} (há ${fmtDur(min)}). Toque para encerrar ou corrigir o horário.`,
+          title: `⏱️ ${nome} · cronômetro ainda ligado`,
+          body: `${e.type === 'sono' ? 'Sono' : 'Mamada'} desde ${hora(e.start_at, tz)} (há ${fmtDur(min)}). Esqueceu de encerrar?`,
           tag: `timer-${e.id}`,
+          ts: Date.parse(e.start_at),
+          sticky: true,
+          actions: [{ action: 'encerrar', title: e.type === 'sono' ? '☀️ Acordou agora' : '✔️ Encerrar agora' }, { action: 'abrir', title: 'Corrigir' }],
+          acoes: { encerrar: { api: { method: 'PUT', path: `/babies/${b.id}/events/${e.id}`, body: { end_at: '$agora' } } } },
         });
       }
     }
@@ -161,10 +187,13 @@ export async function lembretes(env) {
       const chave = h <= 2 ? `appt2:${a.id}` : `appt24:${a.id}`;
       if (await primeiraVez(env, chave)) {
         await notificar(env, b.id, 'consultas', {
-          title: `🩺 ${a.title}`,
-          body: `${h <= 2 ? 'Daqui a pouco' : `Em ${Math.round(h)} h`}, às ${hora(a.date, tz)}${a.doctor ? ` · ${a.doctor}` : ''}. ${a.note ?? ''}`.trim(),
+          title: `🩺 ${nome} · ${h <= 2 ? 'consulta em breve' : diaLocal(a.date, tz) === diaLocal(new Date(agora).toISOString(), tz) ? 'consulta hoje' : 'consulta amanhã'}`,
+          body: `${a.title} às ${hora(a.date, tz)}${a.doctor ? ` · ${a.doctor}` : ''}. Leve o relatório do Ninho.`,
           tag: `appt-${a.id}`,
           aba: 'saude',
+          ts: Date.parse(a.date),
+          actions: [{ action: 'relatorio', title: '📄 Gerar relatório' }, { action: 'abrir', title: 'Ver' }],
+          acoes: { relatorio: { url: `./?baby=${b.id}&acao=relatorio#saude` } },
         });
       }
     }

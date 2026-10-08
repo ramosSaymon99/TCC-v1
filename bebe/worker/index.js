@@ -346,7 +346,7 @@ async function api(req, env, url, ctx) {
       env.DB.prepare('UPDATE invites SET used_by = ? WHERE code = ?').bind(me.id, code),
       ...(ja ? [] : [env.DB.prepare('INSERT INTO members (baby_id, user_id, role, access, created_at) VALUES (?, ?, ?, ?, ?)').bind(inv.baby_id, me.id, role, inv.access, agora())]),
     ]);
-    if (!ja) avisar(inv.baby_id, 'familia', { title: '👋 Novo cuidador', body: `${me.name} entrou como ${nomePapel(role)}.`, aba: 'familia' }, me.id);
+    if (!ja) avisar(inv.baby_id, 'familia', { title: `👋 ${me.name.split(' ')[0]} entrou na família`, body: `${me.name} agora acompanha como ${nomePapel(role)}.`, aba: 'familia' }, me.id);
     return json({ babyId: inv.baby_id });
   }
 
@@ -466,10 +466,36 @@ async function api(req, env, url, ctx) {
     if (res === 'events') {
       const data = typeof item.data === 'string' ? JSON.parse(item.data || '{}') : item.data;
       const terminou = metodo === 'PUT' && antes && !antes.end_at && item.end_at;
-      if (metodo === 'POST' || terminou) avisar(babyId, 'atividade', { title: nome, body: `${nome} ${descreverEvento(item, data)} · por ${quem}`, tag: `ev-${item.id}` }, me.id);
+      const cron = item.type === 'sono' || item.type === 'mamada';
+      // Registro comum: aviso discreto (sem som), um por bebê — o mais recente substitui o anterior
+      // (o fim de sono/mamada cronometrados já é avisado pela categoria "cronômetro", sem duplicar)
+      if (metodo === 'POST' && !(cron && !item.end_at)) {
+        avisar(babyId, 'atividade', { title: `${nome} · ${descreverEvento(item, data).split(' (')[0]}`, body: `${descreverEvento(item, data)} · por ${quem}`, tag: `ativ-${babyId}`, silent: true, ts: Date.parse(item.end_at || item.start_at) }, me.id);
+      }
+      // Cronômetro "ao vivo": fica fixo na tela de bloqueio de todos (inclusive de quem iniciou) e é substituído ao terminar
+      if (cron && metodo === 'POST' && !item.end_at) {
+        const desde = new Date(item.start_at).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+        avisar(babyId, 'cronometro', {
+          title: item.type === 'sono' ? `😴 ${nome} está dormindo` : `🤱 ${nome} está mamando`,
+          body: `Desde ${desde}${item.type === 'mamada' && data?.side ? ` · ${({ E: 'peito esquerdo', D: 'peito direito', ambos: 'ambos os peitos' })[data.side]}` : ''} · por ${quem}`,
+          tag: `timer-${item.id}`, ts: Date.parse(item.start_at), sticky: true, silent: true,
+          actions: [{ action: 'encerrar', title: item.type === 'sono' ? '☀️ Acordou' : '✔️ Terminou' }, { action: 'abrir', title: 'Abrir' }],
+          acoes: { encerrar: { api: { method: 'PUT', path: `/babies/${babyId}/events/${item.id}`, body: { end_at: '$agora' } } } },
+        });
+      }
+      if (cron && terminou) {
+        const h = (iso) => new Date(iso).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+        const min = Math.max(0, Math.round((Date.parse(item.end_at) - Date.parse(item.start_at)) / 60000));
+        const dur = min < 60 ? `${min} min` : `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}`;
+        avisar(babyId, 'cronometro', {
+          title: item.type === 'sono' ? `☀️ ${nome} acordou` : `✔️ ${nome} terminou de mamar`,
+          body: `${item.type === 'sono' ? 'Dormiu' : 'Mamou'} ${dur} (${h(item.start_at)}–${h(item.end_at)}) · por ${quem}`,
+          tag: `timer-${item.id}`, silent: true, ts: Date.parse(item.end_at),
+        });
+      }
     }
-    if (res === 'notes' && metodo === 'POST') avisar(babyId, 'recados', { title: `📌 Recado de ${quem}`, body: String(item.text).slice(0, 180), aba: 'mural', tag: `nota-${item.id}` }, me.id);
-    if (res === 'appointments' && metodo === 'POST') avisar(babyId, 'consultas', { title: `🩺 ${item.title}`, body: `Agendada por ${quem} para ${new Date(item.date).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })}.`, aba: 'saude' }, me.id);
+    if (res === 'notes' && metodo === 'POST') avisar(babyId, 'recados', { title: `📌 ${nome} · recado de ${me.name.split(' ')[0]}`, body: String(item.text).slice(0, 140), aba: 'mural', tag: `nota-${item.id}` }, me.id);
+    if (res === 'appointments' && metodo === 'POST') avisar(babyId, 'consultas', { title: `🩺 ${nome} · consulta agendada`, body: `${item.title} em ${new Date(item.date).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })} · por ${quem}`, aba: 'saude', ts: Date.parse(item.date) }, me.id);
     // Estoque: avisa quando um item cruza o mínimo (por ajuste manual ou baixa automática de fralda)
     const anterior = antesEstoque ?? (res === 'supplies' && antes ? { [antes.id]: antes } : null);
     if (!anterior) return;
@@ -481,9 +507,13 @@ async function api(req, env, url, ctx) {
       const baixou = s.qty < s.min_qty && a.qty >= a.min_qty;
       if (acabou || baixou) {
         avisar(babyId, 'estoque', {
-          title: acabou ? `🛒 ${s.name} acabou` : `🛒 ${s.name} está acabando`,
-          body: `Restam ${s.qty} ${s.unit || 'un'} (mínimo ${s.min_qty}).${s.buyer_id ? '' : ' Ninguém assumiu a compra ainda.'}`,
+          title: `🛒 ${s.name.slice(0, 28)} ${acabou ? 'acabou' : 'acabando'}`,
+          body: `Restam ${s.qty} ${s.unit || 'un'} (mínimo ${s.min_qty}).${s.buyer_id ? '' : ' Ninguém assumiu a compra.'}`,
           aba: 'mural', tag: `estoque-${s.id}`,
+          ...(s.buyer_id ? {} : {
+            actions: [{ action: 'compro', title: '🙋 Eu compro' }, { action: 'abrir', title: 'Ver mural' }],
+            acoes: { compro: { api: { method: 'PUT', path: `/babies/${babyId}/supplies/${s.id}`, body: { buyer_id: '$eu' } }, ok: { title: `🛒 Combinado: você compra ${s.name.slice(0, 28)}`, body: 'Os outros cuidadores verão no mural.' } } },
+          }),
         });
       }
     }

@@ -76,6 +76,7 @@ export function CentralSheet({ onClose, onConfig }: { onClose: () => void; onCon
 }
 
 const CATS: { k: keyof Omit<NotifPrefs, 'silencio'>; t: string; d: string }[] = [
+  { k: 'cronometro', t: '⏱️ Cronômetro na tela de bloqueio', d: 'Sono ou mamada em andamento fica fixo na tela, com botão "Acordou"/"Terminou"' },
   { k: 'lembretes', t: '🍼 Lembretes', d: 'Mamada passou do intervalo planejado e cronômetro esquecido ligado' },
   { k: 'recados', t: '📌 Recados', d: 'Novos recados no mural' },
   { k: 'estoque', t: '🛒 Materiais acabando', d: 'Quando um item fica abaixo do mínimo ou acaba' },

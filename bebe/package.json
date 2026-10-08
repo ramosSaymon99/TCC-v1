@@ -8,10 +8,10 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
-    "build:single": "npm run build && node scripts/singlefile.mjs",
-    "deploy": "npm run build:single && wrangler deploy"
+    "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
+    "jspdf": "^2.5.2",
     "lucide-react": "^1.49.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

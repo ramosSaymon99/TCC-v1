@@ -23,6 +23,7 @@ export interface Ctx {
   trocarBebe: (id: string) => void;
   novoBebe: () => void;
   abrirConfigNotif: () => void;
+  abrirRelatorio: () => void;
   sair: () => void;
 }
 export const AppCtx = createContext<Ctx>(null as unknown as Ctx);

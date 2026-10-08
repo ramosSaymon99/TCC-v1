@@ -29,6 +29,7 @@ export async function detectarModo(): Promise<Modo> {
 }
 export const getModo = () => modo;
 export const temSessao = () => !!token;
+export const getToken = () => token;
 export function sair() {
   token = '';
   gravarLS('ninho-token', null);
@@ -153,7 +154,7 @@ function local(method: string, path: string, body: any): unknown {
   if (r('PUT', '/me/photo')) { (me as Row).photo = body.photo; salvar(); return { photo: body.photo }; }
   if (r('DELETE', '/me/photo')) { (me as Row).photo = null; salvar(); return { ok: true }; }
   if (r('GET', '/push')) {
-    const prefs = { atividade: false, recados: true, lembretes: true, estoque: true, consultas: true, familia: true, silencio: { on: false, de: '22:00', ate: '06:00' }, ...((me as Row).notifPrefs ?? {}) };
+    const prefs = { atividade: false, cronometro: true, recados: true, lembretes: true, estoque: true, consultas: true, familia: true, silencio: { on: false, de: '22:00', ate: '06:00' }, ...((me as Row).notifPrefs ?? {}) };
     return { publicKey: null, prefs, devices: 0 };
   }
   if (r('PUT', '/push/prefs')) { (me as Row).notifPrefs = { ...((me as Row).notifPrefs ?? {}), ...body }; salvar(); return { prefs: (me as Row).notifPrefs }; }

@@ -1,33 +1,93 @@
-/* Ninho · Service Worker: recebe as notificações push e abre o app no bebê certo ao tocar. */
+/* Ninho · Service Worker
+ * - Mostra as notificações push no formato da tela de bloqueio (título curto, horário do fato, ações).
+ * - Executa ações direto da notificação ("Acordou", "Eu compro") sem abrir o app, usando a sessão salva.
+ * - Mantém o contador no ícone do app (tela inicial) com a Badging API.
+ */
+const CACHE = 'ninho-sessao';
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+
+async function lerSessao() {
+  const r = await (await caches.open(CACHE)).match('./__sessao');
+  return r ? r.json() : null;
+}
+async function contador(delta) {
+  const c = await caches.open(CACHE);
+  const r = await c.match('./__badge');
+  const n = delta === 0 ? 0 : Math.max(0, (r ? Number(await r.text()) : 0) + delta);
+  await c.put('./__badge', new Response(String(n)));
+  try {
+    if (n > 0 && self.navigator.setAppBadge) await self.navigator.setAppBadge(n);
+    else if (self.navigator.clearAppBadge) await self.navigator.clearAppBadge();
+  } catch { /* plataforma sem contador no ícone */ }
+}
 
 self.addEventListener('push', (event) => {
   let d = {};
   try { d = event.data ? event.data.json() : {}; } catch { d = { body: event.data && event.data.text() }; }
-  event.waitUntil(self.registration.showNotification(d.title || 'Ninho', {
+  const opcoes = {
     body: d.body || '',
     icon: d.icon || './icon-192.png',
     badge: './badge-96.png',
     tag: d.tag,
-    renotify: !!d.tag,
-    data: { url: d.url || './' },
+    renotify: !!d.tag && d.renotify !== false,
+    silent: !!d.silent,
+    requireInteraction: !!d.sticky,
+    timestamp: d.ts || Date.now(),
+    actions: (d.actions || []).slice(0, 2),
+    data: { url: d.url || './', acoes: d.acoes || {}, babyId: d.babyId },
     lang: 'pt-BR',
-  }));
+  };
+  if (d.image) opcoes.image = d.image;
+  event.waitUntil(Promise.all([
+    self.registration.showNotification(d.title || 'Ninho', opcoes),
+    d.silent ? Promise.resolve() : contador(1),
+  ]));
 });
 
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  const alvo = new URL(event.notification.data?.url || './', self.registration.scope).href;
-  event.waitUntil((async () => {
-    const janelas = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    for (const c of janelas) {
-      if (c.url.startsWith(self.registration.scope)) {
-        await c.focus();
-        c.postMessage({ tipo: 'abrir', url: alvo });
-        return;
-      }
+async function executar(acao, notif) {
+  const s = await lerSessao();
+  if (!s?.token) return false;
+  const troca = (v) => (v === '$agora' ? new Date().toISOString() : v === '$eu' ? s.userId : v);
+  const body = Object.fromEntries(Object.entries(acao.api.body || {}).map(([k, v]) => [k, troca(v)]));
+  const r = await fetch(new URL(`./api${acao.api.path}`, self.registration.scope), {
+    method: acao.api.method,
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${s.token}` },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) return false;
+  if (acao.ok) await self.registration.showNotification(acao.ok.title, { body: acao.ok.body, icon: './icon-192.png', badge: './badge-96.png', tag: notif.tag, silent: true });
+  return true;
+}
+
+async function abrir(url) {
+  const alvo = new URL(url || './', self.registration.scope).href;
+  const janelas = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  for (const c of janelas) {
+    if (c.url.startsWith(self.registration.scope)) {
+      await c.focus();
+      c.postMessage({ tipo: 'abrir', url: alvo });
+      return;
     }
-    await self.clients.openWindow(alvo);
+  }
+  await self.clients.openWindow(alvo);
+}
+
+self.addEventListener('notificationclick', (event) => {
+  const n = event.notification;
+  const dados = n.data || {};
+  const acao = event.action && dados.acoes ? dados.acoes[event.action] : null;
+  n.close();
+  event.waitUntil((async () => {
+    await contador(-1);
+    if (acao?.api) {
+      // Ação direta (ex.: "Acordou"): grava sem abrir o app; se falhar (sessão expirada), abre o app
+      if (await executar(acao, n)) return;
+    }
+    await abrir(acao?.url || dados.url);
   })());
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data?.tipo === 'zerar-badge') event.waitUntil(contador(0));
 });

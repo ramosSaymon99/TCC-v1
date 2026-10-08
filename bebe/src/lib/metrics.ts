@@ -311,7 +311,7 @@ export function insights(d: BabyData, agora = Date.now()): Insight[] {
   // Consultas
   for (const a of d.appointments.filter((x) => !x.done)) {
     const dd = (t(a.date) - agora) / DIA;
-    if (dd >= -0.1 && dd <= 3) out.push({ nivel: 'info', titulo: `${a.title} ${dd < 1 ? 'hoje/amanhã' : `em ${Math.ceil(dd)} dias`}`, detalhe: `${new Date(a.date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}${a.doctor ? ` · ${a.doctor}` : ''}`, acao: 'Leve as dúvidas e os indicadores da semana.', aba: 'saude' });
+    if (dd >= -0.1 && dd <= 3) out.push({ nivel: 'info', titulo: `${a.title} ${dd < 1 ? 'hoje/amanhã' : `em ${Math.ceil(dd)} dias`}`, detalhe: `${new Date(a.date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}${a.doctor ? ` · ${a.doctor}` : ''}`, acao: 'Gere o relatório em PDF (Saúde → Relatório para o pediatra) e anote as dúvidas.', aba: 'saude' });
   }
 
   // Vacinas atrasadas

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BarChart3, Bell, ChevronDown, Home, LayoutGrid, LogOut, Stethoscope, Users } from 'lucide-react';
 import { AppCtx, type Aba, type Ctx } from './ctx';
-import { api, ApiError, detectarModo, sair as sairApi, temSessao, type Modo } from './lib/api';
+import { api, ApiError, detectarModo, getToken, sair as sairApi, temSessao, type Modo } from './lib/api';
 import { papel } from './lib/constants';
 import { criarFamiliaExemplo } from './lib/seed';
 import { addDays, idade, startOfDay } from './lib/time';
@@ -10,7 +10,8 @@ import { LogSheet } from './components/LogSheet';
 import { Sheet } from './components/ui';
 import { Avatar } from './components/Avatar';
 import { CentralSheet, ConfigNotificacoes, contarNaoLidas, lerVisto, montarFeed } from './components/Notificacoes';
-import { desativarPush } from './lib/push';
+import { definirBadge, desativarPush, limparSessaoSW, salvarSessaoSW } from './lib/push';
+import { RelatorioSheet } from './components/RelatorioSheet';
 import { TIPOS } from './lib/constants';
 import { Auth } from './pages/Auth';
 import { Onboarding } from './pages/Onboarding';
@@ -30,6 +31,8 @@ const ABAS: { id: Aba; label: string; Icon: typeof Home }[] = [
 const LS_BABY = 'ninho-baby';
 /** Link vindo de uma notificação: ?baby=<id>#aba */
 let bebeDaUrl: string | null = new URLSearchParams(location.search).get('baby');
+/** Ação vinda de atalho do ícone ou de botão da notificação: ?acao=mamada|sono|fralda|mamadeira|relatorio */
+let acaoDaUrl: string | null = new URLSearchParams(location.search).get('acao');
 const consumirBebeDaUrl = () => { const b = bebeDaUrl; bebeDaUrl = null; return b; };
 const lerAba = (): Aba => (ABAS.some((a) => `#${a.id}` === location.hash) ? (location.hash.slice(1) as Aba) : 'hoje');
 
@@ -47,6 +50,8 @@ export default function App() {
   const [msg, setMsg] = useState('');
   const [central, setCentral] = useState(false);
   const [configNotif, setConfigNotif] = useState(false);
+  const [relatorio, setRelatorio] = useState(false);
+  const [acaoPendente, setAcaoPendente] = useState(0);
   const conhecidos = useRef<Set<string> | null>(null);
   const [carregando, setCarregando] = useState(true);
   const toastT = useRef<number>();
@@ -59,6 +64,7 @@ export default function App() {
 
   const sair = useCallback(() => {
     desativarPush().catch(() => undefined); // aparelho compartilhado não continua recebendo avisos de outra pessoa
+    limparSessaoSW();
     sairApi();
     setUser(null); setBabies([]); setData(null); setBabyId(null);
   }, []);
@@ -66,6 +72,7 @@ export default function App() {
   const reloadMe = useCallback(async (selecionar?: string) => {
     const r = await api.me();
     setUser(r.user);
+    salvarSessaoSW(getToken(), r.user.id);
     setBabies(r.babies);
     let alvo = selecionar ?? consumirBebeDaUrl() ?? babyId ?? localStorage.getItem(LS_BABY);
     if (!r.babies.some((b) => b.id === alvo)) alvo = r.babies[0]?.id ?? null;
@@ -138,6 +145,8 @@ export default function App() {
       const u = new URL(ev.data.url);
       const b = u.searchParams.get('baby');
       if (b) setBabyId(b);
+      acaoDaUrl = u.searchParams.get('acao');
+      setAcaoPendente((x) => x + 1);
       const a = u.hash.slice(1) as Aba;
       if (ABAS.some((x) => x.id === a)) setAba(a);
     };
@@ -188,9 +197,22 @@ export default function App() {
       trocarBebe: (id) => { setBabyId(id); setTrocar(false); },
       novoBebe: () => { setTrocar(false); setOnboarding(true); },
       abrirConfigNotif: () => { setCentral(false); setConfigNotif(true); },
+      abrirRelatorio: () => setRelatorio(true),
       sair,
     };
   }, [user, data, modo, babies, agora, refresh, reloadMe, toast, setAba, sair]);
+
+  // Executa a ação pedida pelo atalho/notificação assim que o bebê estiver carregado
+  useEffect(() => {
+    if (!ctx || !acaoDaUrl) return;
+    const a = acaoDaUrl;
+    acaoDaUrl = null;
+    if (a === 'relatorio') { setAba('saude'); setRelatorio(true); } else if (ctx.podeEditar && ['mamada', 'mamadeira', 'sono', 'fralda', 'remedio'].includes(a)) { setAba('hoje'); setRegistro({ tipo: a as EventType }); }
+  }, [ctx, acaoPendente, setAba]);
+
+  // Contador no ícone do app (tela inicial) = notificações não lidas
+  const naoLidasGlobal = ctx ? contarNaoLidas(montarFeed(ctx.data, ctx.user.id, ctx.agora), lerVisto(ctx.user.id, ctx.data.baby.id)) : 0;
+  useEffect(() => { if (ctx) definirBadge(naoLidasGlobal); }, [naoLidasGlobal, central]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (carregando || !modo) return <div className="auth"><div className="brand"><span className="logo">🪺</span> Ninho</div></div>;
 
@@ -226,7 +248,7 @@ export default function App() {
   const Pagina = { hoje: Hoje, indicadores: Indicadores, mural: Mural, saude: Saude, familia: Familia }[aba];
   const emojiBebe = (b: Baby) => (b.sex === 'M' ? '👦' : b.sex === 'F' ? '👧' : '👶');
   const avatar = <Avatar photo={baby.photo} emoji={emojiBebe(baby)} color={baby.color || 'var(--brand)'} size={42} ring />;
-  const naoLidas = contarNaoLidas(montarFeed(ctx.data, user.id, agora), lerVisto(user.id, baby.id));
+  const naoLidas = naoLidasGlobal;
 
   return (
     <AppCtx.Provider value={ctx}>
@@ -287,6 +309,7 @@ export default function App() {
       )}
       {central && <CentralSheet onClose={() => setCentral(false)} onConfig={ctx.abrirConfigNotif} />}
       {configNotif && <ConfigNotificacoes onClose={() => setConfigNotif(false)} />}
+      {relatorio && <RelatorioSheet onClose={() => setRelatorio(false)} />}
       {msg && <div className="toast">{msg}</div>}
     </AppCtx.Provider>
   );

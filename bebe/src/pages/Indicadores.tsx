@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, FileText } from 'lucide-react';
 import { useApp } from '../ctx';
 import { COR_COCO, TIPOS, papel } from '../lib/constants';
 import { ehNoturno, estatisticas, fimEvento, mediaDiaria, referencias, serieDiaria, type Stats } from '../lib/metrics';
@@ -13,7 +13,7 @@ type Periodo = 'dia' | 'semana' | 'mes';
 const N: Record<Periodo, number> = { dia: 1, semana: 7, mes: 30 };
 
 export function Indicadores() {
-  const { data, agora, nome, user } = useApp();
+  const { data, agora, nome, user, abrirRelatorio } = useApp();
   const { baby } = data;
   const hoje = startOfDay(agora);
   const [per, setPer] = useState<Periodo>('semana');
@@ -79,7 +79,10 @@ export function Indicadores() {
           <h1>Indicadores</h1>
           <p className="faint">{titulo} · comparado com {compara}</p>
         </div>
-        <button className="btn sm" onClick={exportar}><Download size={15} /> CSV</button>
+        <div className="row">
+          <button className="btn sm" onClick={exportar}><Download size={15} /> CSV</button>
+          <button className="btn sm primary" onClick={abrirRelatorio}><FileText size={15} /> PDF pediatra</button>
+        </div>
       </div>
 
       <div className="card" style={{ padding: 12 }}>

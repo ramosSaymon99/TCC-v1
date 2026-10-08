@@ -43,6 +43,29 @@ Há também **horário de silêncio** e botão de teste. Ninguém recebe aviso d
 
 Implementação: Web Push padrão (VAPID + criptografia aes128gcm) feito só com WebCrypto no Worker — sem serviço externo nem chave para configurar (o par VAPID é gerado e guardado no D1 no primeiro uso). Funciona no Chrome, Edge e Firefox (Android e computador) e no Safari; **no iPhone/iPad é preciso "Adicionar à Tela de Início"** e abrir pelo ícone (iOS 16.4+) — o app explica isso na tela de configuração. O app é instalável (PWA com manifesto e ícones).
 
+### Relatório em PDF para o pediatra
+
+Saúde → **Relatório para o pediatra** (também em Indicadores, no lembrete de consulta e no atalho do ícone). Escolha 7, 14 ou 30 dias e anote as dúvidas da família (ficam salvas no aparelho até a consulta). O PDF (A4, ~3 páginas, ~30 KB) é gerado **no próprio aparelho** e pode ser compartilhado (WhatsApp, e-mail), baixado ou aberto:
+
+- cabeçalho com idade, período e quem gerou; cartões de peso, ganho g/dia, sono, mamadas e fraldas;
+- **tabela-resumo** (média/dia, mínimo–máximo diário, variação × período anterior e referência da idade, com destaque do que está fora da faixa);
+- gráficos de sono (noturno × sonecas), mamadas (peito × mamadeira) e fraldas (xixi × cocô) por dia;
+- **padrão de 24 h** (sono, mamadas e evacuações dia a dia);
+- evacuações (consistência, cor, maior intervalo), alimentação complementar, crescimento, remédios, vacinas (aplicadas, atrasadas, previstas e próximas), observações de tendência do app;
+- **dúvidas da família** e espaço para **anotações do pediatra**.
+
+Usa só dias completos (até ontem) e avisa quando o período tem poucos registros.
+
+### Notificações na tela de bloqueio e na tela inicial
+
+- **Formato para a tela de bloqueio:** título curto com o nome do bebê ("🍼 Helena · hora da mamada"), corpo de até 2–3 linhas, horário do fato, agrupamento (um aviso substitui o anterior em vez de empilhar), avisos discretos sem som para registros comuns e fixos para lembretes importantes.
+- **Cronômetro "ao vivo":** ao iniciar sono ou mamada, todos os cuidadores recebem um aviso fixo "😴 Helena está dormindo · desde 14:05" com o botão **☀️ Acordou**; ao terminar, ele é trocado por "☀️ Helena acordou · dormiu 1h20 (14:05–15:25)".
+- **Botões de ação:** *Acordou/Terminou* e *Eu compro* gravam direto, sem abrir o app; *Registrar mamada* e *Gerar relatório* abrem o app já na tela certa.
+- **Contador no ícone do app** (não lidas), na tela inicial do celular.
+- **Atalhos no ícone** (pressionar o ícone, Android/Windows): Mamada, Sono, Fralda, Relatório.
+
+> **Dynamic Island, Atividades ao Vivo e widgets** são recursos exclusivos de apps nativos (iOS ActivityKit/WidgetKit; widgets Android). Um app web não aparece neles. Ver "Próximo passo: app nativo" abaixo.
+
 ### Insights automáticos ("Onde agir agora")
 
 Intervalo desde a última mamada acima do planejado · sem cocô há mais de 3 dias · menos mamadas ou fraldas de xixi do que o habitual até este horário · variação de sono ≥ 12% na semana · sono abaixo da faixa da idade · aderência à rotina planejada · carga de cuidados concentrada em uma pessoa (≥ 70%) · material acabando ou com cobertura < 3 dias · consulta nos próximos 3 dias · vacinas sem registro para a idade · ganho de peso entre pesagens.
@@ -84,13 +107,22 @@ npm run deploy
 
 Opcional: `npx wrangler secret put AUTH_SECRET` (sem ele, o Worker gera a chave e guarda no D1).
 
+## Próximo passo: app nativo (Dynamic Island e widgets)
+
+Para a Dynamic Island, as Atividades ao Vivo e os widgets da tela inicial, o caminho é empacotar este mesmo app com **Capacitor** e adicionar extensões nativas:
+
+- **iOS:** Widget Extension (WidgetKit) com "última mamada / sono atual / fraldas hoje" e uma **Live Activity** (ActivityKit) para o cronômetro de sono/mamada na Dynamic Island e na tela de bloqueio, atualizada por **APNs** a partir deste mesmo Worker.
+- **Android:** widget de tela inicial (Glance) com os mesmos dados e notificação contínua do cronômetro.
+
+Requisitos: Mac com Xcode, conta Apple Developer (US$ 99/ano), Android Studio e uma chave APNs (.p8). A API e o banco atuais já servem esses apps sem mudanças estruturais.
+
 ## Rodar localmente
 
 ```bash
 cd bebe
 npm install
 npm run dev                                 # só front-end: modo local (dados no navegador)
-npm run build:single && npx wrangler dev    # Worker + D1 local, igual à produção
+npm run build && npx wrangler dev           # Worker + D1 local, igual à produção
 ```
 
 Na tela inicial, **"Explorar com uma família de exemplo"** cria mãe, pai, avó e babá vinculados à Helena (3 meses) com 5 semanas de rotina, mural, consultas, vacinas e pesagens — bom para apresentação.
