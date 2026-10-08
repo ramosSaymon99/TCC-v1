@@ -3,12 +3,12 @@ import { ArrowDownRight, ArrowUpRight, MoreHorizontal, ChevronLeft, ChevronRight
 import { pct } from '../utils/format';
 
 /* ---------- Logo ---------- */
-export function Logo({ size = 34 }: { size?: number }) {
+export function Logo({ size = 38 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden>
-      <rect width="32" height="32" rx="8" fill="#0F8A63" />
-      <path d="M9 21c0-7 5-12 14-12 0 9-5 14-12 14" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" />
-      <path d="M9 23 17 15" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" />
+    <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden>
+      <rect width="40" height="40" rx="12" fill="#2F6B4F" />
+      <path d="M11 27c0-9 6.5-15.5 18-15.5 0 11.5-6.5 17.5-15.5 17.5" fill="#C8E37A" />
+      <path d="M11 29.5 21 19.5" stroke="#2F6B4F" strokeWidth="2.4" strokeLinecap="round" />
     </svg>
   );
 }
@@ -57,14 +57,14 @@ export function Kpi({ icon, tone, label, value, foot, children }: {
   icon: ReactNode; tone: string; label: string; value: ReactNode; foot?: ReactNode; children?: ReactNode;
 }) {
   return (
-    <div className="card kpi">
-      <div className={`kpi-icon tone-${tone}`}>{icon}</div>
-      <div style={{ minWidth: 0, flex: 1 }}>
+    <div className={`card kpi k-${tone}`}>
+      <div className="kpi-top">
         <div className="kpi-label">{label}</div>
-        <div className="kpi-value">{value}</div>
-        {foot && <div className="kpi-foot">{foot}</div>}
-        {children}
+        <div className={`kpi-icon tone-${tone}`}>{icon}</div>
       </div>
+      <div className="kpi-value">{value}</div>
+      {foot && <div className="kpi-foot">{foot}</div>}
+      {children}
     </div>
   );
 }
@@ -176,9 +176,12 @@ export function Empty({ text }: { text: string }) {
   return <div className="empty"><Inbox size={36} /><div>{text}</div></div>;
 }
 
+/** Cor pastel estável por nome, para diferenciar pacientes nas listas. */
+const corAvatar = (nome: string) => [...nome].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 5;
+
 export function Avatar({ nome, size, navy }: { nome: string; size?: 'lg'; navy?: boolean }) {
   const ini = nome.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
-  return <div className={`avatar ${size ?? ''} ${navy ? 'navy' : ''}`}>{ini}</div>;
+  return <div className={`avatar ${size ?? ''} ${navy ? 'navy' : `a${corAvatar(nome)}`}`}>{ini}</div>;
 }
 
 /* ---------- Row menu (posição fixa para não ser cortado pela tabela) ---------- */

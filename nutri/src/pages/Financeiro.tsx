@@ -133,13 +133,13 @@ export default function Financeiro() {
           <div className="chart-box" style={{ height: 280 }}>
             <ResponsiveContainer>
               <ComposedChart data={serie} margin={{ top: 16, right: 16, left: 8, bottom: 0 }}>
-                <CartesianGrid vertical={false} stroke="#e4e9f1" />
+                <CartesianGrid vertical={false} stroke="#efe9dc" />
                 <XAxis dataKey="mes" fontSize={11} tickLine={false} axisLine={false} />
                 <YAxis fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => moneyShort(Number(v))} width={78} />
                 <Tooltip formatter={(v) => money(Number(v))} />
-                <Bar dataKey="Receita" fill="#0f8a63" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Despesa" fill="#f2a7a7" radius={[4, 4, 0, 0]} />
-                <Line dataKey="Resultado" stroke="#0b3a2c" strokeWidth={2} dot={{ r: 2 }} />
+                <Bar dataKey="Receita" fill="#2f6b4f" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Despesa" fill="#f4b9a3" radius={[4, 4, 0, 0]} />
+                <Line dataKey="Resultado" stroke="#1d2a22" strokeWidth={2} dot={{ r: 2 }} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>

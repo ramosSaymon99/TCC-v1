@@ -5,7 +5,7 @@ import {
   AlertTriangle, ArrowRight, CalendarCheck, CalendarDays, CheckCircle2, DollarSign, MessageCircle, Plus, Scale, TrendingUp, UserPlus, Users, Wallet,
 } from 'lucide-react';
 import { useStore } from '../store/Store';
-import { Badge, Kpi, PageHeader, Trend } from '../components/ui';
+import { Avatar, Badge, Kpi, Trend } from '../components/ui';
 import { ConsultaModal, PacienteModal } from '../components/modais';
 import { addDays, date, DIAS_SEMANA, int, lastMonths, monthLabel, money, moneyShort, parseDate, pct, today, variation } from '../utils/format';
 import {
@@ -151,10 +151,24 @@ export default function Dashboard() {
 
   return (
     <>
-      <PageHeader title={`${saudacao}, ${primeiroNome(cfg.nome.replace(/^Dra?\.\s*/, ''))}`} subtitle={`${DIAS_SEMANA[h.getDay()]}, ${date(hoje)} · comparações com o mesmo número de dias do mês anterior`}>
-        <button className="btn" onClick={() => setModal('paciente')}><UserPlus size={16} /> Novo paciente</button>
-        <button className="btn btn-primary" onClick={() => setModal('consulta')}><Plus size={16} /> Nova consulta</button>
-      </PageHeader>
+      <section className="hero">
+        <svg className="deco" width="260" height="260" viewBox="0 0 40 40" aria-hidden><path d="M6 32c0-14 10-25 28-25 0 18-10 27-24 27" fill="#C8E37A" /></svg>
+        <div>
+          <div className="small" style={{ color: '#a9cdb6', fontWeight: 600 }}>{DIAS_SEMANA[h.getDay()]}, {date(hoje)}</div>
+          <h1>{saudacao}, {primeiroNome(cfg.nome.replace(/^Dra?\.\s*/, ''))}</h1>
+          <p>{agendaHoje.length ? `Você tem ${agendaHoje.length} atendimento(s) hoje.` : 'Nenhum atendimento hoje.'} {insights[0] ? `Prioridade do dia: ${insights[0].titulo.charAt(0).toLowerCase()}${insights[0].titulo.slice(1)}.` : ''}</p>
+          <div className="hero-stats">
+            <div><b>{agendaHoje.filter((c) => c.status !== 'Faltou').length}</b>consultas hoje</div>
+            <div><b>{db.consultas.filter((c) => c.status === 'Agendada' && c.data >= hoje && c.data <= addDays(hoje, 1)).length}</b>a confirmar</div>
+            <div><b>{Math.round(k.ocup7.horasLivres)} h</b>livres em 7 dias</div>
+            <div><b>{k.vencidos.length}</b>retornos vencidos</div>
+          </div>
+        </div>
+        <div className="hero-actions">
+          <button className="btn btn-primary" onClick={() => setModal('consulta')}><Plus size={16} /> Nova consulta</button>
+          <button className="btn" onClick={() => setModal('paciente')}><UserPlus size={16} /> Novo paciente</button>
+        </div>
+      </section>
 
       <div className="grid kpis">
         <Kpi icon={<DollarSign size={20} />} tone="green" label="Faturamento do mês" value={moneyShort(k.fat.total)}
@@ -195,6 +209,7 @@ export default function Dashboard() {
                 return (
                   <li key={c.id} style={{ cursor: 'pointer' }} onClick={() => nav(`/pacientes/${c.pacienteId}`)}>
                     <span className="time">{c.hora}</span>
+                    {p && <Avatar nome={p.nome} />}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div className="title">{p?.nome}</div>
                       <div className="desc">{c.tipo} · {p?.objetivo}</div>
@@ -207,8 +222,7 @@ export default function Dashboard() {
               })}
             </ul>
           )}
-          <div className="divider" style={{ margin: '0 20px' }} />
-          <div className="stat-mini" style={{ padding: 16, gridTemplateColumns: '1fr 1fr' }}>
+          <div className="stat-mini" style={{ padding: '4px 22px 22px', gridTemplateColumns: '1fr 1fr' }}>
             <div><span>Ocupação próximos 7 dias</span><b>{pct(k.ocup7.taxa)}</b></div>
             <div><span>A receber</span><b>{moneyShort(k.receber.reduce((s, r) => s + r.valor, 0))}</b></div>
           </div>
@@ -220,19 +234,19 @@ export default function Dashboard() {
         <div className="chart-box" style={{ height: 280 }}>
           <ResponsiveContainer>
             <BarChart data={serie} margin={{ top: 16, right: 16, left: 8, bottom: 0 }}>
-              <CartesianGrid vertical={false} stroke="#e4e9f1" />
+              <CartesianGrid vertical={false} stroke="#efe9dc" />
               <XAxis dataKey="mes" tickLine={false} axisLine={false} fontSize={12} />
               <YAxis tickLine={false} axisLine={false} fontSize={12} tickFormatter={(v) => moneyShort(Number(v))} width={78} />
-              <Tooltip formatter={(v) => money(Number(v))} cursor={{ fill: 'rgba(15,138,99,.06)' }} />
-              <ReferenceLine y={cfg.metaMensal} stroke="#d97706" strokeDasharray="4 4" />
-              <Bar dataKey="Consultas" stackId="a" fill="#0f8a63" />
-              <Bar dataKey="Pacotes" stackId="a" fill="#5cc49b" />
-              <Bar dataKey="Outras" stackId="a" fill="#b9e6d3" radius={[4, 4, 0, 0]} />
+              <Tooltip formatter={(v) => money(Number(v))} cursor={{ fill: 'rgba(47,107,79,.06)' }} />
+              <ReferenceLine y={cfg.metaMensal} stroke="#e0894f" strokeDasharray="4 4" />
+              <Bar dataKey="Consultas" stackId="a" fill="#2f6b4f" />
+              <Bar dataKey="Pacotes" stackId="a" fill="#8fc79f" />
+              <Bar dataKey="Outras" stackId="a" fill="#c8e37a" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
         <div className="legend" style={{ padding: '0 20px 16px' }}>
-          <span><i style={{ background: '#0f8a63' }} />Consultas</span><span><i style={{ background: '#5cc49b' }} />Pacotes</span><span><i style={{ background: '#b9e6d3' }} />Outras receitas</span><span><i style={{ background: '#d97706' }} />Meta</span>
+          <span><i style={{ background: '#2f6b4f' }} />Consultas</span><span><i style={{ background: '#8fc79f' }} />Pacotes</span><span><i style={{ background: '#c8e37a' }} />Outras receitas</span><span><i style={{ background: '#e0894f' }} />Meta</span>
         </div>
       </div>
 

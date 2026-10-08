@@ -8,7 +8,7 @@ import { addDays, lastMonths, monthLabel, money, pct, today, variation } from '.
 import { noPeriodo, porCanal, taxaRetorno } from '../utils/metrics';
 import { evolucao } from '../utils/nutri';
 
-const CORES = ['#0f8a63', '#2563eb', '#f59e0b', '#7c3aed', '#e11d48', '#94a3b8'];
+const CORES = ['#2f6b4f', '#8fc79f', '#e0894f', '#9b86e0', '#f2c94c', '#c9c2b2'];
 
 export default function Captacao() {
   const { db, resumo } = useStore();
@@ -121,7 +121,7 @@ export default function Captacao() {
           <div className="chart-box" style={{ height: 290 }}>
             <ResponsiveContainer>
               <BarChart data={serie} margin={{ top: 16, right: 12, left: 0, bottom: 0 }}>
-                <CartesianGrid vertical={false} stroke="#e4e9f1" />
+                <CartesianGrid vertical={false} stroke="#efe9dc" />
                 <XAxis dataKey="mes" fontSize={11} tickLine={false} axisLine={false} />
                 <YAxis fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} width={30} />
                 <Tooltip />

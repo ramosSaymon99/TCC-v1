@@ -87,7 +87,7 @@ export default function Pacientes() {
               <tr>
                 <Th label="Paciente" k="nome" s={s} />
                 <Th label="Status" k="status" s={s} />
-                <Th label="Última consulta" k="dias" s={s} />
+                <Th label="Última" k="dias" s={s} />
                 <Th label="Próxima" k="proxima" s={s} />
                 <Th label="Evolução" k="delta" s={s} className="num" />
                 <Th label="Consultas" k="realizadas" s={s} className="num" />
@@ -101,7 +101,7 @@ export default function Pacientes() {
                   <td><div className="person"><Avatar nome={r.nome} /><div><div className="name">{r.nome}</div><div className="meta">{r.objetivo} · {r.origem}</div></div></div></td>
                   <td><Badge>{r.status}</Badge></td>
                   <td>{r.ultima ? <>{date(r.ultima)}<div className="sub">há {r.dias} dias</div></> : <span className="muted">—</span>}</td>
-                  <td>{r.proxima ? `${date(r.proxima)} ${r.proxima.slice(11)}` : <span className="muted">sem agendamento</span>}</td>
+                  <td>{r.proxima ? `${date(r.proxima)} ${r.proxima.slice(11)}` : <span className="muted nowrap">não agendada</span>}</td>
                   <td className="num">{r.delta === null ? <span className="muted">—</span> : <span className={!r.delta ? '' : (r.delta > 0) === (r.objetivo === 'Hipertrofia' || r.objetivo === 'Gestação') ? 'text-success' : 'text-warning'}>{r.delta > 0 ? '+' : ''}{r.delta.toFixed(1).replace('.', ',')} kg</span>}</td>
                   <td className="num">{r.realizadas}</td>
                   <td className="num">{money(r.receita)}</td>

@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Archive, ArrowLeft, CalendarPlus, MessageCircle, Package, Pencil, Ruler, Save, Trash2, Wallet } from 'lucide-react';
 import { useStore } from '../store/Store';
-import { Badge, Confirm, Empty, PageHeader, RowMenu } from '../components/ui';
+import { Avatar, Badge, Confirm, Empty, RowMenu } from '../components/ui';
 import { AvaliacaoModal, ConsultaModal, PacienteModal, PacoteModal, saldoPacote } from '../components/modais';
 import { Field, toNumber } from '../components/fields';
 import PlanoAlimentarTab from '../components/PlanoAlimentar';
@@ -55,18 +55,26 @@ export default function PacienteDetalhe() {
 
   return (
     <>
-      <div style={{ marginBottom: 8 }}><Link to="/pacientes" className="small row" style={{ display: 'inline-flex' }}><ArrowLeft size={14} /> Pacientes</Link></div>
-      <PageHeader title={p.nome} subtitle={`${p.sexo === 'F' ? 'Feminino' : 'Masculino'} · ${idade(p.nascimento)} anos · ${p.alturaCm} cm · ${p.atividade} · ${p.telefone}`}>
-        <a className="btn wa" href={linkWhatsApp(p.telefone, `Olá, ${primeiroNome(p.nome)}!`)} target="_blank" rel="noreferrer"><MessageCircle size={16} /> WhatsApp</a>
-        <button className="btn" onClick={() => setModal('editar')}><Pencil size={16} /> Editar</button>
-        <button className="btn" onClick={() => { setEditAv(undefined); setModal('avaliacao'); }}><Ruler size={16} /> Nova avaliação</button>
-        <button className="btn btn-primary" onClick={() => { setEditCon(undefined); setModal('consulta'); }}><CalendarPlus size={16} /> Agendar</button>
-      </PageHeader>
-
-      <div className="row" style={{ gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        <Badge>{r.status}</Badge><Badge tone="blue">{p.objetivo}</Badge><span className="chip">Origem: {p.origem}</span>
-        {r.proxima && <span className="chip">Próxima consulta: {date(r.proxima.data)} às {r.proxima.hora}</span>}
-        {pendente > 0 && <Badge tone="orange">{money(pendente)} pendente</Badge>}
+      <Link to="/pacientes" className="back"><ArrowLeft size={15} /> Pacientes</Link>
+      <div className="card" style={{ marginBottom: 18 }}>
+        <div className="profile">
+          <Avatar nome={p.nome} size="lg" />
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <h1>{p.nome}</h1>
+            <div className="sub">{p.sexo === 'F' ? 'Feminino' : 'Masculino'} · {idade(p.nascimento)} anos · {p.alturaCm} cm · atividade {p.atividade.toLowerCase()} · {p.telefone}</div>
+            <div className="chips">
+              <Badge>{r.status}</Badge><Badge tone="blue">{p.objetivo}</Badge><span className="chip">Origem: {p.origem}</span>
+              {r.proxima && <span className="chip">Próxima: {date(r.proxima.data)} às {r.proxima.hora}</span>}
+              {pendente > 0 && <Badge tone="orange">{money(pendente)} pendente</Badge>}
+            </div>
+          </div>
+          <div className="page-actions">
+            <a className="btn wa" href={linkWhatsApp(p.telefone, `Olá, ${primeiroNome(p.nome)}!`)} target="_blank" rel="noreferrer"><MessageCircle size={16} /> WhatsApp</a>
+            <button className="btn" onClick={() => setModal('editar')}><Pencil size={16} /> Editar</button>
+            <button className="btn" onClick={() => { setEditAv(undefined); setModal('avaliacao'); }}><Ruler size={16} /> Nova avaliação</button>
+            <button className="btn btn-primary" onClick={() => { setEditCon(undefined); setModal('consulta'); }}><CalendarPlus size={16} /> Agendar</button>
+          </div>
+        </div>
       </div>
 
       <div className="stat-mini">
@@ -96,12 +104,12 @@ export default function PacienteDetalhe() {
                   <div style={{ height: 230 }}>
                     <ResponsiveContainer>
                       <LineChart data={serie} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-                        <CartesianGrid vertical={false} stroke="#e4e9f1" />
+                        <CartesianGrid vertical={false} stroke="#efe9dc" />
                         <XAxis dataKey="data" fontSize={11} tickLine={false} axisLine={false} />
                         <YAxis fontSize={11} tickLine={false} axisLine={false} domain={['dataMin - 2', 'dataMax + 2']} width={40} />
                         <Tooltip />
-                        {p.pesoMeta && <ReferenceLine y={p.pesoMeta} stroke="#d97706" strokeDasharray="4 4" />}
-                        <Line type="monotone" dataKey="Peso" stroke="#0f8a63" strokeWidth={2.5} dot={{ r: 3 }} />
+                        {p.pesoMeta && <ReferenceLine y={p.pesoMeta} stroke="#e0894f" strokeDasharray="4 4" />}
+                        <Line type="monotone" dataKey="Peso" stroke="#2f6b4f" strokeWidth={2.5} dot={{ r: 3 }} />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
@@ -111,13 +119,13 @@ export default function PacienteDetalhe() {
                   <div style={{ height: 230 }}>
                     <ResponsiveContainer>
                       <LineChart data={serie} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-                        <CartesianGrid vertical={false} stroke="#e4e9f1" />
+                        <CartesianGrid vertical={false} stroke="#efe9dc" />
                         <XAxis dataKey="data" fontSize={11} tickLine={false} axisLine={false} />
                         <YAxis yAxisId="g" fontSize={11} tickLine={false} axisLine={false} domain={['dataMin - 2', 'dataMax + 2']} width={36} />
                         <YAxis yAxisId="c" orientation="right" fontSize={11} tickLine={false} axisLine={false} domain={['dataMin - 3', 'dataMax + 3']} width={36} />
                         <Tooltip />
-                        <Line yAxisId="g" type="monotone" dataKey="Gordura" stroke="#7c3aed" strokeWidth={2} dot={{ r: 3 }} connectNulls />
-                        <Line yAxisId="c" type="monotone" dataKey="Cintura" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} connectNulls />
+                        <Line yAxisId="g" type="monotone" dataKey="Gordura" stroke="#9b86e0" strokeWidth={2} dot={{ r: 3 }} connectNulls />
+                        <Line yAxisId="c" type="monotone" dataKey="Cintura" stroke="#e0894f" strokeWidth={2} dot={{ r: 3 }} connectNulls />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>

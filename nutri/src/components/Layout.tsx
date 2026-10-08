@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Apple, Bell, Calculator, CalendarDays, DollarSign, Home, Megaphone, Menu, Settings, Users, AlertCircle } from 'lucide-react';
 import { useStore } from '../store/Store';
 import { Avatar, Logo } from './ui';
@@ -86,13 +86,20 @@ export default function Layout() {
                 <NavLink key={n.to} to={n.to} end={n.to === '/'}>
                   {n.icon}{n.label}
                   {n.to === '/agenda' && hojeN > 0 && <span className="count">{hojeN}</span>}
-                  {n.to === '/pacientes' && vencidos > 0 && <span className="count" style={{ background: 'var(--warning)' }}>{vencidos}</span>}
+                  {n.to === '/pacientes' && vencidos > 0 && <span className="count warn">{vencidos}</span>}
                 </NavLink>
               ))}
             </div>
           ))}
         </nav>
-        <div className="sidebar-foot">Dados salvos neste navegador · faça backup em Configurações</div>
+        <div className="sidebar-foot">
+          <div className="side-card">
+            <svg className="deco" width="110" height="110" viewBox="0 0 40 40" aria-hidden><path d="M8 30c0-12 9-21 24-21 0 15-9 23-21 23" fill="#C8E37A" /></svg>
+            <b>Seus dados, seguros</b>
+            Tudo fica salvo neste navegador. Faça backup com frequência.
+            <div><Link to="/configuracoes" className="btn btn-sm">Fazer backup</Link></div>
+          </div>
+        </div>
       </aside>
       <div className={`scrim ${open ? 'open' : ''}`} onClick={() => setOpen(false)} />
 
@@ -102,7 +109,7 @@ export default function Layout() {
           <BuscaPaciente />
           <div className="grow" />
           <div style={{ position: 'relative' }}>
-            <button className="btn btn-ghost btn-icon" onClick={() => setNotif((v) => !v)} aria-label="Alertas">
+            <button className="btn btn-icon" onClick={() => setNotif((v) => !v)} aria-label="Alertas">
               <Bell size={19} />
               {alerts.length > 0 && <span style={{ position: 'absolute', top: 6, right: 7, width: 8, height: 8, borderRadius: 8, background: 'var(--danger)' }} />}
             </button>
@@ -120,7 +127,7 @@ export default function Layout() {
               </div>
             )}
           </div>
-          <div className="person" style={{ paddingLeft: 12, borderLeft: '1px solid var(--border)' }}>
+          <div className="person" style={{ paddingLeft: 6 }}>
             <Avatar nome={db.config.nome.replace(/^Dra?\.\s*/, '')} navy />
             <div className="hide-sm">
               <div className="name">{db.config.nome}</div>
