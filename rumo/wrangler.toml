@@ -1,13 +1,12 @@
-name = "vertice-barbearia"
+name = "rumo-campanhas"
 compatibility_date = "2025-09-01"
 
-# Publica em https://vertice-barbearia.<sua-conta>.workers.dev
+# Publica em https://rumo-campanhas.<sua-conta>.workers.dev
 workers_dev = true
 
 [build]
 command = "npm run build"
 
-# App estático (SPA): qualquer rota desconhecida devolve o index.html
 [assets]
 directory = "./dist"
 not_found_handling = "single-page-application"

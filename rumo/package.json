@@ -1,5 +1,5 @@
 {
-  "name": "vertice-barbearia",
+  "name": "rumo-campanhas",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -12,10 +12,12 @@
   },
   "dependencies": {
     "lucide-react": "^1.49.0",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@types/qrcode": "^1.5.5",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.7.0",
