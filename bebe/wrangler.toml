@@ -1,0 +1,21 @@
+name = "ninho"
+main = "worker/index.js"
+compatibility_date = "2025-09-01"
+
+# Publica no endereço público https://ninho.<sua-conta>.workers.dev
+workers_dev = true
+preview_urls = true
+
+# Gera o index.html (app inteiro em um arquivo) antes de cada deploy, inclusive no Workers Builds
+[build]
+command = "npm install && npm run build:single"
+
+[assets]
+directory = "./cloudflare-dist"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ninho-db"
+database_id = "13f1a93c-7d59-4dd7-93cd-47297ede0756"

@@ -27,6 +27,10 @@ Sistema web de gestão comercial para pequenos negócios de tecnologia (treiname
 
 Funções transversais: busca global (Ctrl+K), proposta comercial e OS/termo de entrega em PDF, NPS de satisfação nas OS, menu agrupado por área e novos alertas no painel "Onde agir agora". Bases criadas na versão anterior são completadas automaticamente com os módulos novos, sem perder dados.
 
+## Outro projeto neste repositório
+
+**[Ninho · Rotina do bebê](bebe/README.md)** (pasta `bebe/`): app mobile-first para registrar e acompanhar a rotina de bebês, compartilhado entre mãe, pai, avós, babá e demais cuidadores, com indicadores diários/semanais/mensais, mural de materiais e banco Cloudflare D1 próprio (`ninho-db`).
+
 ## Tecnologias
 
 React 18 + TypeScript + Vite, React Router, Recharts e Lucide Icons. Back-end em Cloudflare Workers com banco Cloudflare D1.
