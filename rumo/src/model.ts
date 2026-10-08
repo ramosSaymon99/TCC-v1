@@ -18,14 +18,14 @@ export interface Bench {
   cap: number; // teto de verba útil (ex.: tamanho da base de e-mail); 0 = sem limite
 }
 
-// Ordem fixa das cores por canal (paleta categórica validada para daltonismo, slots 1–6)
+// Cores por canal vêm de variáveis CSS (uma paleta validada para daltonismo em cada tema), sempre na mesma ordem
 export const CHANNELS: Channel[] = [
-  { id: 'google', name: 'Google Ads (Pesquisa)', short: 'Google', color: '#2a78d6', utmSource: 'google', utmMedium: 'cpc' },
-  { id: 'meta', name: 'Meta Ads (Instagram/Facebook)', short: 'Meta', color: '#eb6834', utmSource: 'meta', utmMedium: 'paid_social' },
-  { id: 'tiktok', name: 'TikTok Ads', short: 'TikTok', color: '#1baf7a', utmSource: 'tiktok', utmMedium: 'paid_social' },
-  { id: 'linkedin', name: 'LinkedIn Ads', short: 'LinkedIn', color: '#eda100', utmSource: 'linkedin', utmMedium: 'paid_social' },
-  { id: 'email', name: 'E-mail marketing', short: 'E-mail', color: '#e87ba4', utmSource: 'newsletter', utmMedium: 'email' },
-  { id: 'influencer', name: 'Influenciadores', short: 'Influência', color: '#008300', utmSource: 'instagram', utmMedium: 'influencer' },
+  { id: 'google', name: 'Google Ads (Pesquisa)', short: 'Google', color: 'var(--ch-google)', utmSource: 'google', utmMedium: 'cpc' },
+  { id: 'meta', name: 'Meta Ads (Instagram/Facebook)', short: 'Meta', color: 'var(--ch-meta)', utmSource: 'meta', utmMedium: 'paid_social' },
+  { id: 'tiktok', name: 'TikTok Ads', short: 'TikTok', color: 'var(--ch-tiktok)', utmSource: 'tiktok', utmMedium: 'paid_social' },
+  { id: 'linkedin', name: 'LinkedIn Ads', short: 'LinkedIn', color: 'var(--ch-linkedin)', utmSource: 'linkedin', utmMedium: 'paid_social' },
+  { id: 'email', name: 'E-mail marketing', short: 'E-mail', color: 'var(--ch-email)', utmSource: 'newsletter', utmMedium: 'email' },
+  { id: 'influencer', name: 'Influenciadores', short: 'Influência', color: 'var(--ch-influencer)', utmSource: 'instagram', utmMedium: 'influencer' },
 ];
 
 export const channelById = (id: ChannelId) => CHANNELS.find((c) => c.id === id)!;
@@ -283,6 +283,79 @@ export function insights(c: Campaign, sim: ReturnType<typeof simulate>, optimal:
     });
   }
   return out;
+}
+
+// ---------- curvas de resposta ----------
+
+/** Pontos da curva investimento → resultado de um canal (vendas ou leads, conforme o objetivo). */
+export function responseCurve(id: ChannelId, c: Campaign, maxSpend: number, points = 48) {
+  return Array.from({ length: points + 1 }, (_, i) => {
+    const spend = (maxSpend * i) / points;
+    const r = simulateChannel(id, spend, c);
+    return { spend, value: c.goal === 'leads' ? r.leads : r.sales };
+  });
+}
+
+// ---------- risco (Monte Carlo) ----------
+
+/** Gerador pseudoaleatório com semente: o mesmo plano sempre produz a mesma distribuição. */
+function mulberry32(seed: number) {
+  return () => {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Normal padrão via Box-Muller. */
+const gauss = (rnd: () => number) => Math.sqrt(-2 * Math.log(rnd() || 1e-9)) * Math.cos(2 * Math.PI * rnd());
+
+export interface RiskResult {
+  runs: number;
+  values: number[]; // resultado (R$) ou leads de cada simulação, ordenados
+  p10: number;
+  p50: number;
+  p90: number;
+  lossProb: number; // probabilidade de resultado < 0 (objetivo lucro) ou de ficar abaixo do previsto em 20% (leads)
+  metric: 'lucro' | 'leads';
+}
+
+/**
+ * Incerteza das premissas: custo por clique varia ~±20%, conversões ~±25% por canal (log-normal),
+ * mais um choque de mercado comum a todos os canais (~±10%), porque um leilão mais caro afeta tudo ao mesmo tempo.
+ */
+export function monteCarlo(c: Campaign, alloc = c.alloc, runs = 2000, seed = 7): RiskResult {
+  const rnd = mulberry32(seed);
+  const metric = c.goal === 'leads' ? 'leads' : 'lucro';
+  const values: number[] = [];
+  for (let i = 0; i < runs; i++) {
+    const market = Math.exp(0.1 * gauss(rnd));
+    let leads = 0;
+    let profit = 0;
+    for (const ch of CHANNELS) {
+      const spend = c.budget * (alloc[ch.id] ?? 0);
+      if (spend <= 0) continue;
+      const b = c.bench[ch.id];
+      const nb: Bench = {
+        ...b,
+        cpc: b.cpc * market * Math.exp(0.2 * gauss(rnd)),
+        convLead: Math.min(1, b.convLead * Math.exp(0.25 * gauss(rnd))),
+        leadSale: Math.min(1, b.leadSale * Math.exp(0.25 * gauss(rnd))),
+      };
+      const l = clicksFor(spend, nb) * nb.convLead;
+      leads += l;
+      profit += l * nb.leadSale * c.ticket * c.margin - spend;
+    }
+    values.push(metric === 'leads' ? leads : profit);
+  }
+  values.sort((a, b) => a - b);
+  const q = (p: number) => values[Math.min(values.length - 1, Math.floor(p * values.length))];
+  const base = simulate(c, alloc).totals;
+  const lossProb =
+    metric === 'lucro' ? values.filter((v) => v < 0).length / runs : values.filter((v) => v < base.leads * 0.8).length / runs;
+  return { runs, values, p10: q(0.1), p50: q(0.5), p90: q(0.9), lossProb, metric };
 }
 
 /** Orçamento que maximiza o resultado, já com a melhor distribuição: varre de 20% a 300% do orçamento atual. */

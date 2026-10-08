@@ -17,9 +17,9 @@ const STATUS: { id: Status; label: string }[] = [
   { id: 'pronto', label: 'Pronto' },
 ];
 const nextStatus = (s: Status): Status => STATUS[(STATUS.findIndex((x) => x.id === s) + 1) % STATUS.length].id;
-const GERAL = { short: 'Geral', name: 'Geral', color: '#64748b' };
+const GERAL = { short: 'Geral', name: 'Geral', color: 'var(--ch-geral)' };
 const channelInfo = (id: CalItem['channel']) => (id === 'geral' ? GERAL : channelById(id));
-const phaseColor = (p: Phase) => PHASES.find((x) => x.phase === p)?.color ?? '#94a3b8';
+const phaseColor = (p: Phase) => PHASES.find((x) => x.phase === p)?.color ?? 'var(--phase-0)';
 
 /** Segunda-feira da semana da data, para agrupar o calendário. */
 const weekStart = (iso: string) => {

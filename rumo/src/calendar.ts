@@ -14,12 +14,12 @@ export interface CalItem {
 }
 
 export const PHASES: { phase: Phase; color: string }[] = [
-  { phase: 'Preparação', color: '#94a3b8' },
-  { phase: 'Aquecimento', color: '#86b6ef' },
-  { phase: 'Lançamento', color: '#2a78d6' },
-  { phase: 'Sustentação', color: '#256abf' },
-  { phase: 'Última chamada', color: '#184f95' },
-  { phase: 'Análise', color: '#94a3b8' },
+  { phase: 'Preparação', color: 'var(--phase-0)' },
+  { phase: 'Aquecimento', color: 'var(--phase-1)' },
+  { phase: 'Lançamento', color: 'var(--phase-2)' },
+  { phase: 'Sustentação', color: 'var(--phase-3)' },
+  { phase: 'Última chamada', color: 'var(--phase-4)' },
+  { phase: 'Análise', color: 'var(--phase-0)' },
 ];
 
 /** Divide o período em fases: aquecimento (25%), lançamento (10%), sustentação (resto), última chamada (15%). */

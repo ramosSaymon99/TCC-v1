@@ -1,13 +1,14 @@
 # Rumo · Planejador de campanhas
 
-Web app para planejar uma campanha de marketing digital antes de gastar o primeiro real: simula quanto cada canal traz de leads, vendas e retorno, encontra a melhor distribuição do orçamento, gera os links rastreáveis (UTM + QR code), monta o calendário de ações e entrega um plano de uma página para o cliente.
+Ferramenta web para planejar uma campanha de marketing digital antes de gastar o primeiro real. Ela simula quanto cada canal traz de leads, vendas e retorno, encontra a melhor distribuição e o melhor tamanho de orçamento, mede o risco com Monte Carlo, compara cenários, gera os links rastreáveis (UTM + QR code), monta o calendário de ações e entrega um plano de uma página para o cliente.
 
-<img src="docs/1-simulador.png" width="820" alt="Simulador" />
+<img src="docs/2-otimizado.png" width="900" alt="Simulador com curvas de resposta, análise de risco e leitura do modelo" />
 
 | | |
 |---|---|
-| <img src="docs/3-links.png" width="400" alt="Links UTM e QR code" /> | <img src="docs/4-calendario.png" width="400" alt="Calendário" /> |
-| <img src="docs/5-plano.png" width="400" alt="Plano de uma página" /> | <img src="docs/6-celular.png" width="200" alt="Versão celular" /> |
+| <img src="docs/3-cenarios.png" width="440" alt="Comparação de cenários" /> | <img src="docs/7-comandos.png" width="440" alt="Paleta de comandos" /> |
+| <img src="docs/5-calendario.png" width="440" alt="Calendário por fase" /> | <img src="docs/8-tema-claro.png" width="440" alt="Tema claro" /> |
+| <img src="docs/4-links.png" width="440" alt="Links UTM e QR code" /> | <img src="docs/9-celular.png" width="200" alt="Versão celular" /> |
 
 ## O problema
 
@@ -20,7 +21,7 @@ A maior parte das campanhas é planejada com um orçamento dividido "no olho" en
 
 ## Funcionalidades
 
-**Simulador**
+**Simulador** (três colunas: briefing e verba · motor · leitura do modelo)
 - Briefing: objetivo (resultado ou leads), orçamento, ticket médio, margem de contribuição e período.
 - Distribuição por canal com sliders (Google, Meta, TikTok, LinkedIn, e-mail, influenciadores). Mexer em um canal redistribui os outros proporcionalmente, e um traço mostra a sugestão do otimizador.
 - **Otimizar:** aplica a melhor distribuição e mostra o ganho no próprio botão.
@@ -31,8 +32,18 @@ A maior parte das campanhas é planejada com um orçamento dividido "no olho" en
   - um canal passou da saturação;
   - **o orçamento passou do ponto ótimo**, ou ainda há espaço para escalar;
   - o ritmo diário esperado.
+- **Curvas de resposta:** investimento × resultado de cada canal, com o ponto atual (●) e o ótimo (○). Mostram onde cada canal satura, com cursor e valores ao passar o mouse.
+- **Análise de risco (Monte Carlo):** 2.000 simulações variando custo por clique (±20%), conversões (±25%) e um choque de mercado comum. Mostra o histograma do resultado, as faixas P10/P50/P90 e a **chance de prejuízo**.
 - Funil previsto (cliques → leads → vendas), gráfico de CAC por canal com a linha do CAC máximo, e tabela detalhada.
+- O botão **Otimizar** move os sliders, com animação, até a distribuição sugerida.
 - Premissas editáveis por canal: custo por clique, conversões, saturação e teto de verba.
+
+**Cenários**
+- Salva até 6 versões do plano (orçamento, distribuição e premissas) e compara lado a lado: leads, vendas, CPL, CAC, ROAS, resultado previsto, resultado pessimista (P10) e chance de prejuízo, com o melhor valor de cada linha em destaque.
+- Qualquer cenário pode voltar a ser o plano atual com um clique.
+
+**Paleta de comandos (Ctrl+K)**
+- Navegar, otimizar, salvar cenário, trocar o tema, imprimir o plano e carregar exemplos, tudo pelo teclado. Alt+1 a Alt+5 alternam as seções.
 
 **Links e QR**
 - URLs com `utm_source`, `utm_medium`, `utm_campaign` (gerado do nome, sem acentos) e `utm_content` por variação de anúncio.
@@ -67,10 +78,13 @@ As premissas que vêm com os exemplos são referências para demonstração. O a
 
 ## Decisões técnicas
 
-- **React 18 + TypeScript + Vite**, sem biblioteca de UI ou de gráficos: ícones da Lucide, CSS próprio e gráficos em HTML/CSS. A única dependência extra é `qrcode`.
-- **As cores dos canais seguem uma paleta categórica validada para daltonismo**, em ordem fixa. Toda barra tem rótulo e valor em texto, e existe a tabela equivalente.
+- **React 18 + TypeScript + Vite**, sem biblioteca de UI ou de gráficos: curvas, histograma e barras são SVG/HTML desenhados à mão, com ícones da Lucide. A única dependência extra é `qrcode`.
+- **O Monte Carlo usa um gerador com semente** (mulberry32 + Box-Muller): o mesmo plano sempre produz a mesma distribuição, então os números não "pulam" entre recarregamentos.
+- **Os cálculos pesados ficam fora da interação.** Os insights (que varrem orçamentos) e o risco (2.000 execuções) usam `useDeferredValue`, então sliders e animação continuam fluidos.
+- **Interface:** tema escuro por padrão e tema claro, tipografia Geist com números em Geist Mono, navegação lateral (inferior no celular) e respeito a `prefers-reduced-motion`.
+- **As cores dos canais seguem uma paleta categórica validada para daltonismo**, uma para cada tema, em ordem fixa. Toda barra tem rótulo e valor em texto, e existe a tabela equivalente.
 - **O estado fica salvo no navegador** (`localStorage`). O app funciona offline e não precisa de back-end.
-- Responsivo, com navegação por teclado e foco visível, e com layout de impressão próprio para o plano.
+- Responsivo, com navegação por teclado e foco visível, e com layout de impressão próprio (sempre claro) para o plano.
 
 ## Como executar
 
