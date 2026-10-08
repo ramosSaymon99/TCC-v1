@@ -27,6 +27,10 @@ Sistema web de gestão comercial para pequenos negócios de tecnologia (treiname
 
 Funções transversais: busca global (Ctrl+K), proposta comercial e OS/termo de entrega em PDF, NPS de satisfação nas OS, menu agrupado por área e novos alertas no painel "Onde agir agora". Bases criadas na versão anterior são completadas automaticamente com os módulos novos, sem perder dados.
 
+## Outros apps neste repositório
+
+- [`nutri/`](nutri/README.md) — **NutriGest**, app de gestão para consultório de nutrição (projeto independente, mesma stack).
+
 ## Tecnologias
 
 React 18 + TypeScript + Vite, React Router, Recharts e Lucide Icons. Back-end em Cloudflare Workers com banco Cloudflare D1.
