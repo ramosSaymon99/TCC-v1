@@ -7,3 +7,5 @@ cloudflare-dist
 .wrangler
 .dev.vars
 .estado-local
+video/quadros
+video/demo.mjs

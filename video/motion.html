@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Ninho — modo de uso</title>
+<style>
+  :root { --brand: #e0708a; --brand-2: #f6c9d4; --ink: #2b2a33; --muted: #6d6a78; --cream: #fbf6f2; --blue: #2a78d6; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--cream); font-family: 'Inter', system-ui, sans-serif; color: var(--ink); }
+  #palco { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: var(--cream); }
+  .blob { position: absolute; border-radius: 50%; filter: blur(60px); opacity: .55; }
+  #b1 { width: 700px; height: 700px; background: #f9d3dc; left: -220px; top: -160px; }
+  #b2 { width: 620px; height: 620px; background: #d7e6f8; right: -240px; top: 760px; }
+  #b3 { width: 520px; height: 520px; background: #fde7c8; left: -160px; bottom: -180px; }
+
+  .cab { position: absolute; left: 80px; right: 80px; top: 120px; }
+  .passo { display: inline-flex; align-items: center; gap: 14px; background: #fff; border-radius: 999px; padding: 12px 26px 12px 14px; font-weight: 700; font-size: 30px; color: var(--brand); box-shadow: 0 6px 24px rgba(224,112,138,.18); }
+  .passo b { display: inline-grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: var(--brand); color: #fff; font-size: 26px; }
+  .titulo { font-size: 74px; font-weight: 800; letter-spacing: -1.5px; line-height: 1.04; margin-top: 26px; }
+  .sub { font-size: 36px; color: var(--muted); line-height: 1.3; margin-top: 16px; font-weight: 500; }
+
+  #fone { position: absolute; left: 50%; top: 455px; width: 660px; height: 1382px; margin-left: -330px; border-radius: 86px; background: #1d1c22; padding: 20px; box-shadow: 0 40px 90px rgba(43,42,51,.28), inset 0 0 0 3px #3a3842; }
+  #tela { position: relative; width: 620px; height: 1342px; border-radius: 68px; overflow: hidden; background: #fff; }
+  #ilha { position: absolute; top: 18px; left: 50%; width: 170px; height: 46px; margin-left: -85px; border-radius: 30px; background: #000; z-index: 20; }
+  .scr { position: absolute; left: 0; top: 0; width: 620px; height: 1342px; opacity: 0; will-change: transform, opacity; }
+  .scr img { width: 100%; display: block; }
+  #barra-sup { position: absolute; top: 0; left: 0; right: 0; height: 17px; background: transparent; z-index: 5; }
+  #foco { position: absolute; border: 5px solid var(--brand); border-radius: 26px; box-shadow: 0 0 0 2000px rgba(29,28,34,.42); opacity: 0; z-index: 10; }
+  #toque { position: absolute; width: 90px; height: 90px; margin: -45px 0 0 -45px; border-radius: 50%; background: rgba(224,112,138,.35); border: 5px solid #fff; opacity: 0; z-index: 12; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+
+  .balao { position: absolute; z-index: 30; background: #fff; border-radius: 30px; padding: 24px 28px; font-size: 32px; font-weight: 600; line-height: 1.25; box-shadow: 0 18px 48px rgba(43,42,51,.2); display: flex; gap: 18px; align-items: center; max-width: 520px; opacity: 0; }
+  .balao .em { font-size: 46px; flex: none; }
+  .balao small { display: block; font-size: 25px; font-weight: 500; color: var(--muted); margin-top: 4px; }
+
+  .pessoa { position: absolute; z-index: 30; display: flex; align-items: center; gap: 16px; background: #fff; border-radius: 999px; padding: 12px 30px 12px 12px; font-size: 32px; font-weight: 700; box-shadow: 0 14px 36px rgba(43,42,51,.18); opacity: 0; }
+  .pessoa .av { width: 70px; height: 70px; border-radius: 50%; display: grid; place-items: center; font-size: 40px; }
+  .pessoa small { display: block; font-size: 24px; color: var(--muted); font-weight: 600; }
+
+  .cena { position: absolute; inset: 0; opacity: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 90px; z-index: 40; }
+  .logo { width: 210px; height: 210px; border-radius: 60px; background: linear-gradient(145deg, #ef8aa2, #e0708a); display: grid; place-items: center; font-size: 120px; box-shadow: 0 30px 70px rgba(224,112,138,.4); }
+  .marca { font-size: 120px; font-weight: 800; letter-spacing: -3px; margin-top: 40px; }
+  .chamada { font-size: 48px; font-weight: 700; margin-top: 18px; }
+  .apoio { font-size: 36px; color: var(--muted); margin-top: 22px; line-height: 1.35; font-weight: 500; }
+  .lista { margin-top: 60px; display: grid; gap: 22px; text-align: left; width: 100%; }
+  .item { background: #fff; border-radius: 30px; padding: 28px 34px; font-size: 36px; font-weight: 600; display: flex; gap: 22px; align-items: center; box-shadow: 0 12px 34px rgba(43,42,51,.12); opacity: 0; }
+  .item .em { font-size: 50px; }
+  .item small { display: block; font-size: 27px; color: var(--muted); font-weight: 500; margin-top: 4px; }
+  .rodape { position: absolute; bottom: 70px; left: 0; right: 0; text-align: center; font-size: 26px; color: var(--muted); }
+  #progresso { position: absolute; left: 80px; right: 80px; top: 64px; height: 8px; border-radius: 8px; background: rgba(43,42,51,.08); overflow: hidden; z-index: 50; }
+  #progresso i { display: block; height: 100%; width: 0; background: var(--brand); border-radius: 8px; }
+</style>
+</head>
+<body>
+<div id="palco">
+  <div class="blob" id="b1"></div><div class="blob" id="b2"></div><div class="blob" id="b3"></div>
+  <div id="progresso"><i></i></div>
+  <div class="cab" id="cab"><span class="passo" id="passo"><b id="num">1</b><span id="passo-txt">de 9</span></span><h1 class="titulo" id="titulo"></h1><p class="sub" id="sub"></p></div>
+
+  <div id="fone"><div id="tela"><div id="telas"></div><div id="foco"></div><div id="toque"></div></div></div>
+  <div id="extras"></div>
+
+  <div class="cena" id="abertura">
+    <div class="logo">🪺</div>
+    <div class="marca">Ninho</div>
+    <div class="chamada">Guia rápido de uso</div>
+    <div class="apoio">A rotina do bebê compartilhada<br>por toda a família.</div>
+  </div>
+
+  <div class="cena" id="final">
+    <div class="logo" style="width:150px;height:150px;font-size:86px;border-radius:44px">🪺</div>
+    <div class="chamada" style="font-size:64px;margin-top:34px">Bem-vindos ao Ninho!</div>
+    <div class="lista">
+      <div class="item" id="f1"><span class="em">📲</span><div>Instale na tela inicial<small>iPhone: Compartilhar → Adicionar à Tela de Início<br>Android: menu ⋮ → Instalar app</small></div></div>
+      <div class="item" id="f2"><span class="em">🔔</span><div>Ative as notificações<small>Família → Configurar notificações</small></div></div>
+      <div class="item" id="f3"><span class="em">🔒</span><div>Dados só da sua família<small>Ninguém de fora vê os registros do bebê</small></div></div>
+    </div>
+    <div class="rodape">Família e dados deste vídeo são fictícios.</div>
+  </div>
+</div>
+
+<script>
+// ---------- utilidades de tempo ----------
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const easeOut = (x) => 1 - Math.pow(1 - x, 3);
+const easeInOut = (x) => (x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const back = (x) => { const c1 = 1.5, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const lerp = (a, b, x) => a + (b - a) * x;
+/** visível entre a e b com entrada/saída de d segundos */
+const janela = (t, a, b, d = .45) => Math.min(easeOut(prog(t, a, a + d)), 1 - easeOut(prog(t, b - d, b)));
+
+const S = 620 / 390; // escala da captura (px CSS do app → px do vídeo)
+const DUR = 86;
+
+// ---------- roteiro ----------
+// cada cena: tempo, cabeçalho e as telas do celular com transições
+const CENAS = [
+  { a: 4.2, b: 12.5, n: 1, t: 'Crie sua conta', s: 'Nome, e-mail e senha. Leva menos de 1 minuto.' },
+  { a: 12.5, b: 21.5, n: 2, t: 'Cadastre o bebê', s: 'Ele é o centro de tudo: dados, última consulta e rotina.' },
+  { a: 21.5, b: 30, n: 3, t: 'Convide a família', s: 'Cada cuidador entra com o próprio login.' },
+  { a: 30, b: 39.5, n: 4, t: 'Registre em 1 toque', s: 'Mamada, soneca, fralda, remédio, banho…' },
+  { a: 39.5, b: 46, n: 5, t: 'Saiba onde agir', s: 'O app destaca o que precisa de atenção hoje.' },
+  { a: 46, b: 55.5, n: 6, t: 'Acompanhe a evolução', s: 'Indicadores do dia, da semana e do mês.' },
+  { a: 55.5, b: 63, n: 7, t: 'Mural da casa', s: 'Materiais, estoque, compras e recados.' },
+  { a: 63, b: 71.5, n: 8, t: 'Saúde e pediatra', s: 'Peso, vacinas, consultas e relatório em PDF.' },
+  { a: 71.5, b: 79.5, n: 9, t: 'Família conectada', s: 'Quem cuidou de quê e avisos no celular.' },
+];
+
+// telas: [arquivo, entra, sai, tipo de entrada]
+const TELAS = [
+  ['01-boas-vindas', 4.2, 7.6, 'zoom'],
+  ['02-cadastro', 7.6, 12.5, 'fade'],
+  ['03-bebe', 12.5, 17, 'lado'],
+  ['04-rotina', 17, 21.5, 'rola'],
+  ['12-convite', 21.5, 30, 'lado'],
+  ['05-hoje', 30, 34.2, 'lado'],
+  ['07-registro', 34.2, 39.5, 'sobe'],
+  ['06-hoje-rolado', 39.5, 46, 'rola'],
+  ['08-indicadores', 46, 49.4, 'lado'],
+  ['08-indicadores-2', 49.4, 52.6, 'rola'],
+  ['08-indicadores-3', 52.6, 55.5, 'rola'],
+  ['09-mural', 55.5, 59.4, 'lado'],
+  ['09-mural-2', 59.4, 63, 'rola'],
+  ['10-saude', 63, 67.6, 'lado'],
+  ['10-saude-2', 67.6, 71.5, 'rola'],
+  ['11-familia-2', 71.5, 75.6, 'lado'],
+  ['13-notificacoes', 75.6, 79.5, 'sobe'],
+];
+
+// destaques (coordenadas da tela do app, 390×844) e toques
+const FOCOS = [
+  { a: 9.6, b: 12.2, r: [30, 578, 330, 50] },
+  { a: 13.6, b: 15.4, r: [16, 540, 358, 176] },
+  { a: 15.4, b: 16.8, r: [16, 720, 358, 120] },
+  { a: 18.2, b: 21.2, r: [22, 318, 300, 214] },
+  { a: 23, b: 25.6, r: [24, 488, 342, 128] },
+  { a: 25.8, b: 29.6, r: [40, 640, 310, 180] },
+  { a: 31, b: 33.8, r: [8, 248, 374, 166] },
+  { a: 35.6, b: 39.2, r: [10, 498, 200, 54] },
+  { a: 40.6, b: 45.6, r: [12, 76, 366, 300] },
+  { a: 47, b: 49.2, r: [16, 186, 356, 52] },
+  { a: 64.2, b: 66.6, r: [12, 124, 238, 54] },
+];
+const TOQUES = [{ t: 11.2, x: 195, y: 602 }, { t: 33.4, x: 58, y: 292 }, { t: 28.6, x: 232, y: 792 }];
+
+// balões: [a, b, lado, y, emoji, texto, apoio]
+const BALOES = [
+  [5.4, 12.3, 'd', 760, '💌', 'Recebeu um convite?', 'Toque no link: você já entra na família certa'],
+  [13.6, 21.3, 'e', 900, '⚖️', 'Peso e altura', 'da última consulta'],
+  [17.6, 21.3, 'd', 1420, '🕒', 'Rotina sugerida pela idade', 'ajuste aos horários reais'],
+  [23, 25.9, 'd', 900, '🔐', '3 níveis de acesso', 'Administrador, Cuidador ou só Acompanha'],
+  [31, 39.3, 'd', 820, '⏱️', 'Cronometre ou registre depois', ''],
+  [35.6, 39.3, 'e', 1500, '📶', 'Funciona sem internet', 'sincroniza quando a conexão voltar'],
+  [41, 45.8, 'e', 1440, '🧠', 'Alertas inteligentes', 'sono, mamadas, estoque e consultas'],
+  [47, 55.3, 'd', 760, '👥', 'Filtre por cuidador', 'veja o turno de cada um'],
+  [50, 55.3, 'e', 1480, '📈', 'Comparado à semana anterior', ''],
+  [56.4, 62.8, 'd', 1000, '🧷', 'Estoque com alerta', 'avisa antes de acabar a fralda'],
+  [59.8, 62.8, 'e', 1500, '📌', 'Recados fixados', 'para toda a família ver'],
+  [64.2, 71.3, 'd', 880, '📄', 'Relatório em PDF', 'pronto para levar ao pediatra'],
+  [68, 71.3, 'e', 1480, '💉', 'Vacinas e curva de crescimento', ''],
+  [72.4, 79.3, 'e', 1450, '🤝', 'Participação de cada cuidador', ''],
+  [76.2, 79.3, 'd', 820, '🔔', 'Notificações no celular', 'até na tela de bloqueio'],
+];
+// pessoas que entram na família (cena 3)
+const PESSOAS = [
+  [26.0, '👩', 'Ana', 'Mãe · Administradora', '#fde3ea'],
+  [26.6, '👨', 'Rafael', 'Pai · Administrador', '#dde9fb'],
+  [27.2, '👵', 'Lúcia', 'Avó · Cuidadora', '#fdf0d8'],
+  [27.8, '🧑‍🍼', 'Marta', 'Babá · Cuidadora', '#e1f4ea'],
+];
+
+// ---------- montagem do DOM ----------
+const $ = (id) => document.getElementById(id);
+const telasEl = $('telas');
+const imgs = TELAS.map(([f]) => { const d = document.createElement('div'); d.className = 'scr'; d.innerHTML = `<img src="telas/${f}.png">`; telasEl.appendChild(d); return d; });
+const extras = $('extras');
+const baloes = BALOES.map(([, , , , em, tx, ap]) => { const d = document.createElement('div'); d.className = 'balao'; d.innerHTML = `<span class="em">${em}</span><div>${tx}${ap ? `<small>${ap}</small>` : ''}</div>`; extras.appendChild(d); return d; });
+const pessoas = PESSOAS.map(([, em, nm, pp, cor]) => { const d = document.createElement('div'); d.className = 'pessoa'; d.innerHTML = `<span class="av" style="background:${cor}">${em}</span><div>${nm}<small>${pp}</small></div>`; extras.appendChild(d); return d; });
+
+// ---------- render(t) determinístico ----------
+function render(t) {
+  // fundo vivo
+  $('b1').style.transform = `translate(${Math.sin(t / 5) * 60}px, ${Math.cos(t / 6) * 40}px)`;
+  $('b2').style.transform = `translate(${Math.cos(t / 7) * 50}px, ${Math.sin(t / 5) * 70}px)`;
+  $('b3').style.transform = `translate(${Math.sin(t / 6) * 70}px, ${Math.cos(t / 4) * 30}px)`;
+  $('progresso').firstChild.style.width = `${clamp(t / DUR) * 100}%`;
+
+  // abertura e final
+  const ab = 1 - easeOut(prog(t, 3.4, 4.2));
+  const abIn = easeOut(prog(t, 0, 1));
+  $('abertura').style.opacity = Math.min(ab, abIn);
+  $('abertura').style.transform = `scale(${lerp(.92, 1, back(prog(t, 0, 1.2)))})`;
+  const fim = easeOut(prog(t, 79.8, 80.6));
+  $('final').style.opacity = fim;
+  $('final').style.transform = `translateY(${(1 - fim) * 40}px)`;
+  ['f1', 'f2', 'f3'].forEach((id, i) => { const p = back(prog(t, 80.6 + i * .5, 81.2 + i * .5)); $(id).style.opacity = clamp(p * 1.4); $(id).style.transform = `translateX(${(1 - p) * -60}px)`; });
+
+  // celular
+  const foneIn = easeOut(prog(t, 3.6, 4.6));
+  const foneOut = easeOut(prog(t, 79.3, 80.1));
+  $('fone').style.opacity = Math.min(foneIn, 1 - foneOut);
+  $('fone').style.transform = `translateY(${(1 - foneIn) * 200 + foneOut * 120}px) scale(${lerp(.94, 1, foneIn)})`;
+
+  // cabeçalho
+  const cena = CENAS.find((c) => t >= c.a && t < c.b) || (t >= 79.5 ? CENAS[CENAS.length - 1] : CENAS[0]);
+  if ($('titulo').textContent !== cena.t) { $('titulo').textContent = cena.t; $('sub').textContent = cena.s; $('num').textContent = cena.n; }
+  const ci = janela(t, cena.a, cena.b, .4);
+  const vis = Math.min(ci, foneIn, 1 - foneOut);
+  $('cab').style.opacity = vis;
+  $('cab').style.transform = `translateY(${(1 - ci) * 30}px)`;
+
+  // telas
+  TELAS.forEach(([, a, b, tipo], i) => {
+    const el = imgs[i];
+    const ent = easeInOut(prog(t, a, a + .55));
+    const ativo = t >= a - .01 && t < b + .55;
+    if (!ativo) { el.style.opacity = 0; return; }
+    let tr = '', op = 1;
+    if (tipo === 'zoom') { tr = `scale(${lerp(1.06, 1, ent)})`; op = ent; }
+    else if (tipo === 'fade') op = ent;
+    else if (tipo === 'lado') tr = `translateX(${(1 - ent) * 100}%)`;
+    else if (tipo === 'rola') tr = `translateY(${(1 - ent) * 100}%)`;
+    else if (tipo === 'sobe') { tr = `translateY(${(1 - ent) * 60}%)`; op = ent; }
+    // leve "zoom de câmera" enquanto a tela está parada
+    const k = prog(t, a + .55, b);
+    tr += ` scale(${1 + k * .015})`;
+    el.style.transform = tr;
+    el.style.opacity = op;
+    el.style.zIndex = i;
+  });
+
+  // destaque
+  const foco = $('foco');
+  const f = FOCOS.find((x) => t >= x.a && t < x.b);
+  if (f) {
+    const v = janela(t, f.a, f.b, .35);
+    const [x, y, w, h] = f.r;
+    const pulse = 1 + Math.sin((t - f.a) * 5) * .006;
+    foco.style.left = `${x * S}px`; foco.style.top = `${y * S}px`; foco.style.width = `${w * S}px`; foco.style.height = `${h * S}px`;
+    foco.style.opacity = v;
+    foco.style.boxShadow = `0 0 0 2000px rgba(29,28,34,${.42 * v})`;
+    foco.style.transform = `scale(${lerp(1.08, 1, easeOut(prog(t, f.a, f.a + .4))) * pulse})`;
+  } else foco.style.opacity = 0;
+
+  // toque
+  const tq = TOQUES.find((x) => t >= x.t - .5 && t < x.t + .6);
+  const toque = $('toque');
+  if (tq) {
+    const p = prog(t, tq.t - .5, tq.t + .6);
+    toque.style.left = `${tq.x * S}px`; toque.style.top = `${tq.y * S}px`;
+    const s = p < .45 ? lerp(1.4, .8, easeOut(p / .45)) : lerp(.8, 1.6, easeOut((p - .45) / .55));
+    toque.style.transform = `scale(${s})`;
+    toque.style.opacity = p < .45 ? easeOut(p / .45) : 1 - easeOut((p - .45) / .55);
+  } else toque.style.opacity = 0;
+
+  // balões
+  BALOES.forEach(([a, b, lado, y], i) => {
+    const el = baloes[i];
+    const v = janela(t, a, b, .4);
+    const p = back(prog(t, a, a + .55));
+    el.style.opacity = v;
+    el.style.top = `${y}px`;
+    if (lado === 'd') { el.style.right = '36px'; el.style.left = 'auto'; } else { el.style.left = '36px'; el.style.right = 'auto'; }
+    const dx = (1 - p) * (lado === 'd' ? 80 : -80);
+    el.style.transform = `translateX(${dx}px) translateY(${Math.sin(t * 1.6 + i) * 5}px) scale(${lerp(.9, 1, clamp(p))})`;
+  });
+
+  // pessoas entrando na família
+  PESSOAS.forEach(([a], i) => {
+    const el = pessoas[i];
+    const v = janela(t, a, 29.8, .4);
+    const p = back(prog(t, a, a + .55));
+    el.style.opacity = v;
+    el.style.left = i % 2 ? 'auto' : '30px';
+    el.style.right = i % 2 ? '30px' : 'auto';
+    el.style.top = `${620 + i * 125}px`;
+    el.style.transform = `translateX(${(1 - p) * (i % 2 ? 90 : -90)}px) scale(${lerp(.85, 1, clamp(p))})`;
+  });
+}
+
+window.DUR = DUR;
+window.render = render;
+window.pronto = Promise.all([...document.images].map((i) => (i.complete ? 1 : new Promise((r) => { i.onload = r; i.onerror = r; })))).then(() => document.fonts.ready);
+if (!navigator.webdriver) { const t0 = performance.now(); const loop = () => { render(((performance.now() - t0) / 1000) % DUR); requestAnimationFrame(loop); }; loop(); }
+</script>
+</body>
+</html>
