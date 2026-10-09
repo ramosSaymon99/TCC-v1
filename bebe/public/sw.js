@@ -88,6 +88,15 @@ self.addEventListener('push', (event) => {
   ]));
 });
 
+/** Métrica do piloto: só o tipo de ação, sem conteúdo. */
+async function registrarUso(evento, valor, babyId) {
+  try {
+    const s = await lerSessao();
+    if (!s?.token) return;
+    await fetch(new URL('./api/uso', self.registration.scope), { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${s.token}` }, body: JSON.stringify({ evento, valor, babyId }) });
+  } catch { /* sem rede: ignora */ }
+}
+
 async function executar(acao, notif) {
   const s = await lerSessao();
   if (!s?.token) return false;
@@ -123,6 +132,7 @@ self.addEventListener('notificationclick', (event) => {
   n.close();
   event.waitUntil((async () => {
     await contador(-1);
+    registrarUso(event.action ? 'notif_acao' : 'notif_clique', event.action || (n.tag || '').split('-')[0], dados.babyId);
     if (acao?.api) {
       // Ação direta (ex.: "Acordou"): grava sem abrir o app; se falhar (sessão expirada), abre o app
       if (await executar(acao, n)) return;

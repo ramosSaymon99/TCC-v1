@@ -105,10 +105,12 @@ export function ConfigNotificacoes({ onClose }: { onClose: () => void }) {
       if (inscrito) {
         await desativarPush();
         setInscrito(false);
+        api.uso('push_desativado');
         toast('Notificações desativadas neste aparelho');
       } else {
         await ativarPush(info!.publicKey!);
         setInscrito(true);
+        api.uso('push_ativado');
         const r = await api.pushTest();
         toast(r.enviados ? 'Pronto! Enviamos uma notificação de teste 🔔' : 'Ativado. Se o teste não chegar, confira as permissões do navegador.');
       }

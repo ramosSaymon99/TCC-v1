@@ -152,7 +152,10 @@ export default function App() {
     const on = async () => {
       setOnline(true);
       const r = await sincronizar();
-      if (r.enviados) toast(`✓ ${r.enviados} registro(s) feito(s) sem internet foram enviados`);
+      if (r.enviados) {
+        toast(`✓ ${r.enviados} registro(s) feito(s) sem internet foram enviados`);
+        api.uso('sync_offline', r.enviados);
+      }
       if (r.falhas.length) toast(`${r.falhas.length} registro(s) não puderam ser enviados: ${r.falhas[0]}`);
       refresh();
     };
@@ -223,7 +226,7 @@ export default function App() {
               label: 'Desfazer',
               fn: async () => {
                 setMsg(null);
-                try { await desfazer(); await refresh(); toast('Desfeito ↩︎'); } catch (e) { toast(e instanceof Error ? e.message : 'Não foi possível desfazer.'); }
+                try { await desfazer(); await refresh(); toast('Desfeito ↩︎'); api.uso('desfazer', undefined, base?.baby.id); } catch (e) { toast(e instanceof Error ? e.message : 'Não foi possível desfazer.'); }
               },
             } : undefined);
           }
@@ -256,6 +259,7 @@ export default function App() {
     if (!ctx || !acaoDaUrl) return;
     const a = acaoDaUrl;
     acaoDaUrl = null;
+    api.uso('atalho_icone', a, ctx.data.baby.id);
     if (a === 'relatorio') { setAba('saude'); setRelatorio(true); } else if (ctx.podeEditar && ['mamada', 'mamadeira', 'sono', 'fralda', 'remedio'].includes(a)) { setAba('hoje'); setRegistro({ tipo: a as EventType }); }
   }, [ctx, acaoPendente, setAba]);
 

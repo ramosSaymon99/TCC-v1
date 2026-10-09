@@ -152,6 +152,11 @@ export const api = {
   setVaccine: (id: string, code: string, date: string) => req('PUT', `/babies/${id}/vaccines/${code}`, { date }),
   removeVaccine: (id: string, code: string) => req('DELETE', `/babies/${id}/vaccines/${code}`),
   seed: (id: string, data: Record<string, unknown[]>) => req('POST', `/babies/${id}/seed`, data),
+  /** Métrica de uso do piloto (fire-and-forget; só na versão publicada). */
+  uso: (evento: string, valor?: string | number, babyId?: string) => {
+    if (modo !== 'cloud' || !token) return;
+    void enviar('POST', '/uso', { evento, valor, babyId }).catch(() => undefined);
+  },
   setMyPhoto: (photo: string) => req<{ photo: string }>('PUT', '/me/photo', { photo }),
   removeMyPhoto: () => req('DELETE', '/me/photo'),
   setBabyPhoto: (id: string, photo: string) => req<{ photo: string }>('PUT', `/babies/${id}/photo`, { photo }),

@@ -17,6 +17,8 @@ import {
 } from './conta.js';
 
 const TOKEN_DIAS = 30;
+/** Ações contadas para as métricas do piloto (nunca o conteúdo dos registros). */
+const EVENTOS_USO = ['pdf_gerado', 'pdf_compartilhado', 'push_ativado', 'push_desativado', 'desfazer', 'sync_offline', 'notif_clique', 'notif_acao', 'atalho_icone', 'app_instalado'];
 const FOTO_MAX = 400_000; // ~300 KB de imagem em base64 (o app envia 320×320 JPEG, ~25 KB)
 const PBKDF2_ITER = 100000;
 const NIVEL = { leitor: 1, editor: 2, admin: 3 };
@@ -107,6 +109,8 @@ const ESQUEMA = [
   'CREATE TABLE IF NOT EXISTS notif_prefs (user_id TEXT PRIMARY KEY, data TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS notif_log (key TEXT PRIMARY KEY, at TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS login_attempts (key TEXT PRIMARY KEY, count INTEGER NOT NULL, window_start TEXT NOT NULL)',
+  'CREATE TABLE IF NOT EXISTS uso (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, baby_id TEXT, evento TEXT NOT NULL, valor TEXT, at TEXT NOT NULL)',
+  'CREATE INDEX IF NOT EXISTS idx_uso_evento ON uso (evento, at)',
   'CREATE TABLE IF NOT EXISTS password_resets (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, kind TEXT NOT NULL, created_by TEXT, expires_at TEXT NOT NULL, used_at TEXT, created_at TEXT NOT NULL)',
 ];
 /** Colunas adicionadas depois da 1ª versão (bancos antigos recebem via ALTER). */
@@ -336,6 +340,20 @@ async function api(req, env, url, ctx) {
   }
 
   /* ---- Notificações push ---- */
+  /* ---- Registro de uso (só o nome da ação, sem conteúdo) — métricas do piloto ---- */
+  if (path === '/uso' && method === 'POST') {
+    const evento = String(body.evento ?? '');
+    if (!EVENTOS_USO.includes(evento)) return erro('Evento inválido.');
+    let babyId = body.babyId ? String(body.babyId) : null;
+    if (babyId && !(await vinculo(env, babyId, me.id))) babyId = null;
+    const hoje = (await env.DB.prepare("SELECT COUNT(*) AS n FROM uso WHERE user_id = ? AND at > ?").bind(me.id, new Date(Date.now() - 86400_000).toISOString()).first()).n;
+    if (hoje < 500) {
+      await env.DB.prepare('INSERT INTO uso (user_id, baby_id, evento, valor, at) VALUES (?, ?, ?, ?, ?)')
+        .bind(me.id, babyId, evento, body.valor == null ? null : String(body.valor).slice(0, 40), agora()).run();
+    }
+    return json({ ok: true });
+  }
+
   if (path === '/push' && method === 'GET') {
     const prefs = await env.DB.prepare('SELECT data FROM notif_prefs WHERE user_id = ?').bind(me.id).first();
     const n = (await env.DB.prepare('SELECT COUNT(*) AS n FROM push_subs WHERE user_id = ?').bind(me.id).first()).n;

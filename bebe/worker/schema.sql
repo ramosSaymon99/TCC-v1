@@ -67,3 +67,6 @@ ALTER TABLE babies ADD COLUMN guardian_consent_at TEXT;
 ALTER TABLE babies ADD COLUMN guardian_consent_by TEXT;
 CREATE TABLE IF NOT EXISTS login_attempts (key TEXT PRIMARY KEY, count INTEGER NOT NULL, window_start TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS password_resets (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, kind TEXT NOT NULL, created_by TEXT, expires_at TEXT NOT NULL, used_at TEXT, created_at TEXT NOT NULL);
+-- Métricas de uso (piloto): só o nome da ação, sem conteúdo
+CREATE TABLE IF NOT EXISTS uso (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, baby_id TEXT, evento TEXT NOT NULL, valor TEXT, at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_uso_evento ON uso (evento, at);

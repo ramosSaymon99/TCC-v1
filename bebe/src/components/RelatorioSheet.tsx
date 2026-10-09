@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Download, ExternalLink, FileText, Share2 } from 'lucide-react';
 import { useApp } from '../ctx';
+import { api } from '../lib/api';
 import { papel } from '../lib/constants';
 import { dataBr } from '../lib/time';
 import { Field, Seg, Sheet } from './ui';
@@ -24,6 +25,7 @@ export function RelatorioSheet({ onClose }: { onClose: () => void }) {
       const { gerarRelatorio } = await import('../lib/relatorio');
       const r = await gerarRelatorio(data, { dias: Number(dias), duvidas, geradoPor: `${user.name} (${papel(data.role).label.toLowerCase()})` });
       setPdf({ ...r, url: URL.createObjectURL(r.blob) });
+      api.uso('pdf_gerado', dias, data.baby.id);
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Não foi possível gerar o PDF.');
     }
@@ -49,7 +51,7 @@ export function RelatorioSheet({ onClose }: { onClose: () => void }) {
           <b>✓ Relatório pronto</b>
           <p className="faint" style={{ marginBottom: 10 }}>{pdf.nome} · {Math.round(pdf.blob.size / 1024)} KB</p>
           <div className="wrap-row">
-            {podeCompartilhar && <button className="btn primary" onClick={() => navigator.share({ files: [arquivo!], title: `Relatório de ${data.baby.name}` }).catch(() => undefined)}><Share2 size={15} /> Compartilhar</button>}
+            {podeCompartilhar && <button className="btn primary" onClick={() => navigator.share({ files: [arquivo!], title: `Relatório de ${data.baby.name}` }).then(() => api.uso('pdf_compartilhado', dias, data.baby.id)).catch(() => undefined)}><Share2 size={15} /> Compartilhar</button>}
             <a className="btn" href={pdf.url} download={pdf.nome}><Download size={15} /> Baixar</a>
             <a className="btn" href={pdf.url} target="_blank" rel="noreferrer"><ExternalLink size={15} /> Abrir</a>
           </div>
