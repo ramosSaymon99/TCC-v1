@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Bell, Copy, Database, Download, KeyRound, LogOut, Pencil, Plus, Share2, Shield, Trash2, UserPlus, X } from 'lucide-react';
+import { Bell, Camera, Copy, Database, Download, KeyRound, LogOut, Pencil, Plus, Share2, Shield, Trash2, UserPlus, X } from 'lucide-react';
 import { Avatar, PhotoPicker } from '../components/Avatar';
 import { PoliticaSheet } from '../components/Privacidade';
 import { useApp } from '../ctx';
@@ -96,7 +96,12 @@ export function Familia() {
           const share = soma && c ? c.total / soma : 0;
           return (
             <div key={m.user_id} className="list-item" style={{ alignItems: 'flex-start' }}>
-              <Avatar photo={m.photo} emoji={papel(m.role).emoji} size={44} />
+              {m.user_id === user.id ? (
+                <button className="photo-pick" onClick={() => setPerfil(true)} aria-label="Trocar minha foto">
+                  <Avatar photo={m.photo} emoji={papel(m.role).emoji} size={44} />
+                  {!m.photo && <span className="photo-cam" style={{ width: 22, height: 22 }}><Camera size={12} /></span>}
+                </button>
+              ) : <Avatar photo={m.photo} emoji={papel(m.role).emoji} size={44} />}
               <div className="grow">
                 <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
                   <b>{m.name}{m.user_id === user.id ? ' (você)' : ''}</b>
@@ -115,9 +120,15 @@ export function Familia() {
       <div className="grid md2">
         <div className="card stack">
           <h2>Meu perfil</h2>
-          <div className="row"><Avatar photo={user.photo} emoji={papel(data.role).emoji} size={48} /><p className="muted">{user.name}<br />{user.email}</p></div>
+          <PhotoPicker
+            photo={user.photo} emoji={papel(data.role).emoji}
+            onPick={(foto) => act(async () => { await api.setMyPhoto(foto); await app.reloadMe(); }, 'Sua foto foi atualizada 📸')}
+            onRemove={() => act(async () => { await api.removeMyPhoto(); await app.reloadMe(); }, 'Foto removida')}
+          />
+          <p className="muted">{user.name}<br />{user.email}</p>
+          {!user.photo && <p className="faint">📸 Coloque sua foto para a família reconhecer quem registrou cada cuidado.</p>}
           <div className="wrap-row">
-            <button className="btn sm" onClick={() => setPerfil(true)}><Pencil size={14} /> Nome e senha</button>
+            <button className="btn sm" onClick={() => setPerfil(true)}><Pencil size={14} /> Editar nome e senha</button>
             <button className="btn sm" onClick={sair}><LogOut size={14} /> Sair</button>
           </div>
           <hr className="sep" />
