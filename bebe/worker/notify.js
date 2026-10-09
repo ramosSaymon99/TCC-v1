@@ -3,6 +3,7 @@
  * e lembretes agendados (Cron Trigger a cada 15 min).
  */
 import { sendPush } from './push.js';
+import { registrarErro } from './observabilidade.js';
 
 export const PREFS_PADRAO = {
   atividade: false, // cada registro feito por outro cuidador
@@ -124,12 +125,14 @@ export async function notificar(env, babyId, categoria, msg, exceto = null) {
     try {
       const st = await sendPush(env, s, payload, categoria === 'lembretes' ? 'high' : 'normal');
       if (st === 404 || st === 410) await env.DB.prepare('DELETE FROM push_subs WHERE endpoint = ?').bind(s.endpoint).run();
+      else if (st >= 400) await registrarErro(env, { origem: 'push', rota: new URL(s.endpoint).host, status: st, mensagem: `Serviço de push recusou (${categoria})` });
       else if (st < 300) {
         enviados++;
         await env.DB.prepare("INSERT INTO uso (user_id, baby_id, evento, valor, at) VALUES (?, ?, 'notif_enviada', ?, ?)").bind(s.user_id, babyId, categoria, new Date().toISOString()).run().catch(() => undefined);
       }
-    } catch {
-      /* falha de rede em uma inscrição não interrompe as demais */
+    } catch (e) {
+      // falha de rede em uma inscrição não interrompe as demais
+      await registrarErro(env, { origem: 'push', rota: new URL(s.endpoint).host, mensagem: e instanceof Error ? e.message : 'falha de rede' }).catch(() => undefined);
     }
   }));
   return enviados;

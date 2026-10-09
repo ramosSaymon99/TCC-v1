@@ -6,3 +6,4 @@ dist
 cloudflare-dist
 .wrangler
 .dev.vars
+.estado-local

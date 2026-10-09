@@ -70,3 +70,11 @@ CREATE TABLE IF NOT EXISTS password_resets (token_hash TEXT PRIMARY KEY, user_id
 -- Métricas de uso (piloto): só o nome da ação, sem conteúdo
 CREATE TABLE IF NOT EXISTS uso (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, baby_id TEXT, evento TEXT NOT NULL, valor TEXT, at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_uso_evento ON uso (evento, at);
+-- Observabilidade anônima (painel do desenvolvedor): ver worker/observabilidade.js
+CREATE TABLE IF NOT EXISTS atividade (dia TEXT NOT NULL, uid TEXT NOT NULL, demo INTEGER NOT NULL DEFAULT 0, coorte TEXT, pais TEXT, regiao TEXT, plataforma TEXT, modo TEXT, PRIMARY KEY (dia, uid));
+CREATE INDEX IF NOT EXISTS idx_atividade_dia ON atividade (dia);
+CREATE TABLE IF NOT EXISTS req_hora (hora TEXT NOT NULL, rota TEXT NOT NULL, classe TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, ms_total INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (hora, rota, classe));
+CREATE TABLE IF NOT EXISTS erros (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, origem TEXT NOT NULL, rota TEXT, status INTEGER, mensagem TEXT, versao TEXT, plataforma TEXT);
+CREATE INDEX IF NOT EXISTS idx_erros_at ON erros (at);
+CREATE TABLE IF NOT EXISTS contadores (dia TEXT NOT NULL, chave TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (dia, chave));
+CREATE TABLE IF NOT EXISTS sistema (chave TEXT PRIMARY KEY, valor TEXT NOT NULL, at TEXT NOT NULL);

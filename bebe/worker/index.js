@@ -10,6 +10,7 @@
  */
 
 import { vapid, sendPush } from './push.js';
+import { ESQUEMA_OBS, contar, limparObservabilidade, marcarSistema, normalizarRota, plataformaDe, registrarAtividade, registrarErro, registrarRequisicao } from './observabilidade.js';
 import { CATEGORIAS, dataHoraTz, descreverEvento, horaTz, lembretes, lerPrefs, nomePapel, notificar } from './notify.js';
 import {
   DOMINIO_DEMO, VERSAO_TERMOS, bloqueado, codigoCurto, consumirRedefinicao, criarRedefinicao, emailConfigurado,
@@ -122,7 +123,7 @@ const MIGRACOES = [
 let esquemaOk = false;
 async function garantirEsquema(env) {
   if (esquemaOk) return;
-  await env.DB.batch(ESQUEMA.map((s) => env.DB.prepare(s)));
+  await env.DB.batch(ESQUEMA.concat(ESQUEMA_OBS).map((s) => env.DB.prepare(s)));
   for (const m of MIGRACOES) {
     try { await env.DB.prepare(m).run(); } catch { /* coluna já existe */ }
   }
@@ -255,6 +256,7 @@ async function api(req, env, url, ctx) {
     const { salt, hash } = await hashSenha(senha);
     const t = agora();
     await env.DB.prepare('INSERT INTO users (id, name, email, salt, hash, created_at, consent_at, terms_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(id, name, email, salt, hash, t, t, VERSAO_TERMOS).run();
+    ctx.waitUntil(contar(env, email.endsWith(DOMINIO_DEMO) ? 'cadastros_exemplo' : 'cadastros').catch(() => undefined));
     return json({ token: await criarToken(env, { id, salt }), user: { id, name, email, demo: email.endsWith(DOMINIO_DEMO), created_at: t } });
   }
 
@@ -267,10 +269,21 @@ async function api(req, env, url, ctx) {
     const ok = u ? iguais((await hashSenha(String(body.password ?? ''), u.salt)).hash, u.hash) : false;
     if (!ok) {
       await registrarFalha(env, chaves);
+      ctx.waitUntil(contar(env, 'logins_falhos').catch(() => undefined));
       return erro('E-mail ou senha inválidos.', 401);
     }
     await limparFalhas(env, chaves[0]);
+    ctx.waitUntil(contar(env, 'logins').catch(() => undefined));
     return json({ token: await criarToken(env, u), user: await publicUser(env, u) });
+  }
+
+  // Erros do app (tela) para o painel do desenvolvedor: texto higienizado, com limite por IP
+  if (path === '/erro' && method === 'POST') {
+    if (!(await bloqueado(env, [`erroapp:${ip}`], [40]))) {
+      await registrarFalha(env, [`erroapp:${ip}`]);
+      await registrarErro(env, { origem: 'app', rota: String(body.tela ?? '').slice(0, 40) || null, mensagem: body.mensagem, versao: body.versao, plataforma: plataformaDe(req.headers.get('user-agent') || '') });
+    }
+    return json({ ok: true });
   }
 
   if (path === '/auth/config' && method === 'GET') return json({ email: emailConfigurado(env), termos: VERSAO_TERMOS });
@@ -337,6 +350,7 @@ async function api(req, env, url, ctx) {
   const sessao = await validarToken(env, (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, ''));
   const me = sessao ? await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(sessao.uid).first() : null;
   if (!me || sessao.marca !== marcaSenha(me.salt)) return erro('Sessão expirada. Entre novamente.', 401);
+  ctx.waitUntil(registrarAtividade(env, hmac, me, req).catch(() => undefined));
 
   if (path === '/me' && method === 'GET') {
     const babies = await env.DB.prepare('SELECT b.*, m.role, m.access FROM members m JOIN babies b ON b.id = m.baby_id WHERE m.user_id = ? ORDER BY b.birth_date DESC').bind(me.id).all();
@@ -347,6 +361,7 @@ async function api(req, env, url, ctx) {
     if (!me.email.endsWith(DOMINIO_DEMO) && !iguais((await hashSenha(String(body.password ?? ''), me.salt)).hash, me.hash)) {
       return erro('Senha incorreta.', 403);
     }
+    ctx.waitUntil(contar(env, 'contas_excluidas').catch(() => undefined));
     return json({ ok: true, ...(await excluirConta(env, me.id)) });
   }
 
@@ -446,6 +461,7 @@ async function api(req, env, url, ctx) {
         .bind(crypto.randomUUID(), id, body.consult_date || t.slice(0, 10), body.weight_g || null, body.height_cm || null, null, 'consulta', 'Última consulta (cadastro)', me.id, t, t));
     }
     await env.DB.batch(stmts);
+    ctx.waitUntil(contar(env, 'bebes_criados').catch(() => undefined));
     return json({ id });
   }
 
@@ -459,6 +475,7 @@ async function api(req, env, url, ctx) {
       env.DB.prepare('UPDATE invites SET used_by = ? WHERE code = ?').bind(me.id, code),
       ...(ja ? [] : [env.DB.prepare('INSERT INTO members (baby_id, user_id, role, access, created_at) VALUES (?, ?, ?, ?, ?)').bind(inv.baby_id, me.id, role, inv.access, agora())]),
     ]);
+    if (!ja) ctx.waitUntil(contar(env, 'convites_aceitos').catch(() => undefined));
     if (!ja) avisar(inv.baby_id, 'familia', { title: `👋 ${me.name.split(' ')[0]} entrou na família`, body: `${me.name} agora acompanha como ${nomePapel(role)}.`, aba: 'familia' }, me.id);
     return json({ babyId: inv.baby_id });
   }
@@ -711,20 +728,35 @@ export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
     if (url.pathname.startsWith('/api/')) {
+      const inicio = Date.now();
+      let resp;
       try {
-        return await api(req, env, url, ctx);
+        resp = await api(req, env, url, ctx);
       } catch (e) {
-        return erro(e instanceof Error ? e.message : 'Erro interno.', e?.status || 500);
+        const status = e?.status || 500;
+        if (status >= 500) {
+          ctx.waitUntil(registrarErro(env, { origem: 'servidor', rota: normalizarRota(req.method, url.pathname), status, mensagem: e instanceof Error ? `${e.name}: ${e.message}` : String(e), plataforma: plataformaDe(req.headers.get('user-agent') || '') }).catch(() => undefined));
+        }
+        resp = erro(e instanceof Error ? e.message : 'Erro interno.', status);
       }
+      ctx.waitUntil(registrarRequisicao(env, req.method, url.pathname, resp.status, Date.now() - inicio).catch(() => undefined));
+      return resp;
     }
     return env.ASSETS.fetch(req);
   },
   /** Cron Trigger (wrangler.toml): lembretes de mamada, cronômetro esquecido e consultas. */
   async scheduled(_event, env, ctx) {
     ctx.waitUntil((async () => {
-      await garantirEsquema(env);
-      await lembretes(env);
-      await limparContasDemo(env);
+      try {
+        await garantirEsquema(env);
+        await lembretes(env);
+        await limparContasDemo(env);
+        await limparObservabilidade(env);
+        await marcarSistema(env, 'cron_ultimo', 'ok');
+      } catch (e) {
+        await registrarErro(env, { origem: 'cron', mensagem: e instanceof Error ? `${e.name}: ${e.message}` : String(e) }).catch(() => undefined);
+        await marcarSistema(env, 'cron_ultimo', 'erro').catch(() => undefined);
+      }
     })());
   },
 };

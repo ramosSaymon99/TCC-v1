@@ -1,0 +1,18 @@
+name = "ninho-painel"
+main = "worker/index.js"
+compatibility_date = "2025-09-01"
+
+# Painel do desenvolvedor do Ninho: só números agregados e anônimos, com login próprio
+workers_dev = true
+preview_urls = false
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+
+# Mesmo banco do app (leitura de dados agregados + contas de administrador do painel)
+[[d1_databases]]
+binding = "DB"
+database_name = "ninho-db"
+database_id = "13f1a93c-7d59-4dd7-93cd-47297ede0756"

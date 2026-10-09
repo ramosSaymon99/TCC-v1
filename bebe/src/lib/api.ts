@@ -45,6 +45,9 @@ export class ApiError extends Error {
 }
 
 export const SEM_REDE = 0;
+/** Só para estatística agregada no painel do desenvolvedor: app instalado ou navegador, e versão. */
+const instalado = () => typeof window !== 'undefined' && (window.matchMedia?.('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true);
+export const cabecalhosApp = () => ({ 'x-ninho-modo': instalado() ? 'app' : 'navegador', 'x-ninho-versao': __VERSAO__ });
 let usuarioAtual = '';
 export const definirUsuarioAtual = (id: string) => { usuarioAtual = id; };
 
@@ -53,7 +56,7 @@ async function enviar(method: string, path: string, body?: unknown) {
   try {
     r = await fetch(`./api${path}`, {
       method,
-      headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+      headers: { 'content-type': 'application/json', ...cabecalhosApp(), ...(token ? { authorization: `Bearer ${token}` } : {}) },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
