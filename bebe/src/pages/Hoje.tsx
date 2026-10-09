@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Pin, Square } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Pin, Sun } from 'lucide-react';
 import { useApp } from '../ctx';
 import { api } from '../lib/api';
 import { TIPOS, papel } from '../lib/constants';
@@ -80,7 +80,7 @@ export function Hoje() {
             <div style={{ fontWeight: 800 }}>{e.type === 'sono' ? 'Dormindo' : `Mamando · ${e.data.side === 'E' ? 'esquerdo' : e.data.side === 'D' ? 'direito' : 'ambos'}`} desde {hm(e.start_at)}</div>
             <div className="clock">{cronometro(agora - t(e.start_at))}</div>
           </div>
-          {podeEditar && <button className="btn" onClick={() => encerrar(e)}><Square size={14} /> {e.type === 'sono' ? 'Acordou' : 'Encerrar'}</button>}
+          {podeEditar && <button className="btn" onClick={() => encerrar(e)}>{e.type === 'sono' ? <><Sun size={16} /> Acordou</> : <><Check size={16} /> Encerrar</>}</button>}
         </div>
       ))}
 

@@ -185,7 +185,10 @@ textarea.input { min-height: 80px; resize: vertical; }
   display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: var(--radius); color: #fff;
 }
 .timer .clock { font-size: 28px; font-weight: 900; font-variant-numeric: tabular-nums; }
-.timer .btn { background: rgba(255, 255, 255, .95); color: var(--ink); border: 0; }
+/* Botão sobre a faixa colorida do cronômetro: cores fixas, iguais nos dois temas */
+.timer .btn, .timer .btn:hover, .timer .btn:focus-visible { background: #ffffff; color: #2b2a33; border: 0; font-weight: 800; }
+.timer .btn:active { background: #f1eef3; }
+.timer .btn svg { color: #2b2a33; }
 
 .since { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .since > div { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; }
