@@ -1,0 +1,453 @@
+<title>Protocolo do Piloto Ninho</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: documento de pesquisa em coluna única de leitura, com índice lateral fixo no desktop e tabelas roláveis */
+:root {
+  --bg: #fbf9fa;
+  --paper: #ffffff;
+  --ink: #2a2230;
+  --ink-2: #5d5465;
+  --ink-3: #8b8292;
+  --line: #e9e3ea;
+  --accent: #b2486a;
+  --accent-soft: #f8e7ee;
+  --sage: #3f7d6b;
+  --sage-soft: #e3f1ec;
+  --amber: #a86a12;
+  --amber-soft: #fbf0dc;
+  --f-display: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
+  --f-body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #18141b; --paper: #211b25; --ink: #f1ebf3; --ink-2: #c4bac8; --ink-3: #958b99; --line: #372e3c;
+    --accent: #ec8fae; --accent-soft: #3b2230; --sage: #7cc5ad; --sage-soft: #1d322b; --amber: #e6b25e; --amber-soft: #382c18;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #18141b; --paper: #211b25; --ink: #f1ebf3; --ink-2: #c4bac8; --ink-3: #958b99; --line: #372e3c;
+  --accent: #ec8fae; --accent-soft: #3b2230; --sage: #7cc5ad; --sage-soft: #1d322b; --amber: #e6b25e; --amber-soft: #382c18;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.6 var(--f-body); margin: 0; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 48px; }
+@media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); gap: 20px; } nav.toc { position: static !important; } }
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 20px); align-self: start; font-size: 14px; display: flex; flex-direction: column; gap: 2px; }
+nav.toc b { font-family: var(--f-display); font-size: 15px; margin-bottom: 6px; }
+nav.toc a { color: var(--ink-2); text-decoration: none; padding: 3px 8px; border-radius: 6px; }
+nav.toc a:hover, nav.toc a:focus-visible { background: var(--accent-soft); color: var(--accent); outline: none; }
+main { min-width: 0; display: flex; flex-direction: column; gap: 44px; }
+header.cab { display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--line); padding-bottom: 24px; }
+.eyebrow { font: 500 12px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+h1 { font: 800 clamp(30px, 5vw, 44px)/1.1 var(--f-display); margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+h2 { font: 800 24px/1.2 var(--f-display); margin: 0 0 6px; text-wrap: balance; }
+h3 { font: 600 17px/1.3 var(--f-display); margin: 18px 0 6px; }
+p { margin: 0; max-width: 68ch; }
+section { display: flex; flex-direction: column; gap: 12px; scroll-margin-top: 20px; }
+.lead { font-size: 18px; color: var(--ink-2); max-width: 62ch; }
+.fatos { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 14px; color: var(--ink-2); }
+.fatos b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.muted { color: var(--ink-2); }
+.small { font-size: 14px; }
+ul, ol { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 4px; max-width: 70ch; }
+code, .mono { font-family: var(--f-mono); font-size: .88em; background: var(--accent-soft); color: var(--accent); padding: 1px 6px; border-radius: 4px; }
+.tabela { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; min-width: 640px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 12px var(--f-body); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+td.num, td .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pill { display: inline-block; font: 600 12px var(--f-body); padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.p-meta { background: var(--sage-soft); color: var(--sage); }
+.p-expl { background: var(--amber-soft); color: var(--amber); }
+.linha { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 14px; padding: 12px 0; border-bottom: 1px dashed var(--line); }
+.linha:last-child { border-bottom: 0; }
+.linha .quando { font: 600 13px var(--f-mono); color: var(--accent); padding-top: 2px; }
+.linha .data { display: block; color: var(--ink-3); font-weight: 500; font-size: 12px; }
+.caixa { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+.aviso { background: var(--amber-soft); border-color: transparent; color: var(--ink); }
+.msgs { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.msg { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.msg header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.msg header b { font: 600 14px var(--f-display); }
+.msg pre { margin: 0; white-space: pre-wrap; font: 14px/1.5 var(--f-body); color: var(--ink-2); }
+button.copiar { font: 600 12px var(--f-body); border: 1px solid var(--line); background: var(--bg); color: var(--ink-2); padding: 5px 10px; border-radius: 8px; cursor: pointer; }
+button.copiar:hover, button.copiar:focus-visible { border-color: var(--accent); color: var(--accent); outline: none; }
+.sus { display: flex; flex-direction: column; gap: 6px; counter-reset: q; }
+.sus-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 16px; align-items: center; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+.sus-item span { font-size: 15px; }
+.escala { display: flex; gap: 4px; }
+.escala label { position: relative; }
+.escala input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.escala span.op { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--line); font: 600 14px var(--f-mono); cursor: pointer; color: var(--ink-2); background: var(--paper); }
+.escala input:checked + span.op { background: var(--accent); border-color: var(--accent); color: #fff; }
+.escala input:focus-visible + span.op { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 560px) { .sus-item { grid-template-columns: minmax(0, 1fr); } }
+.placar { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 18px; padding: 14px 16px; border-radius: 12px; background: var(--accent-soft); }
+.placar .valor { font: 800 34px var(--f-display); color: var(--accent); font-variant-numeric: tabular-nums; }
+.decisao { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.decisao .caixa b { font-family: var(--f-display); font-size: 16px; }
+.ok { border-left: 4px solid var(--sage); }
+.aj { border-left: 4px solid var(--amber); }
+.pa { border-left: 4px solid var(--accent); }
+a { color: var(--accent); }
+footer { color: var(--ink-3); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <nav class="toc" aria-label="Índice">
+    <b>Protocolo</b>
+    <a href="#resumo">Resumo</a>
+    <a href="#hipoteses">Hipóteses e metas</a>
+    <a href="#participantes">Participantes</a>
+    <a href="#etica">Ética e LGPD</a>
+    <a href="#cronograma">Cronograma</a>
+    <a href="#onboarding">Onboarding</a>
+    <a href="#mensagens">Mensagens prontas</a>
+    <a href="#inicial">Questionário inicial</a>
+    <a href="#final">Questionário final</a>
+    <a href="#sus">Calculadora SUS</a>
+    <a href="#entrevista">Entrevista</a>
+    <a href="#analise">Análise e decisão</a>
+    <a href="#riscos">Riscos</a>
+  </nav>
+
+  <main>
+    <header class="cab">
+      <span class="eyebrow">TCC · Estudo piloto · versão 1</span>
+      <h1>Piloto do Ninho com famílias reais</h1>
+      <p class="lead">Duas semanas de uso real por 3 a 5 famílias para responder uma pergunta: o Ninho faz a rede de cuidado registrar e compartilhar a rotina do bebê de forma regular, e isso tem valor na consulta pediátrica?</p>
+      <div class="fatos">
+        <span>Período sugerido <b>19/10 a 01/11/2026</b></span>
+        <span>Duração <b>14 dias</b></span>
+        <span>Famílias <b>3 a 5</b></span>
+        <span>Cuidadores <b>≥ 2 por família</b></span>
+        <span>Fontes <b>banco D1 + questionários + entrevista</b></span>
+      </div>
+    </header>
+
+    <section id="resumo">
+      <h2>Resumo</h2>
+      <p>O app já está publicado e testado. O piloto mede três coisas que os testes técnicos não respondem: <b>adoção pela família inteira</b> (não só pela mãe), <b>regularidade de uso</b> ao longo de duas semanas e <b>utilidade percebida</b> de notificações, indicadores e do relatório para o pediatra. Os dados de uso vêm direto do banco (consultas prontas em <code>bebe/piloto/indicadores.sql</code>, Q1 a Q9). Percepção e usabilidade vêm do questionário final (com a escala SUS) e de uma entrevista curta.</p>
+      <p class="muted small">Ao final, a decisão é uma de três: seguir para um piloto maior, ajustar e repetir, ou rever a proposta. Os critérios estão em <a href="#analise">Análise e decisão</a>.</p>
+    </section>
+
+    <section id="hipoteses">
+      <h2>Hipóteses, indicadores e metas</h2>
+      <p class="muted">Cada hipótese tem uma métrica com fórmula definida antes de começar, para não ajustar a régua depois de ver o resultado.</p>
+      <div class="tabela">
+        <table>
+          <thead><tr><th>#</th><th>Hipótese</th><th>Indicador (fórmula)</th><th>Meta</th><th>Fonte</th></tr></thead>
+          <tbody>
+            <tr><td class="num">H1</td><td>A família inteira usa, não só uma pessoa</td><td>Famílias com ≥ 2 cuidadores que registraram ÷ famílias</td><td class="num">≥ 80%</td><td><code>Q2</code> <span class="pill p-meta">meta</span></td></tr>
+            <tr><td class="num">H2</td><td>O registro vira hábito</td><td>Dias com ≥ 1 registro ÷ 14 dias (média das famílias)</td><td class="num">≥ 70%</td><td><code>Q2</code> <span class="pill p-meta">meta</span></td></tr>
+            <tr><td class="num">H3</td><td>O uso se mantém na 2ª semana</td><td>Famílias ativas na semana 2 ÷ semana 1</td><td class="num">≥ 80%</td><td><code>Q3</code> <span class="pill p-meta">meta</span></td></tr>
+            <tr><td class="num">H4</td><td>O cuidado (ou o registro) fica mais dividido</td><td>% dos registros feitos pelo cuidador principal</td><td class="num">≤ 70%</td><td><code>Q2</code> <code>Q5</code> <span class="pill p-meta">meta</span></td></tr>
+            <tr><td class="num">H5</td><td>As notificações são aceitas e úteis</td><td>Adesão: usuários com push ÷ usuários · Abertura: (cliques + ações) ÷ enviadas</td><td class="num">≥ 60% · ≥ 20%</td><td><code>Q6</code> <span class="pill p-meta">meta</span></td></tr>
+            <tr><td class="num">H6</td><td>O relatório tem valor na consulta</td><td>Famílias com consulta no período que geraram o PDF ÷ famílias com consulta</td><td class="num">≥ 50%</td><td><code>Q7</code> + questionário <span class="pill p-meta">meta</span></td></tr>
+            <tr><td class="num">H7</td><td>O app é fácil de usar</td><td>Média da escala SUS (0–100)</td><td class="num">≥ 70</td><td>Questionário final <span class="pill p-meta">meta</span></td></tr>
+            <tr><td class="num">H8</td><td>As famílias recomendariam</td><td>NPS = % promotores (9–10) − % detratores (0–6)</td><td class="num">≥ 30</td><td>Questionário final <span class="pill p-meta">meta</span></td></tr>
+            <tr><td class="num">E1</td><td>Funcionalidades de apoio fazem diferença</td><td>Uso de desfazer, sincronização offline, atalhos e mural (contagens e famílias)</td><td>—</td><td><code>Q7</code> <code>Q8</code> <span class="pill p-expl">exploratório</span></td></tr>
+            <tr><td class="num">E2</td><td>A madrugada é o momento crítico</td><td>% de registros entre 22h e 6h, por papel</td><td>—</td><td><code>Q5</code> <code>Q9</code> <span class="pill p-expl">exploratório</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="small muted">Com 3 a 5 famílias, os números são descritivos, não estatísticos. Servem para encontrar problemas e sinais fortes, não para provar efeito. Apresente sempre o valor por família ao lado da média.</p>
+    </section>
+
+    <section id="participantes">
+      <h2>Participantes e recrutamento</h2>
+      <h3>Critérios de inclusão</h3>
+      <ul>
+        <li>Bebê ou criança de 0 a 24 meses.</li>
+        <li>Pelo menos 2 cuidadores dispostos a usar o app (ex.: mãe e pai, mãe e avó, pais e babá).</li>
+        <li>Cada cuidador com smartphone próprio (Android 8+ ou iPhone com iOS 16.4+, para as notificações).</li>
+        <li>Um responsável legal que assine o termo de consentimento.</li>
+      </ul>
+      <h3>Exclusão</h3>
+      <ul>
+        <li>Bebê internado ou em acompanhamento intensivo no período (o app não é ferramenta clínica).</li>
+        <li>Familiares diretos da equipe do TCC, para reduzir viés de resposta.</li>
+      </ul>
+      <h3>Composição desejada</h3>
+      <p>Buscar variedade dentro de um grupo pequeno: pelo menos uma família com <b>recém-nascido (0–3 meses)</b>, uma com <b>babá ou avó</b> no cuidado, uma usando <b>mamadeira</b> e ao menos um cuidador com <b>iPhone</b>. Se possível, uma família com consulta pediátrica marcada entre 19/10 e 01/11, para avaliar o relatório (H6).</p>
+      <h3>Onde recrutar</h3>
+      <ul>
+        <li>Rede pessoal e da faculdade (colegas com filhos pequenos).</li>
+        <li>Grupos de mães e pais do bairro ou da cidade, com autorização do moderador.</li>
+        <li>Um pediatra ou enfermeira parceira que indique famílias interessadas.</li>
+      </ul>
+    </section>
+
+    <section id="etica">
+      <h2>Ética e proteção de dados</h2>
+      <div class="caixa aviso">
+        <p><b>Confirme com o orientador se o estudo precisa passar por Comitê de Ética (Plataforma Brasil).</b> Pesquisas com pessoas seguem as Resoluções CNS 466/2012 e 510/2016; algumas modalidades com dados anonimizados podem ser dispensadas, mas quem decide é a instituição. Não comece o piloto antes dessa resposta.</p>
+      </div>
+      <ul>
+        <li><b>Consentimento:</b> termo assinado pelo responsável legal (modelo abaixo), além do aceite da Política de Privacidade dentro do app.</li>
+        <li><b>Dados no app:</b> seguem a política do Ninho (LGPD art. 14, dados de crianças com consentimento do responsável). O registro de uso guarda só o nome da ação, nunca o conteúdo.</li>
+        <li><b>Dados da pesquisa:</b> cada família vira um código (<code>F1</code> a <code>F5</code>); as consultas mostram só os 8 primeiros caracteres do id. Nenhum nome de bebê ou cuidador entra no TCC.</li>
+        <li><b>Saída a qualquer momento:</b> a família pode sair sem justificar e excluir a conta pelo próprio app (Família → Meu perfil → Excluir minha conta).</li>
+        <li><b>Não é dispositivo médico:</b> deixe claro que o app não substitui o pediatra e que qualquer sinal de alerta deve ir direto ao atendimento.</li>
+      </ul>
+      <div class="msg">
+        <header><b>Modelo de termo de consentimento (resumo)</b><button class="copiar" type="button" data-alvo="tcle">Copiar</button></header>
+        <pre id="tcle">Termo de Consentimento Livre e Esclarecido — Piloto do aplicativo Ninho
+
+Você está sendo convidado(a) a participar de um estudo piloto do Trabalho de Conclusão de Curso "[título do TCC]", de [nome do aluno], sob orientação de [nome do orientador], [instituição].
+
+Objetivo: avaliar se o aplicativo Ninho ajuda a família a registrar e compartilhar a rotina do bebê (sono, alimentação, fraldas e saúde) e se as informações são úteis na consulta pediátrica.
+
+Como será: durante 14 dias (de 19/10 a 01/11/2026), os cuidadores usarão o app no dia a dia. Ao final, responderão a um questionário de cerca de 10 minutos e, se concordarem, a uma conversa de 20 minutos.
+
+Dados: os registros feitos no app ficam armazenados com segurança (Cloudflare, senha criptografada) e só os cuidadores convidados os veem. Para a pesquisa, usaremos apenas números agregados e identificados por código (ex.: F1), sem nomes. O app registra quais funções foram usadas (ex.: "relatório gerado"), sem o conteúdo dos registros.
+
+Riscos e benefícios: os riscos são mínimos (tempo gasto e eventual incômodo com notificações, que podem ser desligadas). O benefício é ter a rotina organizada e um relatório para levar ao pediatra. O app não substitui orientação médica.
+
+Liberdade: a participação é voluntária, sem custo ou pagamento. Você pode desistir a qualquer momento, sem justificativa, e pedir a exclusão de todos os dados pelo próprio app ou pelo contato abaixo.
+
+Contato do pesquisador: [nome] · [e-mail] · [telefone]
+
+Declaro que li, entendi e concordo em participar, como responsável legal pela criança [nome da criança].
+
+Nome do responsável: ____________________  Assinatura: ____________  Data: __/__/____</pre>
+      </div>
+    </section>
+
+    <section id="cronograma">
+      <h2>Cronograma</h2>
+      <div class="caixa" style="gap:0">
+        <div class="linha"><span class="quando">D-10<span class="data">09/10</span></span><div><b>Aprovação e materiais.</b> Validar o protocolo com o orientador, resolver a questão do Comitê de Ética, preencher o termo.</div></div>
+        <div class="linha"><span class="quando">D-7<span class="data">12–16/10</span></span><div><b>Recrutamento.</b> Convidar 6 a 8 famílias (contando desistências), aplicar o questionário inicial e coletar os termos assinados.</div></div>
+        <div class="linha"><span class="quando">D0<span class="data">19/10</span></span><div><b>Onboarding</b> de cada família (30 min, presencial ou chamada de vídeo), seguindo o roteiro abaixo. Anote o código F1–F5 e o id curto do bebê (primeiros 8 caracteres, visível na exportação de dados).</div></div>
+        <div class="linha"><span class="quando">D1<span class="data">20/10</span></span><div><b>Check-in rápido</b> por mensagem: alguma dificuldade? As notificações chegaram?</div></div>
+        <div class="linha"><span class="quando">D3<span class="data">22/10</span></span><div><b>Primeira leitura dos dados</b> (Q2). Família sem registro há 48 h recebe a mensagem de reengajamento.</div></div>
+        <div class="linha"><span class="quando">D7<span class="data">26/10</span></span><div><b>Ponto de controle da semana 1:</b> Q1, Q2, Q3 e Q6. Registrar observações em um diário de campo. Corrigir bugs graves, mas não mudar funcionalidades durante o piloto.</div></div>
+        <div class="linha"><span class="quando">D10<span class="data">29/10</span></span><div><b>Lembrete do relatório</b> para quem tem consulta próxima.</div></div>
+        <div class="linha"><span class="quando">D14<span class="data">01/11</span></span><div><b>Fim do uso acompanhado.</b> Enviar o questionário final (a família pode continuar usando o app).</div></div>
+        <div class="linha"><span class="quando">D15–18<span class="data">03–06/11</span></span><div><b>Entrevistas</b> de 20 min com um cuidador principal e, se possível, um secundário de cada família.</div></div>
+        <div class="linha"><span class="quando">D21<span class="data">09/11</span></span><div><b>Análise e decisão.</b> Rodar Q1–Q9 com as datas finais, calcular SUS e NPS e preencher a tabela de resultados.</div></div>
+      </div>
+      <p class="small muted">02/11 é feriado (Finados), por isso a coleta pós-piloto começa em 03/11.</p>
+    </section>
+
+    <section id="onboarding">
+      <h2>Roteiro de onboarding (30 min)</h2>
+      <ol>
+        <li>Abrir o link do app no celular do responsável principal e <b>adicionar à tela inicial</b> (iPhone: Safari → Compartilhar → Adicionar à Tela de Início; Android: menu → Instalar app).</li>
+        <li><b>Criar a conta</b> (aceitar a política) e <b>cadastrar o bebê</b>: nome, nascimento, peso e altura da última consulta e foto, se quiserem. Ajustar a rotina sugerida aos horários reais.</li>
+        <li><b>Convidar os outros cuidadores</b> (Família → Convidar) com o papel e o acesso certos. Cada um entra no próprio celular, cria a conta e usa "Tenho um código".</li>
+        <li>Em cada celular: Família → Configurar notificações → <b>Ativar neste aparelho</b> → Testar. Combinar quais avisos cada pessoa quer.</li>
+        <li>Fazer juntos um registro de cada tipo: <b>fralda</b>, <b>mamada com cronômetro</b> e encerrar, <b>sono</b>. Mostrar o botão <b>Desfazer</b>.</li>
+        <li>Cadastrar 2 ou 3 itens no <b>Mural</b> (fraldas com baixa automática, lenço, fórmula) e um recado fixado.</li>
+        <li>Mostrar <b>Indicadores</b> e <b>Saúde → Relatório para o pediatra</b>. Explicar que o relatório fica melhor com alguns dias de registro.</li>
+        <li>Combinar a regra do piloto: <b>registrar no momento</b> (ou logo depois), por quem estiver cuidando. Se esquecer, registrar com o horário certo em "Já aconteceu".</li>
+        <li>Avisar dos contatos (D1, D7, D14) e que podem sair quando quiserem.</li>
+      </ol>
+    </section>
+
+    <section id="mensagens">
+      <h2>Mensagens prontas</h2>
+      <div class="msgs">
+        <div class="msg"><header><b>D0 · Boas-vindas</b><button class="copiar" type="button" data-alvo="m0">Copiar</button></header><pre id="m0">Oi! Obrigado por participar do piloto do Ninho 💛 Nos próximos 14 dias, a ideia é que todos que cuidam do bebê registrem a rotina no app no momento em que acontece. Qualquer dúvida ou problema, me chama aqui. Amanhã eu passo para saber como foi o primeiro dia.</pre></div>
+        <div class="msg"><header><b>D1 · Check-in</b><button class="copiar" type="button" data-alvo="m1">Copiar</button></header><pre id="m1">Bom dia! Como foi o primeiro dia com o Ninho? Todos conseguiram entrar e as notificações chegaram nos celulares? Se algo estiver confuso, me conta que eu ajudo.</pre></div>
+        <div class="msg"><header><b>Sem registro há 48 h</b><button class="copiar" type="button" data-alvo="m2">Copiar</button></header><pre id="m2">Oi! Vi que o Ninho ficou parado nos últimos dias. Aconteceu alguma coisa com o app ou a rotina apertou? Se algo atrapalhou, quero muito saber, isso é exatamente o que o piloto precisa descobrir.</pre></div>
+        <div class="msg"><header><b>D7 · Meio do caminho</b><button class="copiar" type="button" data-alvo="m3">Copiar</button></header><pre id="m3">Uma semana de Ninho! 🎉 Dá uma olhada em Indicadores → Semana: lá aparecem o sono, as mamadas e quem cuidou. Faltam 7 dias. Tem algo que vocês gostariam que fosse diferente?</pre></div>
+        <div class="msg"><header><b>D10 · Relatório</b><button class="copiar" type="button" data-alvo="m4">Copiar</button></header><pre id="m4">Se tiver consulta com o pediatra nos próximos dias: em Saúde → "Relatório para o pediatra" dá para gerar um PDF com as últimas 2 semanas e anotar as dúvidas. Depois me conta se o médico achou útil!</pre></div>
+        <div class="msg"><header><b>D14 · Encerramento</b><button class="copiar" type="button" data-alvo="m5">Copiar</button></header><pre id="m5">Chegamos ao fim das 2 semanas! Muito obrigado 💛 Podem continuar usando o app normalmente. Peço só 10 minutos para o questionário final: [link]. E, se puderem, uma conversa de 20 min nesta semana. Qual horário fica bom?</pre></div>
+      </div>
+    </section>
+
+    <section id="inicial">
+      <h2>Questionário inicial (D-7)</h2>
+      <p class="muted">Aplicar a cada cuidador. Serve para descrever o grupo e comparar com o uso real.</p>
+      <ol>
+        <li>Qual é a sua relação com o bebê? (mãe, pai, avó, avô, babá, outro)</li>
+        <li>Idade do bebê (meses) e se mama no peito, mamadeira ou ambos.</li>
+        <li>Quantas pessoas cuidam do bebê numa semana normal? Quem?</li>
+        <li>Hoje vocês anotam a rotina do bebê? Como? (não anotam · papel · app · WhatsApp · outro)</li>
+        <li>Com que frequência acontece de não saber quando foi a última mamada, fralda ou soneca? (nunca · às vezes · quase todo dia · várias vezes ao dia)</li>
+        <li>Quanto tempo por dia vocês gastam combinando ou avisando uns aos outros sobre a rotina? (minutos)</li>
+        <li>Na última consulta pediátrica, você conseguiu responder com segurança perguntas sobre sono, mamadas e fraldas? (escala 1 a 5)</li>
+        <li>Já faltou fralda, fórmula ou remédio por falta de combinação entre a família? (nunca · uma vez · algumas vezes · com frequência)</li>
+        <li>Marca e sistema do celular (iPhone/Android).</li>
+      </ol>
+    </section>
+
+    <section id="final">
+      <h2>Questionário final (D14)</h2>
+      <h3>Parte A · Usabilidade (SUS)</h3>
+      <p class="muted small">10 afirmações da System Usability Scale, de 1 (discordo totalmente) a 5 (concordo totalmente). Use a calculadora abaixo para conferir a pontuação de cada resposta.</p>
+      <h3>Parte B · Recomendação (NPS)</h3>
+      <p>De 0 a 10, qual a chance de você recomendar o Ninho a outra família com bebê?</p>
+      <h3>Parte C · Utilidade das funções (1 a 5)</h3>
+      <ol>
+        <li>Saber o que os outros cuidadores registraram me deixou mais tranquilo(a).</li>
+        <li>As notificações chegaram na hora certa e foram úteis.</li>
+        <li>O cronômetro de sono e mamada na tela de bloqueio ajudou.</li>
+        <li>Os indicadores (semana e mês) me mostraram algo que eu não percebia.</li>
+        <li>O mural evitou que faltasse algum material.</li>
+        <li>O relatório em PDF ajudou na conversa com o pediatra. (se houve consulta)</li>
+        <li>O app funcionou bem mesmo com internet ruim.</li>
+        <li>Registrar no app toma pouco tempo no meio da correria.</li>
+      </ol>
+      <h3>Parte D · Abertas</h3>
+      <ol>
+        <li>O que mais ajudou no dia a dia?</li>
+        <li>O que atrapalhou ou faltou?</li>
+        <li>Teve algum momento em que você deixou de registrar? Por quê?</li>
+        <li>Se pudesse mudar uma coisa, qual seria?</li>
+      </ol>
+    </section>
+
+    <section id="sus">
+      <h2>Calculadora SUS</h2>
+      <p class="muted small">Marque as respostas de um participante. Itens ímpares contam (resposta − 1), itens pares contam (5 − resposta); a soma vezes 2,5 vai de 0 a 100. Referência usual: 68 é a média de mercado; acima de 80 é excelente.</p>
+      <form class="sus" id="form-sus" onsubmit="return false"></form>
+      <div class="placar" aria-live="polite">
+        <span class="valor" id="sus-valor">–</span>
+        <span id="sus-texto" class="muted">Responda as 10 afirmações para ver a pontuação.</span>
+        <button class="copiar" type="button" id="sus-limpar">Limpar</button>
+      </div>
+    </section>
+
+    <section id="entrevista">
+      <h2>Roteiro de entrevista (20 min)</h2>
+      <ol>
+        <li>Me conta como foi um dia típico usando o Ninho. Quem registrava o quê?</li>
+        <li>Teve algum momento em que o app ajudou de verdade? E um em que atrapalhou?</li>
+        <li>Como foi a madrugada? Vocês conseguiam registrar?</li>
+        <li>Mudou algo na forma como vocês dividem o cuidado ou combinam as coisas?</li>
+        <li>As notificações: quais ajudaram, quais incomodaram?</li>
+        <li>Se usou o relatório na consulta: como o pediatra reagiu? Mudou alguma conduta ou orientação?</li>
+        <li>Vocês continuariam usando? O que faria vocês pararem?</li>
+        <li>Quanto vocês pagariam por isso, se pagassem? (zero é uma resposta válida)</li>
+      </ol>
+      <p class="small muted">Grave só com autorização. Anote frases literais: elas valem mais no TCC do que resumos.</p>
+    </section>
+
+    <section id="analise">
+      <h2>Análise e decisão</h2>
+      <h3>Como rodar os indicadores</h3>
+      <ol>
+        <li>No arquivo <code>bebe/piloto/indicadores.sql</code>, confira as datas do período (início e fim, 00:00 de Brasília).</li>
+        <li>Rode <code>npx wrangler d1 execute ninho-db --remote --file piloto/indicadores.sql</code>, ou peça ao Claude para rodar as consultas no banco <code>ninho-db</code>.</li>
+        <li>Associe cada <code>familia</code> (8 caracteres) ao código F1–F5 anotado no onboarding e exclua a sua conta de teste.</li>
+      </ol>
+      <div class="tabela">
+        <table>
+          <thead><tr><th>Consulta</th><th>O que mostra</th><th>Hipóteses</th></tr></thead>
+          <tbody>
+            <tr><td><code>Q1</code></td><td>Visão geral: famílias, cuidadores por bebê, registros por bebê por dia, rotina planejada</td><td>contexto</td></tr>
+            <tr><td><code>Q2</code></td><td>Por família: registros, dias ativos, cuidadores que registraram, % do principal</td><td>H1, H2, H4</td></tr>
+            <tr><td><code>Q3</code></td><td>Famílias e cuidadores ativos por semana</td><td>H3</td></tr>
+            <tr><td><code>Q4</code></td><td>Tipos de registro e uso do cronômetro</td><td>contexto</td></tr>
+            <tr><td><code>Q5</code></td><td>Registros por papel e na madrugada</td><td>H4, E2</td></tr>
+            <tr><td><code>Q6</code></td><td>Adesão às notificações, enviadas, abertas e por categoria</td><td>H5</td></tr>
+            <tr><td><code>Q7</code></td><td>Relatório, desfazer, offline, atalhos e instalação</td><td>H6, E1</td></tr>
+            <tr><td><code>Q8</code></td><td>Adoção de mural, recados e saúde</td><td>E1</td></tr>
+            <tr><td><code>Q9</code></td><td>Registros por hora do dia</td><td>E2</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>Tabela de resultados</h3>
+      <div class="tabela">
+        <table>
+          <thead><tr><th>#</th><th>Meta</th><th>F1</th><th>F2</th><th>F3</th><th>F4</th><th>F5</th><th>Média</th><th>Atingiu?</th></tr></thead>
+          <tbody>
+            <tr><td>H1 cuidadores ativos ≥ 2</td><td class="num">≥ 80%</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><td>H2 dias ativos</td><td class="num">≥ 70%</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><td>H3 retenção sem. 2</td><td class="num">≥ 80%</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><td>H4 % do principal</td><td class="num">≤ 70%</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><td>H5 adesão · abertura</td><td class="num">60% · 20%</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><td>H6 PDF na consulta</td><td class="num">≥ 50%</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><td>H7 SUS</td><td class="num">≥ 70</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr><td>H8 NPS</td><td class="num">≥ 30</td><td colspan="5" class="muted">calculado no grupo todo</td><td></td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>Critério de decisão</h3>
+      <div class="decisao">
+        <div class="caixa ok"><b>Seguir</b><p class="small">H1, H2, H3 e H7 atingidas, e nenhuma família abandonou por problema do app. Próximo passo: piloto com 15 a 20 famílias por 30 dias.</p></div>
+        <div class="caixa aj"><b>Ajustar e repetir</b><p class="small">Uso real, mas metas de regularidade (H2/H3) ou usabilidade (H7) abaixo. Corrigir os 3 maiores atritos citados nas entrevistas e repetir com novas famílias.</p></div>
+        <div class="caixa pa"><b>Rever a proposta</b><p class="small">Só uma pessoa por família usa (H1 falhou na maioria) ou o uso cai pela metade na semana 2. O problema está no valor percebido, não na interface.</p></div>
+      </div>
+    </section>
+
+    <section id="riscos">
+      <h2>Riscos e como reduzir</h2>
+      <div class="tabela">
+        <table>
+          <thead><tr><th>Risco</th><th>Efeito</th><th>Mitigação</th></tr></thead>
+          <tbody>
+            <tr><td>Notificações não chegam no iPhone</td><td>H5 subestimada, frustração</td><td>Instalar na tela inicial durante o onboarding e testar com "Testar"; checar no D1.</td></tr>
+            <tr><td>Só a mãe registra</td><td>H1/H4 falham por hábito, não pelo app</td><td>Convidar todos no D0 e fazer um registro de cada pessoa ainda no onboarding.</td></tr>
+            <tr><td>Esquecimento na madrugada</td><td>Dados de sono incompletos</td><td>Cronômetro na tela de bloqueio e registro "Já aconteceu" com horário certo; medir em E2.</td></tr>
+            <tr><td>Viés de cortesia nas respostas</td><td>SUS e NPS inflados</td><td>Questionário anônimo e perguntas sobre momentos concretos na entrevista.</td></tr>
+            <tr><td>Bug durante o piloto</td><td>Perda de confiança e de dados</td><td>Canal direto no WhatsApp; corrigir só bugs graves e registrar a data da correção no diário de campo.</td></tr>
+            <tr><td>Poucas consultas no período</td><td>H6 sem dados</td><td>Recrutar ao menos uma família com consulta marcada; caso contrário, tratar H6 como exploratória.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>Protocolo preparado para o TCC do app Ninho. Consultas de dados em <span class="mono">bebe/piloto/indicadores.sql</span> no repositório TCC-v1. Revisar com o orientador antes do início.</footer>
+  </main>
+</div>
+
+<script>
+(function () {
+  const itens = [
+    'Eu acho que gostaria de usar este app com frequência.',
+    'Eu achei o app desnecessariamente complexo.',
+    'Eu achei o app fácil de usar.',
+    'Eu acho que precisaria de ajuda de uma pessoa com conhecimentos técnicos para usar o app.',
+    'Eu achei que as várias funções do app estão bem integradas.',
+    'Eu achei que o app apresenta muita inconsistência.',
+    'Eu imagino que as pessoas aprenderão a usar este app rapidamente.',
+    'Eu achei o app atrapalhado de usar.',
+    'Eu me senti confiante ao usar o app.',
+    'Eu precisei aprender várias coisas novas antes de conseguir usar o app.',
+  ];
+  const form = document.getElementById('form-sus');
+  itens.forEach((txt, i) => {
+    const d = document.createElement('div');
+    d.className = 'sus-item';
+    const opts = [1, 2, 3, 4, 5].map((v) => `<label><input type="radio" name="q${i}" id="q${i}-${v}" value="${v}"><span class="op" aria-hidden="true">${v}</span><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">${v}</span></label>`).join('');
+    d.innerHTML = `<span>${i + 1}. ${txt}</span><div class="escala" role="radiogroup" aria-label="Item ${i + 1}">${opts}</div>`;
+    form.appendChild(d);
+  });
+  const valor = document.getElementById('sus-valor');
+  const texto = document.getElementById('sus-texto');
+  function calcular() {
+    let soma = 0, n = 0;
+    for (let i = 0; i < 10; i++) {
+      const r = form.querySelector(`input[name="q${i}"]:checked`);
+      if (!r) continue;
+      n++;
+      soma += i % 2 === 0 ? Number(r.value) - 1 : 5 - Number(r.value);
+    }
+    if (n < 10) { valor.textContent = '–'; texto.textContent = `Faltam ${10 - n} de 10 respostas.`; return; }
+    const s = soma * 2.5;
+    valor.textContent = s.toLocaleString('pt-BR');
+    texto.textContent = s >= 80 ? 'Excelente (acima de 80).' : s >= 70 ? 'Bom: atinge a meta H7 (≥ 70).' : s >= 68 ? 'Na média de mercado (68), abaixo da meta H7.' : 'Abaixo da média: investigar os itens com pior nota.';
+  }
+  form.addEventListener('change', calcular);
+  document.getElementById('sus-limpar').addEventListener('click', () => { form.reset(); calcular(); });
+
+  document.querySelectorAll('button.copiar[data-alvo]').forEach((b) => {
+    b.addEventListener('click', () => {
+      const alvo = document.getElementById(b.dataset.alvo);
+      const ok = () => { const t = b.textContent; b.textContent = 'Copiado'; setTimeout(() => { b.textContent = t; }, 1500); };
+      const selecionar = () => { const r = document.createRange(); r.selectNodeContents(alvo); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = 'Selecionado'; setTimeout(() => { b.textContent = 'Copiar'; }, 1500); };
+      try { navigator.clipboard.writeText(alvo.innerText).then(ok, selecionar); } catch { selecionar(); }
+    });
+  });
+})();
+</script>
