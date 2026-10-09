@@ -111,10 +111,11 @@ Segurança: senhas com PBKDF2 (100 mil iterações), sessão assinada com HMAC (
 
 ## Publicar no Cloudflare
 
-**Pelo painel (recomendado):** Workers & Pages → Create → Import a repository → `TCC-v1`:
-- Project name: `ninho` · **Root directory: `bebe`** · Build command: em branco · Deploy command: `npx wrangler deploy`.
+**Pelo painel (recomendado):** Workers & Pages → Create → Import a repository → `TCC-v1`. Depois, em **ninho → Settings → Build**:
+- **Comando da build:** `npm run build` (ou em branco) · **Comando de implantação:** `npx wrangler deploy` · **Diretório raiz:** `bebe`
+- **Branch control → Production branch:** a branch com este código.
 
-O `wrangler.toml` já aponta para o D1 e gera o app (arquivo único) antes do deploy. Publica em `https://ninho.<sua-conta>.workers.dev`.
+O primeiro deploy, feito antes desses ajustes, usa a `main`/raiz do repositório (o TechGest) — é só corrigir e fazer um novo push. O `wrangler.toml` desta pasta liga o Worker ao D1 `ninho-db` e ao Cron dos lembretes; a cada push na branch o Cloudflare publica de novo.
 
 **Pela linha de comando:**
 
