@@ -34,6 +34,8 @@ const LS_BABY = 'ninho-baby';
 let bebeDaUrl: string | null = new URLSearchParams(location.search).get('baby');
 /** Ação vinda de atalho do ícone ou de botão da notificação: ?acao=mamada|sono|fralda|mamadeira|relatorio */
 let acaoDaUrl: string | null = new URLSearchParams(location.search).get('acao');
+/** Convite aberto por link por quem já está logado: aceita direto */
+const conviteDaUrl = (new URLSearchParams(location.search).get('convite') || '').toUpperCase();
 const consumirBebeDaUrl = () => { const b = bebeDaUrl; bebeDaUrl = null; return b; };
 const lerAba = (): Aba => (ABAS.some((a) => `#${a.id}` === location.hash) ? (location.hash.slice(1) as Aba) : 'hoje');
 
@@ -130,7 +132,12 @@ export default function App() {
     (async () => {
       setModo(await detectarModo());
       if (temSessao()) {
-        try { await reloadMe(); } catch (e) { if (!(e instanceof ApiError && e.status === SEM_REDE)) sairApi(); }
+        try {
+          await reloadMe();
+          if (conviteDaUrl.length === 6) {
+            try { const r = await api.acceptInvite(conviteDaUrl); await reloadMe(r.babyId); toast('Você entrou na família 🎉'); } catch (e) { toast(e instanceof Error ? e.message : 'Convite inválido.'); }
+          }
+        } catch (e) { if (!(e instanceof ApiError && e.status === SEM_REDE)) sairApi(); }
       }
       setCarregando(false);
     })();
@@ -272,7 +279,7 @@ export default function App() {
   if (!user) {
     return (
       <Auth
-        onOk={() => reloadMe()}
+        onOk={async (id, aviso) => { await reloadMe(id); if (aviso) toast(aviso); }}
         onDemo={async () => {
           const id = await criarFamiliaExemplo();
           await reloadMe(id);

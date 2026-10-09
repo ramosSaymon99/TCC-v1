@@ -275,6 +275,19 @@ async function api(req, env, url, ctx) {
 
   if (path === '/auth/config' && method === 'GET') return json({ email: emailConfigurado(env), termos: VERSAO_TERMOS });
 
+  // Pré-visualização pública de um convite (só o primeiro nome do bebê e o papel), para a tela de entrada
+  const mci = path.match(/^\/invites\/([A-Za-z0-9]{6})$/);
+  if (mci && method === 'GET') {
+    const espera = await bloqueado(env, [`convite:${ip}`], [20]);
+    if (espera) return erro(`Muitas tentativas. Tente de novo em ${espera} min.`, 429);
+    const inv = await env.DB.prepare('SELECT i.role, i.access, i.expires_at, i.used_by, b.name FROM invites i JOIN babies b ON b.id = i.baby_id WHERE i.code = ?').bind(mci[1].toUpperCase()).first();
+    if (!inv || inv.used_by || inv.expires_at < agora()) {
+      await registrarFalha(env, [`convite:${ip}`]);
+      return erro('Convite inválido, já usado ou expirado. Peça um novo código a quem convidou você.', 404);
+    }
+    return json({ bebe: inv.name.split(' ')[0], role: inv.role, access: inv.access });
+  }
+
   // Esqueci a senha: resposta sempre igual (não revela se o e-mail tem conta)
   if (path === '/auth/forgot' && method === 'POST') {
     if (!emailConfigurado(env)) return json({ ok: true, email: false });
@@ -304,6 +317,10 @@ async function api(req, env, url, ctx) {
     else if (body.email && body.code) {
       const u = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(String(body.email).trim().toLowerCase()).first();
       if (u) userId = await consumirRedefinicao(env, String(body.code).trim().toUpperCase(), u.id);
+    }
+    if (!userId && String(body.code ?? '').trim().length === 6) {
+      const convite = await env.DB.prepare('SELECT 1 FROM invites WHERE code = ?').bind(String(body.code).trim().toUpperCase()).first();
+      if (convite) return erro('Esse é um código de CONVITE para entrar na família, não de senha. Volte, toque em "Criar conta" e informe o código no campo "Código de convite".', 409);
     }
     if (!userId) {
       await registrarFalha(env, chaves);

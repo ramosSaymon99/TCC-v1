@@ -228,7 +228,7 @@ function ConviteSheet({ onClose }: { onClose: () => void }) {
   const [access, setAccess] = useState<Access>('editor');
   const [cod, setCod] = useState<{ code: string; expires_at: string } | null>(null);
   const [nomeDemo, setNomeDemo] = useState('');
-  const texto = cod ? `Oi! Use o código ${cod.code} no app Ninho para acompanhar a rotina de ${data.baby.name.split(' ')[0]} 👶 ${location.origin}${location.pathname}` : '';
+  const texto = cod ? `Oi! Você foi convidado(a) para acompanhar a rotina de ${data.baby.name.split(' ')[0]} no app Ninho 👶\n\nToque no link para entrar (o convite já vem preenchido): ${location.origin}${location.pathname}?convite=${cod.code}\n\nSe pedir, o código de convite é ${cod.code} (vale 7 dias). Crie sua conta com seu e-mail e senha.` : '';
   async function gerar() {
     await act(async () => setCod(await api.invite(data.baby.id, role, access)));
   }
@@ -249,7 +249,7 @@ function ConviteSheet({ onClose }: { onClose: () => void }) {
         <div className="card" style={{ textAlign: 'center', background: 'var(--brand-soft)', borderColor: 'transparent' }}>
           <p className="faint">Código válido por 7 dias, uso único</p>
           <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: 6, color: 'var(--brand-ink)' }}>{cod.code}</div>
-          <p className="faint" style={{ marginBottom: 10 }}>A pessoa cria a conta, toca em "Entrar com código" e digita este código.</p>
+          <p className="faint" style={{ marginBottom: 10 }}>Envie pelo WhatsApp: a mensagem leva um link que já abre o app com o convite. A pessoa só cria a conta (ou entra) e já cai na família.</p>
           <div className="wrap-row" style={{ justifyContent: 'center' }}>
             <button className="btn sm" onClick={() => navigator.clipboard?.writeText(texto)}><Copy size={14} /> Copiar</button>
             <a className="btn sm" href={`https://wa.me/?text=${encodeURIComponent(texto)}`} target="_blank" rel="noreferrer"><Share2 size={14} /> WhatsApp</a>
@@ -283,7 +283,7 @@ function MembroSheet({ m, onClose }: { m: Member; onClose: () => void }) {
       {podeAdmin && !eu && m.access !== 'admin' && (
         <div className="card" style={{ background: 'var(--surface-2)', boxShadow: 'none' }}>
           <b>Esqueceu a senha?</b>
-          <p className="faint" style={{ margin: '4px 0 10px' }}>Gere um código e passe para {m.name.split(' ')[0]} pessoalmente ou por mensagem. Na tela de entrada: "Tenho um código". Vale 30 minutos, uma vez.</p>
+          <p className="faint" style={{ margin: '4px 0 10px' }}>Gere um código e passe para {m.name.split(' ')[0]} pessoalmente ou por mensagem. Na tela de entrada: Entrar → "Tenho um código de senha". Vale 30 minutos, uma vez.</p>
           {codigo ? (
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: 5, color: 'var(--brand-ink)' }}>{codigo.code}</div>

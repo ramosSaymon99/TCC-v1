@@ -55,7 +55,7 @@ export function Onboarding({ onDone, onCancel, userName }: { onDone: (babyId: st
         <p className="muted" style={{ marginBottom: 14 }}>Cadastre o bebê — ele é o centro de tudo. Depois você convida mãe, pai, avós, babá, tios e irmãos.</p>
         <div className="seg" style={{ width: '100%', marginBottom: 16 }}>
           <button style={{ flex: 1 }} className={modo === 'novo' ? 'on' : ''} onClick={() => setModo('novo')}>Cadastrar bebê</button>
-          <button style={{ flex: 1 }} className={modo === 'codigo' ? 'on' : ''} onClick={() => setModo('codigo')}>Tenho um código</button>
+          <button style={{ flex: 1 }} className={modo === 'codigo' ? 'on' : ''} onClick={() => setModo('codigo')}>Tenho um convite</button>
         </div>
 
         <div className="stack" style={{ gap: 14 }}>

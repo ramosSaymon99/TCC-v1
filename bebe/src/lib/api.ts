@@ -143,6 +143,7 @@ export const api = {
   updateBaby: (id: string, b: Partial<Baby>) => req('PUT', `/babies/${id}`, b),
   deleteBaby: (id: string) => req('DELETE', `/babies/${id}`),
   invite: (id: string, role: string, access: string) => req<{ code: string; expires_at: string }>('POST', `/babies/${id}/invites`, { role, access }),
+  invitePreview: (code: string) => req<{ bebe: string; role: string; access: string }>('GET', `/invites/${code.trim().toUpperCase()}`),
   acceptInvite: (code: string, role?: string) => req<{ babyId: string }>('POST', '/invites/accept', { code, role }),
   updateMember: (id: string, userId: string, b: { role?: string; access?: string }) => req('PUT', `/babies/${id}/members/${userId}`, b),
   removeMember: (id: string, userId: string) => req('DELETE', `/babies/${id}/members/${userId}`),
@@ -230,6 +231,12 @@ function local(method: string, path: string, body: any): unknown {
   }
 
   if (r('GET', '/auth/config')) return { email: false, termos: '2026-10' };
+  const mci = rota.match(/^\/invites\/([A-Z0-9]{6})$/);
+  if (mci && method === 'GET') {
+    const inv = D.invites.find((i) => i.code === mci[1]);
+    if (!inv || inv.used_by || inv.expires_at < agora) falha('Convite inválido, já usado ou expirado. Peça um novo código a quem convidou você.', 404);
+    return { bebe: String(D.babies.find((b) => b.id === inv!.baby_id)?.name ?? '').split(' ')[0], role: inv!.role, access: inv!.access };
+  }
   if (r('POST', '/auth/forgot')) return { ok: true, email: false };
   if (r('POST', '/auth/reset')) {
     const u = D.users.find((x) => x.email === String(body.email ?? '').trim().toLowerCase()) as Row | undefined;

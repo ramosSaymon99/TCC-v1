@@ -2,14 +2,21 @@ import { useEffect, useState } from 'react';
 import { api, getModo } from '../lib/api';
 import { Field } from '../components/ui';
 import { PoliticaSheet } from '../components/Privacidade';
+import { papel } from '../lib/constants';
 
 type Tela = 'criar' | 'entrar' | 'esqueci' | 'codigo' | 'link';
 
-/** Link do e-mail de redefinição: ?reset=<token> */
+/** Link do e-mail de redefinição: ?reset=<token> · link de convite para a família: ?convite=<código> */
 const tokenDaUrl = new URLSearchParams(location.search).get('reset');
+const conviteDaUrl = (new URLSearchParams(location.search).get('convite') || '').toUpperCase();
+const papelLabel = (r: string) => papel(r).label.toLowerCase();
 
-export function Auth({ onOk, onDemo }: { onOk: () => void; onDemo: () => Promise<void> }) {
+export function Auth({ onOk, onDemo }: { onOk: (babyId?: string, aviso?: string) => void; onDemo: () => Promise<void> }) {
   const [tela, setTela] = useState<Tela>(tokenDaUrl ? 'link' : 'criar');
+  const [convite, setConvite] = useState(conviteDaUrl);
+  const [verConvite, setVerConvite] = useState(!!conviteDaUrl);
+  const [previa, setPrevia] = useState<{ bebe: string; role: string } | null>(null);
+  const [erroConvite, setErroConvite] = useState('');
   const [f, setF] = useState({ name: '', email: '', password: '', code: '' });
   const [aceite, setAceite] = useState(false);
   const [politica, setPolitica] = useState(false);
@@ -20,6 +27,27 @@ export function Auth({ onOk, onDemo }: { onOk: () => void; onDemo: () => Promise
 
   useEffect(() => { api.authConfig().then((c) => setEmailOn(c.email)).catch(() => setEmailOn(false)); }, []);
   useEffect(() => { setErro(''); setAviso(''); }, [tela]);
+  // Mostra para qual bebê é o convite assim que o código tem 6 caracteres
+  useEffect(() => {
+    setPrevia(null);
+    setErroConvite('');
+    if (convite.trim().length !== 6) return;
+    let vivo = true;
+    api.invitePreview(convite).then((p) => vivo && setPrevia(p)).catch((e) => vivo && setErroConvite(e instanceof Error ? e.message : 'Convite inválido.'));
+    return () => { vivo = false; };
+  }, [convite]);
+
+  /** Depois de criar a conta ou entrar: aceita o convite pendente e já abre o bebê. */
+  async function concluir() {
+    const c = convite.trim().toUpperCase();
+    if (c.length !== 6) return onOk();
+    try {
+      const r = await api.acceptInvite(c);
+      onOk(r.babyId, `Você entrou na família${previa ? ` de ${previa.bebe}` : ''} 🎉`);
+    } catch (e) {
+      onOk(undefined, `Conta pronta, mas o convite não funcionou: ${e instanceof Error ? e.message : 'erro'}`);
+    }
+  }
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
@@ -30,10 +58,10 @@ export function Auth({ onOk, onDemo }: { onOk: () => void; onDemo: () => Promise
       if (tela === 'criar') {
         if (!aceite) throw new Error('Para criar a conta, aceite a Política de Privacidade e os Termos de Uso.');
         await api.signup(f.name, f.email, f.password, true);
-        onOk();
+        await concluir();
       } else if (tela === 'entrar') {
         await api.login(f.email, f.password);
-        onOk();
+        await concluir();
       } else if (tela === 'esqueci') {
         const r = await api.forgot(f.email);
         if (r.email) setAviso('Se este e-mail tiver conta, enviamos um link para criar uma nova senha. Confira também o spam. O link vale por 1 hora.');
@@ -74,17 +102,32 @@ export function Auth({ onOk, onDemo }: { onOk: () => void; onDemo: () => Promise
         )}
 
         {tela === 'esqueci' && <p className="muted" style={{ marginBottom: 12 }}>{emailOn === false ? 'Peça a um administrador do bebê (ex.: mãe ou pai) um código de redefinição: Família → toque no seu nome → "Gerar código de senha".' : 'Informe o e-mail da conta. Vamos enviar um link para criar uma nova senha.'}</p>}
-        {tela === 'codigo' && <p className="muted" style={{ marginBottom: 12 }}>Use o código de 8 caracteres que um administrador do bebê gerou para você (vale 30 minutos).</p>}
+        {tela === 'codigo' && <p className="muted" style={{ marginBottom: 12 }}>Para quem <b>esqueceu a senha</b>: use o código de 8 caracteres que um administrador do bebê gerou para você (vale 30 minutos). Recebeu um <b>convite para a família</b>? Volte e use "Criar conta".</p>}
 
         <form className="stack" style={{ gap: 12 }} onSubmit={enviar}>
           {tela === 'criar' && <Field label="Seu nome"><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoComplete="name" required /></Field>}
           {tela !== 'link' && <Field label="E-mail"><input className="input" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} autoComplete="email" required /></Field>}
-          {tela === 'codigo' && <Field label="Código"><input className="input" value={f.code} onChange={(e) => setF({ ...f, code: e.target.value.toUpperCase() })} maxLength={8} style={{ letterSpacing: 4, fontWeight: 800 }} required /></Field>}
+          {tela === 'codigo' && <Field label="Código de redefinição de senha (8 caracteres)"><input className="input" value={f.code} onChange={(e) => setF({ ...f, code: e.target.value.toUpperCase() })} maxLength={8} style={{ letterSpacing: 4, fontWeight: 800 }} required /></Field>}
+          {tela === 'codigo' && f.code.trim().length === 6 && (
+            <div className="chip warn" style={{ whiteSpace: 'normal', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
+              Códigos de 6 caracteres são convites para entrar na família, não servem para senha.
+              <button type="button" className="btn sm" onClick={() => { setConvite(f.code.trim()); setVerConvite(true); setTela('criar'); }}>Usar como convite e criar minha conta</button>
+            </div>
+          )}
           {tela !== 'esqueci' && (
             <Field label={tela === 'codigo' || tela === 'link' ? 'Nova senha' : 'Senha'}>
               <input className="input" type="password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} autoComplete={tela === 'entrar' ? 'current-password' : 'new-password'} placeholder={tela === 'entrar' ? '' : 'mínimo 6 caracteres'} required />
             </Field>
           )}
+          {(tela === 'criar' || tela === 'entrar') && (verConvite ? (
+            <Field label="Código de convite da família" hint="6 caracteres, recebido de quem cadastrou o bebê. Deixe em branco se você vai cadastrar o seu bebê.">
+              <input className="input" value={convite} onChange={(e) => setConvite(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} maxLength={6} style={{ letterSpacing: 4, fontWeight: 800 }} placeholder="ex.: K7P2QX" />
+            </Field>
+          ) : (
+            <button type="button" className="linkbtn" style={{ alignSelf: 'flex-start' }} onClick={() => setVerConvite(true)}>Recebi um convite para acompanhar um bebê</button>
+          ))}
+          {(tela === 'criar' || tela === 'entrar') && previa && <div className="chip ok" style={{ whiteSpace: 'normal' }}>🎉 Convite para acompanhar {previa.bebe} como {papelLabel(previa.role)}. {tela === 'criar' ? 'Crie sua conta' : 'Entre'} para fazer parte da família.</div>}
+          {(tela === 'criar' || tela === 'entrar') && erroConvite && <div className="chip bad" style={{ whiteSpace: 'normal' }}>{erroConvite}</div>}
           {tela === 'criar' && (
             <label className="check">
               <input type="checkbox" checked={aceite} onChange={(e) => setAceite(e.target.checked)} />
@@ -103,7 +146,7 @@ export function Auth({ onOk, onDemo }: { onOk: () => void; onDemo: () => Promise
         {tela === 'entrar' && (
           <div className="row" style={{ justifyContent: 'center', gap: 14, marginTop: 12, flexWrap: 'wrap' }}>
             <button className="linkbtn" onClick={() => setTela('esqueci')}>Esqueci minha senha</button>
-            <button className="linkbtn" onClick={() => setTela('codigo')}>Tenho um código</button>
+            <button className="linkbtn" onClick={() => setTela('codigo')}>Tenho um código de senha</button>
           </div>
         )}
         {tela === 'esqueci' && emailOn === false && <button className="btn primary block" onClick={() => setTela('codigo')}>Já tenho o código</button>}
