@@ -1,9 +1,10 @@
 {
-  "name": "ninho-painel",
+  "name": "painel-ninho",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "build": "echo \"Painel sem etapa de build (arquivos estáticos em public/)\"",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy"
   },
