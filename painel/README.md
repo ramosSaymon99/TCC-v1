@@ -1,6 +1,6 @@
 # Painel do desenvolvedor — Ninho
 
-Worker separado (`ninho-painel`) que lê o mesmo banco D1 (`ninho-db`) do app, mas **só mostra agregados anônimos**.
+Worker separado (`painel-ninho`) que lê o mesmo banco D1 (`ninho-db`) do app, mas **só mostra agregados anônimos**.
 
 ## O que mostra
 - Usuários totais, novos, ativos (DAU/WAU/MAU), famílias ativas, registros.
