@@ -10,7 +10,7 @@
  */
 
 import { vapid, sendPush } from './push.js';
-import { ESQUEMA_OBS, contar, limparObservabilidade, marcarSistema, normalizarRota, plataformaDe, registrarAtividade, registrarErro, registrarRequisicao } from './observabilidade.js';
+import { ESQUEMA_OBS, MIGRACOES_OBS, contar, limparObservabilidade, marcarSistema, normalizarRota, plataformaDe, registrarAtividade, registrarCadastro, registrarErro, registrarRequisicao } from './observabilidade.js';
 import { CATEGORIAS, dataHoraTz, descreverEvento, horaTz, lembretes, lerPrefs, nomePapel, notificar } from './notify.js';
 import {
   DOMINIO_DEMO, VERSAO_TERMOS, bloqueado, codigoCurto, consumirRedefinicao, criarRedefinicao, emailConfigurado,
@@ -124,7 +124,7 @@ let esquemaOk = false;
 async function garantirEsquema(env) {
   if (esquemaOk) return;
   await env.DB.batch(ESQUEMA.concat(ESQUEMA_OBS).map((s) => env.DB.prepare(s)));
-  for (const m of MIGRACOES) {
+  for (const m of MIGRACOES.concat(MIGRACOES_OBS)) {
     try { await env.DB.prepare(m).run(); } catch { /* coluna já existe */ }
   }
   esquemaOk = true;
@@ -257,6 +257,7 @@ async function api(req, env, url, ctx) {
     const t = agora();
     await env.DB.prepare('INSERT INTO users (id, name, email, salt, hash, created_at, consent_at, terms_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(id, name, email, salt, hash, t, t, VERSAO_TERMOS).run();
     ctx.waitUntil(contar(env, email.endsWith(DOMINIO_DEMO) ? 'cadastros_exemplo' : 'cadastros').catch(() => undefined));
+    ctx.waitUntil(registrarCadastro(env, hmac, { id, email, created_at: t }, req).catch(() => undefined));
     return json({ token: await criarToken(env, { id, salt }), user: { id, name, email, demo: email.endsWith(DOMINIO_DEMO), created_at: t } });
   }
 

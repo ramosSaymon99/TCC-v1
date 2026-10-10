@@ -90,7 +90,11 @@ async function garantirEsquema(env) {
     'CREATE TABLE IF NOT EXISTS contadores (dia TEXT NOT NULL, chave TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (dia, chave))',
     'CREATE TABLE IF NOT EXISTS sistema (chave TEXT PRIMARY KEY, valor TEXT NOT NULL, at TEXT NOT NULL)',
     'CREATE TABLE IF NOT EXISTS uso (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, baby_id TEXT, evento TEXT NOT NULL, valor TEXT, at TEXT NOT NULL)',
+    'CREATE TABLE IF NOT EXISTS origem_cadastro (uid TEXT PRIMARY KEY, dia TEXT NOT NULL, demo INTEGER NOT NULL DEFAULT 0, pais TEXT, regiao TEXT, cidade TEXT, plataforma TEXT, tipo TEXT, navegador TEXT, modelo TEXT, modo TEXT)',
   ].map((s) => env.DB.prepare(s)));
+  for (const m of ['ALTER TABLE atividade ADD COLUMN cidade TEXT', 'ALTER TABLE atividade ADD COLUMN tipo TEXT']) {
+    try { await env.DB.prepare(m).run(); } catch { /* coluna já existe */ }
+  }
   esquemaOk = true;
 }
 
@@ -117,6 +121,9 @@ async function metricas(env, dias) {
   const h24 = new Date(Date.now() - 24 * 3600_000).toISOString();
   const hora48 = new Date(brtMs(Date.now() - 47 * 3600_000)).toISOString().slice(0, 13);
   const REAL = `SELECT id FROM users WHERE email NOT LIKE '${DEMO}'`;
+  const FAM = `SELECT DISTINCT baby_id FROM members WHERE user_id IN (${REAL})`;
+  const d7 = new Date(Date.now() - 7 * 86400_000).toISOString();
+  const d28 = new Date(Date.now() - 28 * 86400_000).toISOString();
   const q = (sql, ...b) => env.DB.prepare(sql).bind(...b);
 
   const r = await env.DB.batch([
@@ -162,6 +169,34 @@ async function metricas(env, dias) {
     /* 20 */ q(`SELECT SUM(n) AS n, SUM(CASE WHEN classe = '5xx' THEN n ELSE 0 END) AS e5, SUM(ms_total) AS ms FROM req_hora WHERE hora >= ?`, new Date(brtMs(Date.now() - 23 * 3600_000)).toISOString().slice(0, 13)),
     /* 21 */ q(`SELECT SUM(n) AS n, SUM(CASE WHEN classe = '5xx' THEN n ELSE 0 END) AS e5 FROM req_hora WHERE hora >= ?`, new Date(brtMs()).toISOString().slice(0, 13)),
     /* 22 */ q('SELECT dia, COUNT(DISTINCT uid) AS n FROM atividade WHERE demo = 0 AND dia >= ? AND dia < ? GROUP BY dia', somaDias(hoje, -8), hoje),
+    /* 23 */ q('SELECT pais, regiao, cidade, COUNT(DISTINCT uid) AS n FROM atividade WHERE demo = 0 AND dia >= ? GROUP BY pais, regiao, cidade', ini),
+    /* 24 */ q('SELECT tipo, COUNT(DISTINCT uid) AS n FROM atividade WHERE demo = 0 AND dia >= ? GROUP BY tipo', ini),
+    /* 25 */ q('SELECT pais, regiao, cidade, plataforma, tipo, navegador, modelo, modo, COUNT(*) AS n FROM origem_cadastro WHERE demo = 0 AND dia >= ? GROUP BY pais, regiao, cidade, plataforma, tipo, navegador, modelo, modo', ini),
+    /* 26 */ q(`SELECT COUNT(*) AS cadastros,
+              SUM(EXISTS (SELECT 1 FROM members m WHERE m.user_id = u.id)) AS vinculados,
+              SUM(EXISTS (SELECT 1 FROM events e WHERE e.user_id = u.id)) AS primeiro_registro,
+              SUM((SELECT COUNT(DISTINCT date(e.created_at, '-3 hours')) FROM events e WHERE e.user_id = u.id) >= 3) AS habito,
+              SUM(EXISTS (SELECT 1 FROM members m WHERE m.user_id = u.id AND (SELECT COUNT(*) FROM members m2 WHERE m2.baby_id = m.baby_id) >= 2)) AS familia_2,
+              AVG((SELECT MAX(0, (julianday(MIN(e.created_at)) - julianday(u.created_at)) * 24) FROM events e WHERE e.user_id = u.id AND e.created_at >= u.created_at)) AS horas_ate_1o
+            FROM users u WHERE u.email NOT LIKE '${DEMO}' AND u.created_at >= ?`, iniISO),
+    /* 27 */ q(`SELECT CAST(strftime('%w', created_at, '-3 hours') AS INTEGER) AS dow, CAST(strftime('%H', created_at, '-3 hours') AS INTEGER) AS h, COUNT(*) AS n FROM events WHERE created_at >= ? AND user_id IN (${REAL}) GROUP BY dow, h`, iniISO),
+    /* 28 */ q(`SELECT (SELECT COUNT(*) FROM (${FAM})) AS familias,
+              (SELECT COUNT(DISTINCT baby_id) FROM events WHERE baby_id IN (${FAM})) AS rotina,
+              (SELECT COUNT(DISTINCT baby_id) FROM supplies WHERE baby_id IN (${FAM})) AS mural,
+              (SELECT COUNT(DISTINCT baby_id) FROM notes WHERE baby_id IN (${FAM})) AS recados,
+              (SELECT COUNT(*) FROM (SELECT baby_id FROM growth WHERE baby_id IN (${FAM}) GROUP BY baby_id HAVING COUNT(*) >= 2)) AS crescimento,
+              (SELECT COUNT(DISTINCT baby_id) FROM appointments WHERE baby_id IN (${FAM})) AS consultas,
+              (SELECT COUNT(DISTINCT baby_id) FROM vaccines WHERE baby_id IN (${FAM})) AS vacinas,
+              (SELECT COUNT(*) FROM photos WHERE kind = 'baby' AND id IN (${FAM})) AS foto,
+              (SELECT COUNT(DISTINCT baby_id) FROM uso WHERE evento = 'pdf_gerado' AND baby_id IN (${FAM})) AS pdf,
+              (SELECT COUNT(DISTINCT m.baby_id) FROM members m JOIN push_subs p ON p.user_id = m.user_id WHERE m.baby_id IN (${FAM})) AS notificacoes,
+              (SELECT COUNT(*) FROM (SELECT baby_id FROM members WHERE baby_id IN (${FAM}) GROUP BY baby_id HAVING COUNT(*) >= 2)) AS convidou`),
+    /* 29 */ q(`SELECT baby_id, SUM(created_at >= ?) AS r7, SUM(created_at < ?) AS rant FROM events WHERE created_at >= ? AND baby_id IN (${FAM}) GROUP BY baby_id`, d7, d7, d28),
+    /* 30 */ q(`SELECT CASE WHEN endpoint LIKE '%apple.com%' THEN 'Apple (iPhone, iPad, Mac)' WHEN endpoint LIKE '%googleapis%' THEN 'Google (Android, Chrome)'
+              WHEN endpoint LIKE '%mozilla%' THEN 'Mozilla (Firefox)' WHEN endpoint LIKE '%windows%' OR endpoint LIKE '%microsoft%' THEN 'Microsoft (Edge)' ELSE 'Outro serviço' END AS servico,
+              COUNT(*) AS n FROM push_subs WHERE user_id IN (${REAL}) GROUP BY servico`),
+    /* 31 */ q(`SELECT date(at, '-3 hours') AS dia, SUM(evento = 'notif_enviada') AS enviadas, SUM(evento IN ('notif_clique', 'notif_acao')) AS abertas FROM uso WHERE at >= ? AND evento IN ('notif_enviada', 'notif_clique', 'notif_acao') AND user_id IN (${REAL}) GROUP BY dia`, iniISO),
+    /* 32 */ q(`SELECT COUNT(*) AS n FROM origem_cadastro WHERE demo = 0`),
   ]);
   const R = r.map((x) => x.results);
 
@@ -192,6 +227,41 @@ async function metricas(env, dias) {
     return { coorte: c, n: tamanhos[c], semanas: semanas.map((v, s) => (somaDias(c, s * 7) > hoje ? null : v == null ? 0 : v)) };
   });
 
+  // Cidades (ativos) e origem dos cadastros, sempre com anonimato k
+  const nomeLocal = (x) => (x.cidade ? `${x.cidade}${x.regiao ? ` · ${x.regiao}` : ''}` : `${x.regiao || 'local não identificado'} (cidade não identificada)`) + (x.pais && x.pais !== 'BR' ? ` · ${x.pais}` : '');
+  const cidades = anonimizar(R[23].map((x) => ({ cidade: nomeLocal(x), n: x.n })), 'cidade');
+  const tipos_aparelho = anonimizar(R[24].map((x) => ({ tipo: x.tipo || 'Não identificado (antes da medição)', n: x.n })), 'tipo');
+  const somaPor = (rows, f) => { const m = {}; for (const x of rows) { const kk = f(x); m[kk] = (m[kk] ?? 0) + x.n; } return Object.entries(m).map(([kk, n]) => ({ k: kk, n })); };
+  const dim = (rows, f, rot) => anonimizar(somaPor(rows, f).map((x) => ({ [rot]: x.k, n: x.n })), rot);
+  const origem = {
+    total: R[25].reduce((t, x) => t + x.n, 0),
+    medidos_total: R[32][0]?.n ?? 0,
+    paises: dim(R[25], (x) => x.pais || '??', 'pais'),
+    estados: dim(R[25], (x) => (x.pais === 'BR' ? x.regiao || 'Brasil (estado não identificado)' : `${x.pais || '??'}${x.regiao ? ` · ${x.regiao}` : ''}`), 'regiao'),
+    cidades: dim(R[25], (x) => nomeLocal(x), 'cidade'),
+    sistemas: dim(R[25], (x) => x.plataforma || 'Outro', 'plataforma'),
+    tipos: dim(R[25], (x) => x.tipo || 'Outro', 'tipo'),
+    navegadores: dim(R[25], (x) => x.navegador || 'Outro', 'navegador'),
+    modelos: dim(R[25], (x) => x.modelo || 'Outro', 'modelo'),
+    modo: dim(R[25], (x) => (x.modo === 'app' ? 'App instalado' : 'Navegador'), 'modo'),
+  };
+
+  // Funil de ativação das contas criadas no período
+  const f0 = R[26][0] ?? {};
+  const funil = { cadastros: f0.cadastros ?? 0, vinculados: f0.vinculados ?? 0, primeiro_registro: f0.primeiro_registro ?? 0, habito: f0.habito ?? 0, familia_2: f0.familia_2 ?? 0, horas_ate_1o: f0.horas_ate_1o == null ? null : Math.round(f0.horas_ate_1o * 10) / 10 };
+
+  // Saúde das famílias: intensidade de uso nos últimos 7 dias e quem esfriou
+  const a28 = R[28][0] ?? {};
+  const saude = { intensa: 0, regular: 0, leve: 0, esfriando: 0, sem_registro: Math.max(0, (a28.familias ?? 0) - (a28.rotina ?? 0)), total: a28.familias ?? 0 };
+  for (const x of R[29]) {
+    const porDia = x.r7 / 7;
+    if (x.r7 === 0) { if (x.rant > 0) saude.esfriando++; } else if (porDia >= 7) saude.intensa++; else if (porDia >= 2) saude.regular++; else saude.leve++;
+  }
+  saude.paradas = Math.max(0, saude.total - saude.sem_registro - saude.intensa - saude.regular - saude.leve - saude.esfriando);
+  const servicos_push = anonimizar(R[30].map((x) => ({ servico: x.servico, n: x.n })), 'servico');
+  const mNot = Object.fromEntries(R[31].map((x) => [x.dia, x]));
+  const notificacoes = diasLista.map((dd) => ({ dia: dd, enviadas: mNot[dd]?.enviadas ?? 0, abertas: mNot[dd]?.abertas ?? 0 }));
+
   const sistema = Object.fromEntries(R[18].map((x) => [x.chave, { valor: x.valor, at: x.at }]));
   const erros24 = Object.fromEntries(R[16].map((x) => [x.origem, x.n]));
   const req24 = R[20][0] ?? {};
@@ -219,6 +289,9 @@ async function metricas(env, dias) {
   const lat = req24.n ? req24.ms / req24.n : 0;
   if ((req24.n ?? 0) >= 20 && lat > 800) alertas.push({ nivel: 'atencao', titulo: `Servidor lento: ${Math.round(lat)} ms em média (24 h)`, detalhe: 'Acima de 800 ms a experiência no celular piora.', acao: 'Veja em Estabilidade quais rotas têm o maior tempo médio.' });
   if ((contadores.logins_falhos ?? 0) >= 30) alertas.push({ nivel: 'atencao', titulo: `${contadores.logins_falhos} tentativas de login com senha errada no período`, detalhe: 'Pode ser esquecimento de senha ou tentativa de invasão (o app já bloqueia após 5 erros).', acao: 'Se concentrar em poucos dias, considere configurar a recuperação por e-mail.' });
+  if (saude.total >= 3 && saude.esfriando >= 1) alertas.push({ nivel: saude.esfriando / saude.total >= 0.2 ? 'atencao' : 'info', titulo: `${saude.esfriando} família(s) pararam de registrar nos últimos 7 dias`, detalhe: `Registravam nas 3 semanas anteriores. Representam ${Math.round((saude.esfriando / saude.total) * 100)}% das famílias.`, acao: 'Veja Engajamento: se coincidir com erros ou nova versão, investigue; senão, envie um lembrete ou mensagem de reengajamento.' });
+  if (funil.cadastros >= 5 && funil.primeiro_registro / funil.cadastros < 0.5) alertas.push({ nivel: 'atencao', titulo: `Só ${Math.round((funil.primeiro_registro / funil.cadastros) * 100)}% dos novos usuários fizeram o 1º registro`, detalhe: `${funil.primeiro_registro} de ${funil.cadastros} contas criadas no período.`, acao: 'Revise o primeiro acesso (cadastro do bebê → primeiro registro) e envie o vídeo "modo de uso" logo após o convite.' });
+  if (funil.cadastros >= 5 && funil.vinculados / funil.cadastros < 0.7) alertas.push({ nivel: 'atencao', titulo: `${funil.cadastros - funil.vinculados} contas novas sem bebê vinculado`, detalhe: 'Criaram conta, mas não cadastraram bebê nem aceitaram convite.', acao: 'Verifique se o código/link de convite está chegando certo e se a tela de cadastro do bebê está clara.' });
   if (k.total > 0 && !(k.novos > 0) && dias >= 7) alertas.push({ nivel: 'info', titulo: 'Nenhum cadastro novo no período', detalhe: `${k.total} contas no total.`, acao: 'Normal durante piloto fechado; fora dele, revise a divulgação e o primeiro acesso.' });
 
   return {
@@ -233,7 +306,8 @@ async function metricas(env, dias) {
       req24: req24.n ?? 0, erros5xx24: req24.e5 ?? 0, latencia24: Math.round(lat),
     },
     serie, estabilidade: { horas: R[6], rotas: R[7] },
-    regioes, paises, plataformas, instalacao: { app: instalados, navegador },
+    regioes, paises, plataformas, instalacao: { app: instalados, navegador }, cidades, tipos_aparelho, origem,
+    funil, calor: R[27], adocao: a28, saude, servicos_push, notificacoes,
     uso: R[10], tipos: R[11], coortes,
     erros: { lista: R[14], por_dia: R[15], ultimas24: erros24 },
     contadores, sistema, banco: R[19][0], alertas,

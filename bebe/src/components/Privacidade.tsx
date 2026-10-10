@@ -18,7 +18,7 @@ export function PoliticaSheet({ onClose }: { onClose: () => void }) {
           <li><b>Seus dados:</b> nome, e-mail, senha (guardada só como hash PBKDF2, nunca em texto), foto opcional, papel na família e aparelhos onde você ativou notificações.</li>
           <li><b>Dados da criança:</b> nome, data de nascimento, sexo, foto opcional, registros de rotina, medidas de crescimento, consultas, vacinas, remédios e observações que a família escrever.</li>
           <li><b>Dados técnicos:</b> endereço IP usado apenas para limitar tentativas de login (apagado em até 24 h).</li>
-          <li><b>Estatísticas de operação:</b> região aproximada (país e estado, obtidos da rede, nunca cidade ou GPS), tipo de aparelho, se o app está instalado e erros técnicos, ligados a um código embaralhado — não ao seu nome ou e-mail. São vistos pelos desenvolvedores apenas em números agregados (grupos com menos de 3 pessoas não aparecem).</li>
+          <li><b>Estatísticas de operação:</b> região aproximada (país, estado e cidade, estimados pela rede de internet, nunca por GPS ou endereço), tipo e modelo do aparelho (quando o navegador informa), navegador, se o app está instalado e erros técnicos, ligados a um código embaralhado — não ao seu nome ou e-mail. São vistos pelos desenvolvedores apenas em números agregados (grupos com menos de 3 pessoas não aparecem).</li>
           <li><b>Uso de funcionalidades:</b> contagem de ações como "relatório gerado", "notificação aberta" ou "desfazer", sem o conteúdo dos registros, para avaliar e melhorar o app.</li>
         </ul>
 

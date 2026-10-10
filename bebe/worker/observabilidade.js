@@ -7,7 +7,9 @@
  *  - req_hora: contagem de requisições por hora, rota normalizada (sem ids) e classe de status;
  *  - erros: falhas do servidor, do app, de push e do cron, com textos higienizados;
  *  - contadores: totais diários de eventos de conta (cadastros, logins, exclusões...);
- *  - sistema: batimento do cron e última versão do app vista.
+ *  - sistema: batimento do cron e última versão do app vista;
+ *  - origem_cadastro: 1 linha por conta nova (ID pseudônimo) com local aproximado e aparelho usado no cadastro.
+ * Local vem da rede (Cloudflare: país, estado e cidade aproximados), nunca de GPS.
  */
 
 export const ESQUEMA_OBS = [
@@ -18,7 +20,11 @@ export const ESQUEMA_OBS = [
   'CREATE INDEX IF NOT EXISTS idx_erros_at ON erros (at)',
   'CREATE TABLE IF NOT EXISTS contadores (dia TEXT NOT NULL, chave TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (dia, chave))',
   'CREATE TABLE IF NOT EXISTS sistema (chave TEXT PRIMARY KEY, valor TEXT NOT NULL, at TEXT NOT NULL)',
+  'CREATE TABLE IF NOT EXISTS origem_cadastro (uid TEXT PRIMARY KEY, dia TEXT NOT NULL, demo INTEGER NOT NULL DEFAULT 0, pais TEXT, regiao TEXT, cidade TEXT, plataforma TEXT, tipo TEXT, navegador TEXT, modelo TEXT, modo TEXT)',
+  'CREATE INDEX IF NOT EXISTS idx_origem_dia ON origem_cadastro (dia)',
 ];
+/** Colunas novas em tabelas já existentes (falham sem problema se já existirem). */
+export const MIGRACOES_OBS = ['ALTER TABLE atividade ADD COLUMN cidade TEXT', 'ALTER TABLE atividade ADD COLUMN tipo TEXT'];
 
 /** Dia e hora no fuso de Brasília (o público do app). */
 const brt = (ms = Date.now()) => new Date(ms - 3 * 3600_000).toISOString();
@@ -58,6 +64,21 @@ export function plataformaDe(ua = '') {
   return 'Outro';
 }
 
+/** Tipo de aparelho, navegador e modelo (quando o navegador informa). Nada que identifique a pessoa. */
+export function aparelhoDe(ua = '', dica = '') {
+  const tipo = /iPad|Tablet/i.test(ua) || (/Android/i.test(ua) && !/Mobile/i.test(ua)) ? 'Tablet' : /iPhone|iPod|Mobile|Android/i.test(ua) ? 'Celular' : 'Computador';
+  const navegador = /SamsungBrowser/i.test(ua) ? 'Samsung Internet' : /EdgA?\//i.test(ua) ? 'Edge' : /OPR\//i.test(ua) ? 'Opera' : /Firefox|FxiOS/i.test(ua) ? 'Firefox'
+    : /CriOS|Chrome/i.test(ua) ? 'Chrome' : /Safari/i.test(ua) ? 'Safari' : 'Outro';
+  let modelo = String(dica || '').replace(/[^A-Za-z0-9 ._()+-]/g, '').trim().slice(0, 40);
+  if (!modelo) {
+    if (/iPhone/i.test(ua)) modelo = 'iPhone';
+    else if (/iPad/i.test(ua)) modelo = 'iPad';
+    else if (/Android/i.test(ua)) { const m = ua.match(/Android [\d.]+; ([^;)]+)/); modelo = m && m[1].trim().length > 2 && !/^K$/.test(m[1].trim()) ? m[1].replace(/ Build.*/, '').trim().slice(0, 40) : 'Android (modelo não informado)'; }
+    else modelo = { Windows: 'Computador Windows', macOS: 'Mac', Linux: 'Computador Linux' }[plataformaDe(ua)] || 'Outro';
+  }
+  return { tipo, navegador, modelo };
+}
+
 /** Segunda-feira da semana (YYYY-MM-DD) — coorte de cadastro para a retenção. */
 function semanaDe(iso) {
   const d = new Date(`${iso.slice(0, 10)}T12:00:00Z`);
@@ -78,11 +99,23 @@ export async function registrarAtividade(env, hmac, user, req) {
   const uid = (await hmac(env, `obs:${user.id}`)).slice(0, 16);
   const cf = req.cf || {};
   const modo = req.headers.get('x-ninho-modo') === 'app' ? 'app' : 'navegador';
-  await env.DB.prepare('INSERT OR IGNORE INTO atividade (dia, uid, demo, coorte, pais, regiao, plataforma, modo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-    .bind(dia, uid, user.email.endsWith('@exemplo.ninho') ? 1 : 0, semanaDe(user.created_at), cf.country || null, cf.region || null, plataformaDe(req.headers.get('user-agent') || ''), modo)
+  const ua = req.headers.get('user-agent') || '';
+  await env.DB.prepare('INSERT OR IGNORE INTO atividade (dia, uid, demo, coorte, pais, regiao, cidade, plataforma, tipo, modo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind(dia, uid, user.email.endsWith('@exemplo.ninho') ? 1 : 0, semanaDe(user.created_at), cf.country || null, cf.region || null, cf.city || null, plataformaDe(ua), aparelhoDe(ua).tipo, modo)
     .run();
   const versao = req.headers.get('x-ninho-versao');
   if (versao) await env.DB.prepare("INSERT INTO sistema (chave, valor, at) VALUES ('versao_app', ?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor, at = excluded.at").bind(versao.slice(0, 40), new Date().toISOString()).run();
+}
+
+/** Origem do cadastro: onde (aproximado) e em que aparelho a conta foi criada. */
+export async function registrarCadastro(env, hmac, user, req) {
+  const uid = (await hmac(env, `obs:${user.id}`)).slice(0, 16);
+  const cf = req.cf || {};
+  const ua = req.headers.get('user-agent') || '';
+  const a = aparelhoDe(ua, req.headers.get('x-ninho-aparelho'));
+  await env.DB.prepare('INSERT OR IGNORE INTO origem_cadastro (uid, dia, demo, pais, regiao, cidade, plataforma, tipo, navegador, modelo, modo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind(uid, diaBRT(), user.email.endsWith('@exemplo.ninho') ? 1 : 0, cf.country || null, cf.region || null, cf.city || null, plataformaDe(ua), a.tipo, a.navegador, a.modelo, req.headers.get('x-ninho-modo') === 'app' ? 'app' : 'navegador')
+    .run();
 }
 
 export function registrarRequisicao(env, method, path, status, ms) {

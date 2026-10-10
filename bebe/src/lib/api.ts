@@ -47,7 +47,19 @@ export class ApiError extends Error {
 export const SEM_REDE = 0;
 /** Só para estatística agregada no painel do desenvolvedor: app instalado ou navegador, e versão. */
 const instalado = () => typeof window !== 'undefined' && (window.matchMedia?.('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true);
-export const cabecalhosApp = () => ({ 'x-ninho-modo': instalado() ? 'app' : 'navegador', 'x-ninho-versao': __VERSAO__ });
+/** Modelo do aparelho, quando o navegador informa (Android/Chrome); o iPhone não informa. Só para estatística agregada. */
+let modeloAparelho = '';
+type DadosUA = { getHighEntropyValues?: (h: string[]) => Promise<{ model?: string }> };
+try {
+  (navigator as unknown as { userAgentData?: DadosUA }).userAgentData?.getHighEntropyValues?.(['model'])
+    .then((v) => { modeloAparelho = String(v.model ?? '').replace(/[^A-Za-z0-9 ._()+-]/g, '').slice(0, 40); })
+    .catch(() => undefined);
+} catch { /* navegador sem suporte */ }
+export const cabecalhosApp = (): Record<string, string> => ({
+  'x-ninho-modo': instalado() ? 'app' : 'navegador',
+  'x-ninho-versao': __VERSAO__,
+  ...(modeloAparelho ? { 'x-ninho-aparelho': modeloAparelho } : {}),
+});
 let usuarioAtual = '';
 export const definirUsuarioAtual = (id: string) => { usuarioAtual = id; };
 

@@ -2,17 +2,21 @@
 
 Worker separado (`painel-ninho`) que lê o mesmo banco D1 (`ninho-db`) do app, mas **só mostra agregados anônimos**.
 
-## O que mostra
-- Usuários totais, novos, ativos (DAU/WAU/MAU), famílias ativas, registros.
-- Oscilação: série diária de ativos, cadastros e registros; requisições e latência por hora (48h); rotas mais lentas/com erro.
-- Erros: servidor, app (navegador), push e cron, com mensagens higienizadas.
-- Região (país/estado, nunca cidade), sistema do aparelho, instalado × navegador.
-- Retenção por coorte semanal, uso de funcionalidades, alertas com ação sugerida.
+## O que mostra (menu lateral; no celular vira abas roláveis)
+- **Visão geral:** alertas com ação sugerida, KPIs (usuários, ativos dia/semana/mês, famílias ativas, ativação, famílias esfriando, saúde do servidor) e resumo com atalhos.
+- **Crescimento e ativação:** cadastros por dia, convites aceitos, contas excluídas e **funil de ativação** (conta → bebê vinculado → 1º registro → hábito em 3+ dias), com a etapa de maior perda e o tempo até o 1º registro.
+- **Engajamento e retenção:** saúde das famílias (intensa, regular, leve, esfriando, paradas), adoção de cada funcionalidade, **mapa de calor** de uso por dia × hora, tipos de registro e retenção por turma de cadastro.
+- **Localização:** usuários ativos por **país, estado e cidade** e onde as contas foram criadas.
+- **Aparelhos:** **aparelho de cadastro** (modelo, sistema, tipo, navegador) e aparelhos em uso; % com app instalado.
+- **Notificações:** % com push, enviadas × abertas por dia, aparelhos por serviço de entrega.
+- **Estabilidade** (requisições, erro e tempo por hora; rotas) · **Erros** (por dia e lista agrupada) · **Sistema** (lembretes, versão, volume do banco).
+- Toda lista/tabela pode ser **baixada em CSV** (só os números agregados).
 
 ## Privacidade por desenho
 - Nenhuma consulta retorna nome, e-mail, foto, dados do bebê, notas ou recados.
-- Usuários aparecem só como contagem; a atividade diária usa um ID embaralhado (HMAC), sem volta.
-- Grupos com menos de 3 pessoas são somados em "Outros" (k-anonimato).
+- Usuários aparecem só como contagem; atividade diária e origem do cadastro usam um ID embaralhado (HMAC), sem volta.
+- Local estimado pela rede (Cloudflare: país, estado, cidade), nunca GPS; modelo do aparelho só quando o navegador informa.
+- Grupos com menos de 3 pessoas (cidade, modelo, etc.) são somados em "Outros" (k-anonimato).
 - Contas de exemplo (`@exemplo.ninho`) ficam fora das métricas.
 
 ## Segurança do acesso

@@ -78,3 +78,8 @@ CREATE TABLE IF NOT EXISTS erros (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT 
 CREATE INDEX IF NOT EXISTS idx_erros_at ON erros (at);
 CREATE TABLE IF NOT EXISTS contadores (dia TEXT NOT NULL, chave TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (dia, chave));
 CREATE TABLE IF NOT EXISTS sistema (chave TEXT PRIMARY KEY, valor TEXT NOT NULL, at TEXT NOT NULL);
+-- Origem do cadastro (pseudônimo) e cidade/tipo de aparelho na atividade diária
+CREATE TABLE IF NOT EXISTS origem_cadastro (uid TEXT PRIMARY KEY, dia TEXT NOT NULL, demo INTEGER NOT NULL DEFAULT 0, pais TEXT, regiao TEXT, cidade TEXT, plataforma TEXT, tipo TEXT, navegador TEXT, modelo TEXT, modo TEXT);
+CREATE INDEX IF NOT EXISTS idx_origem_dia ON origem_cadastro (dia);
+ALTER TABLE atividade ADD COLUMN cidade TEXT;
+ALTER TABLE atividade ADD COLUMN tipo TEXT;
