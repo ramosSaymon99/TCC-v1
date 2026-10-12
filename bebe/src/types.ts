@@ -82,7 +82,7 @@ export interface Supply {
 }
 export interface Note { id: string; text: string; pinned: number; done: number; user_id: string; created_at: string; kind?: 'recado' | 'pergunta' | null }
 /** Checklists: marco do desenvolvimento, teste do recém-nascido, alimento introduzido, item da mala da maternidade. */
-export interface Check { id: string; kind: 'marco' | 'teste' | 'alimento' | 'mala'; code: string; date?: string | null; value?: string | null; note?: string | null; user_id: string }
+export interface Check { id: string; kind: 'marco' | 'teste' | 'alimento' | 'mala' | 'rotina'; code: string; date?: string | null; value?: string | null; note?: string | null; user_id: string }
 export interface Milk { id: string; ml: number; collected_at: string; place?: 'geladeira' | 'congelador' | null; used_at?: string | null; note?: string | null; user_id: string }
 export interface Post { id: string; user_id: string; caption?: string | null; taken_at: string; likes: string[]; photo: string | null; created_at: string; pendente?: boolean }
 export interface Appointment { id: string; date: string; title: string; doctor?: string | null; note?: string | null; done: number; user_id: string }

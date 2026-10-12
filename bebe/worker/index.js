@@ -214,7 +214,7 @@ async function dadosDoBebe(env, babyId, since) {
     env.DB.prepare('SELECT * FROM notes WHERE baby_id = ? ORDER BY created_at DESC LIMIT 200').bind(babyId).all(),
     env.DB.prepare('SELECT * FROM appointments WHERE baby_id = ? ORDER BY date').bind(babyId).all(),
     env.DB.prepare('SELECT * FROM vaccines WHERE baby_id = ?').bind(babyId).all(),
-    env.DB.prepare('SELECT * FROM checks WHERE baby_id = ?').bind(babyId).all(),
+    env.DB.prepare("SELECT * FROM checks WHERE baby_id = ? AND (kind != 'rotina' OR date >= ?)").bind(babyId, since.slice(0, 10)).all(),
     env.DB.prepare('SELECT * FROM milk WHERE baby_id = ? AND (used_at IS NULL OR used_at >= ?) ORDER BY collected_at').bind(babyId, since).all(),
     env.DB.prepare('SELECT * FROM posts WHERE baby_id = ? ORDER BY taken_at DESC LIMIT 600').bind(babyId).all(),
   ]);

@@ -362,7 +362,7 @@ function local(method: string, path: string, body: any): unknown {
       notes: doBebe(D.notes).sort((a, b) => b.created_at.localeCompare(a.created_at)),
       appointments: doBebe(D.appointments).sort((a, b) => a.date.localeCompare(b.date)),
       vaccines: doBebe(D.vaccines),
-      checks: doBebe(D.checks),
+      checks: doBebe(D.checks).filter((c) => c.kind !== 'rotina' || (c.date ?? '') >= since.slice(0, 10)),
       milk: doBebe(D.milk).filter((m) => !m.used_at || m.used_at >= since).sort((a, b) => a.collected_at.localeCompare(b.collected_at)),
       posts: doBebe(D.posts).sort((a, b) => b.taken_at.localeCompare(a.taken_at)),
       access: v!.access, role: v!.role,

@@ -6,6 +6,7 @@ import { useApp } from '../ctx';
 import { api, localCriarUsuarioDemo } from '../lib/api';
 import { ACESSOS, CORES_BEBE, PAPEIS, papel } from '../lib/constants';
 import { carregarExemplo } from '../lib/seed';
+import { sugerirRotina } from '../lib/rotina';
 import { addDays, dataBr, haQuanto, idade, startOfDay, t } from '../lib/time';
 import type { Access, Member, Routine } from '../types';
 import { Choice, Field, Sheet } from '../components/ui';
@@ -16,6 +17,7 @@ export function Familia() {
   const { baby } = data;
   const [editBebe, setEditBebe] = useState(false);
   const [editRotina, setEditRotina] = useState(false);
+  const [sugestao, setSugestao] = useState(false);
   const [convite, setConvite] = useState(false);
   const [perfil, setPerfil] = useState(false);
   const [membro, setMembro] = useState<Member | null>(null);
@@ -75,7 +77,7 @@ export function Familia() {
       </div>
 
       <div className="card">
-        <div className="card-h"><h2>Rotina planejada</h2>{podeAdmin && <button className="btn sm" onClick={() => setEditRotina(true)}><Pencil size={14} /> Editar</button>}</div>
+        <div className="card-h"><h2>Rotina planejada</h2><div className="row" style={{ gap: 6 }}><button className="btn sm" onClick={() => setSugestao(true)}>✨ Sugerir</button>{podeAdmin && <button className="btn sm" onClick={() => setEditRotina(true)}><Pencil size={14} /> Editar</button>}</div></div>
         {baby.routine && (baby.routine.feeds?.length || baby.routine.naps?.length) ? (
           <div className="stack">
             <div className="row faint" style={{ gap: 14, flexWrap: 'wrap' }}><span>☀️ Acorda {baby.routine.wake || '—'}</span><span>🌙 Dorme {baby.routine.bedtime || '—'}</span>{baby.routine.feedIntervalMin && <span>⏱️ Mamar a cada até {Math.round(baby.routine.feedIntervalMin / 6) / 10} h</span>}</div>
@@ -165,6 +167,7 @@ export function Familia() {
 
       {editBebe && <BebeSheet onClose={() => setEditBebe(false)} />}
       {editRotina && <RotinaSheet onClose={() => setEditRotina(false)} />}
+      {sugestao && <SugestaoRotinaSheet onClose={() => setSugestao(false)} />}
       {convite && <ConviteSheet onClose={() => setConvite(false)} />}
       {perfil && <PerfilSheet onClose={() => setPerfil(false)} />}
       {membro && <MembroSheet m={membro} onClose={() => setMembro(null)} />}
@@ -223,17 +226,59 @@ export function RotinaEditor({ r, onChange }: { r: Routine; onChange: (r: Routin
   );
 }
 
-function RotinaSheet({ onClose }: { onClose: () => void }) {
+export function RotinaSheet({ onClose, inicial }: { onClose: () => void; inicial?: Routine }) {
   const { data, act } = useApp();
-  const [r, setR] = useState<Routine>(data.baby.routine ?? { wake: '07:00', bedtime: '19:30', feeds: [], naps: [] });
+  const [r, setR] = useState<Routine>(inicial ?? data.baby.routine ?? { wake: '07:00', bedtime: '19:30', feeds: [], naps: [] });
   const ordenar = (x: Routine): Routine => ({ ...x, feeds: [...new Set(x.feeds)].sort(), naps: [...new Set(x.naps)].sort() });
   return (
     <Sheet title="Rotina planejada" onClose={onClose} footer={<button className="btn primary" onClick={async () => (await act(() => api.updateBaby(data.baby.id, { routine: ordenar(r) }), 'Rotina salva')) && onClose()}>Salvar</button>}>
-      <p className="faint">Todos os cuidadores verão a rotina no Hoje. O app compara cada horário com o que foi registrado (tolerância de 45 min).</p>
+      <p className="faint">{inicial ? 'Sugestão calculada pelos registros: ajuste o que quiser antes de salvar.' : 'Todos os cuidadores verão a rotina no Hoje. O app compara cada horário com o que foi registrado (tolerância de 45 min).'}</p>
       <RotinaEditor r={r} onChange={setR} />
     </Sheet>
   );
 }
+
+/** Rotina sugerida pelos registros dos últimos 14 dias, comparada com a atual e com a referência da idade. */
+export function SugestaoRotinaSheet({ onClose }: { onClose: () => void }) {
+  const { data, act, podeAdmin, agora } = useApp();
+  const [ajustar, setAjustar] = useState(false);
+  const sug = useMemo(() => sugerirRotina(data.events, data.baby.routine, data.baby.birth_date, agora), [data.events, data.baby.routine, data.baby.birth_date, agora]);
+  const atual = data.baby.routine;
+  if (ajustar && sug) return <RotinaSheet inicial={sug.rotina} onClose={onClose} />;
+  const linha = (rot: string, a: string, b: string) => (
+    <tr key={rot}><td>{rot}</td><td className="faint">{a || '—'}</td><td style={{ fontWeight: 800, color: a !== b ? 'var(--brand-ink)' : undefined }}>{b || '—'}</td></tr>
+  );
+  return (
+    <Sheet title="✨ Rotina sugerida pelos registros" onClose={onClose} footer={sug && podeAdmin ? <>
+      <button className="btn" onClick={() => setAjustar(true)}>Ajustar antes</button>
+      <button className="btn primary" onClick={async () => (await act(() => api.updateBaby(data.baby.id, { routine: sug.rotina }), 'Rotina atualizada pelos registros ✨')) && onClose()}>Aplicar sugestão</button>
+    </> : undefined}>
+      {!sug ? (
+        <p className="muted">Ainda não há registros suficientes. A sugestão precisa de pelo menos 5 dias com mamadas e sonos registrados (incluindo o sono da noite) nas últimas 2 semanas.</p>
+      ) : (
+        <>
+          <p className="faint">Baseada em {sug.dias} dias de registros ({dataBr(ymdLocal(sug.de))} a {dataBr(ymdLocal(sug.ate))}): horários mais comuns, arredondados de 15 em 15 minutos.</p>
+          <div className="tab-simples">
+            <table>
+              <thead><tr><th></th><th>Atual</th><th>Sugerida</th></tr></thead>
+              <tbody>
+                {linha('☀️ Acorda', atual?.wake ?? '', sug.rotina.wake ?? '')}
+                {linha('🌙 Dorme', atual?.bedtime ?? '', sug.rotina.bedtime ?? '')}
+                {linha(`🍼 Mamadas`, (atual?.feeds ?? []).join(' · '), sug.rotina.feeds.join(' · '))}
+                {linha(`😴 Sonecas`, (atual?.naps ?? []).join(' · '), sug.rotina.naps.join(' · '))}
+                {linha('⏱️ Intervalo máx.', atual?.feedIntervalMin ? `${Math.round(atual.feedIntervalMin / 6) / 10} h` : '', sug.rotina.feedIntervalMin ? `${Math.round(sug.rotina.feedIntervalMin / 6) / 10} h` : '')}
+              </tbody>
+            </table>
+          </div>
+          {sug.mudancas.length > 0 ? <div className="chip info" style={{ whiteSpace: 'normal' }}>O que muda: {sug.mudancas.join(' · ')}</div> : <div className="chip ok">A rotina planejada já reflete o dia a dia real 👏</div>}
+          {sug.rotina.naps.length !== sug.sonecasRef && <p className="faint">Referência geral para {idade(data.baby.birth_date, agora).texto}: cerca de {sug.sonecasRef} soneca(s) por dia. Cada bebê tem seu ritmo; converse com o pediatra se tiver dúvidas.</p>}
+          {!podeAdmin && <p className="faint">Só administradores alteram a rotina. Mostre a sugestão a quem administra o perfil.</p>}
+        </>
+      )}
+    </Sheet>
+  );
+}
+const ymdLocal = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 function ConviteSheet({ onClose }: { onClose: () => void }) {
   const { data, act, modo, refresh } = useApp();

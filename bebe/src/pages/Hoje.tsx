@@ -12,7 +12,12 @@ import { Avatar } from '../components/Avatar';
 import { proximaSoneca } from '../lib/janela';
 import { doses, ehMadrugada, proximaMamada, resumoDesde, resumoNoite, sugestoesRepetir } from '../lib/previsao';
 import { dicaDaSemana } from '../lib/conteudo';
-import { uid } from '../lib/time';
+import { uid, ymd } from '../lib/time';
+import { sugerirRotina } from '../lib/rotina';
+import { idCheck } from '../lib/conteudo';
+import { SugestaoRotinaSheet } from './Familia';
+import { Sheet } from '../components/ui';
+import type { ItemRotina } from '../lib/metrics';
 
 const RAPIDOS: EventType[] = ['mamada', 'mamadeira', 'sono', 'fralda', 'remedio', 'saude', 'banho', 'alimentacao'];
 const LS_VISITA = (u: string, b: string) => `ninho-visita-${u}-${b}`;
@@ -57,7 +62,10 @@ export function Hoje() {
     return { hj, base };
   }, [events, agora, hoje, baby.routine]);
 
-  const rotina = aderencia(events, baby.routine, hoje, agora);
+  const rotina = aderencia(events, baby.routine, hoje, agora, data.checks);
+  const [itemRotina, setItemRotina] = useState<ItemRotina | null>(null);
+  const [verSugestao, setVerSugestao] = useState(false);
+  const sugestao = useMemo(() => sugerirRotina(events, baby.routine, baby.birth_date, agora), [events, baby.routine, baby.birth_date, agora]);
   const lista = useMemo(() => insights(data, agora), [data, agora]);
   const doDia = events.filter((e) => t(e.start_at) >= diaSel && t(e.start_at) < addDays(diaSel, 1)).sort((a, b) => t(b.start_at) - t(a.start_at));
   const meusHoje = events.filter((e) => e.user_id === user.id && t(e.start_at) >= hoje).length;
@@ -236,14 +244,15 @@ export function Hoje() {
             {rotina.itens.length ? (
               <div className="wrap-row">
                 {rotina.itens.map((i, k) => (
-                  <span key={k} className={`chip ${i.status === 'ok' ? 'ok' : i.status === 'perdido' ? 'bad' : i.status === 'proximo' ? 'brand' : ''}`} title={i.real ? `Aconteceu às ${hm(i.real)}` : ''}>
-                    {i.tipo === 'mamada' ? '🍼' : '😴'} {i.hora}{i.status === 'ok' ? ' ✓' : i.status === 'perdido' ? ' ✕' : i.status === 'proximo' ? ' · próximo' : ''}
-                  </span>
+                  <button key={k} type="button" className={`chip chip-rotina ${i.status === 'ok' ? 'ok' : i.status === 'perdido' ? 'bad' : i.status === 'proximo' ? 'brand' : ''}`} title={i.real ? `Aconteceu às ${hm(i.real)}` : 'Toque para marcar'} onClick={() => setItemRotina(i)}>
+                    {i.tipo === 'mamada' ? '🍼' : '😴'} {i.hora}{i.status === 'ok' ? (i.manual === 'feito' && !i.real ? ' ✓ (manual)' : ' ✓') : i.status === 'perdido' ? ' ✕' : i.status === 'pulado' ? ' · pulou' : i.status === 'proximo' ? ' · próximo' : ''}
+                  </button>
                 ))}
               </div>
             ) : (
-              <Empty emoji="🗓️">Defina os horários de mamadas e sonecas para acompanhar a rotina.<br /><button className="btn sm" style={{ marginTop: 8 }} onClick={() => setAba('familia')}>Definir rotina</button></Empty>
+              <Empty emoji="🗓️">Defina os horários de mamadas e sonecas para acompanhar a rotina.<br /><button className="btn sm" style={{ marginTop: 8 }} onClick={() => setAba('familia')}>Definir rotina</button>{sugestao && <button className="btn sm" style={{ marginTop: 8, marginLeft: 6 }} onClick={() => setVerSugestao(true)}>✨ Usar sugestão pelos registros</button>}</Empty>
             )}
+            {rotina.itens.length > 0 && <p className="faint" style={{ marginTop: 8 }}>Toque num horário para marcar como feito ou pulado. {sugestao && sugestao.mudancas.length > 0 && <button className="linkbtn" onClick={() => setVerSugestao(true)}>✨ A rotina real mudou: ver sugestão</button>}</p>}
           </div>
 
           <div className="card">
@@ -293,7 +302,40 @@ export function Hoje() {
           </div>
         </div>
       </div>
+      {itemRotina && <ItemRotinaSheet item={itemRotina} onClose={() => setItemRotina(null)} />}
+      {verSugestao && <SugestaoRotinaSheet onClose={() => setVerSugestao(false)} />}
     </div>
+  );
+}
+
+function ItemRotinaSheet({ item, onClose }: { item: ItemRotina; onClose: () => void }) {
+  const { data, act, podeEditar, abrirRegistro, agora } = useApp();
+  const baby = data.baby;
+  const hoje = startOfDay(agora);
+  const titulo = `${item.tipo === 'mamada' ? '🍼 Mamada' : '😴 Soneca'} das ${item.hora}`;
+  const [hh, mm] = item.hora.split(':').map(Number);
+  const futuro = hoje + (hh * 60 + mm) * 60_000 > agora + 60 * 60_000; // só dá para marcar "feita" a partir de 1 h antes
+  const marcar = (value: 'feito' | 'pulado') => act(
+    () => (item.checkId ? api.update('checks', baby.id, item.checkId, { value }) : api.create('checks', baby.id, { id: idCheck(baby.id, 'rotina', item.code), kind: 'rotina', code: item.code, date: ymd(hoje), value })),
+    value === 'feito' ? `${titulo.slice(3)} marcada como feita ✓` : `${titulo.slice(3)} marcada como pulada`,
+  ).then((ok) => ok && onClose());
+  const desmarcar = () => item.checkId && act(() => api.remove('checks', baby.id, item.checkId!), 'Marcação removida').then((ok) => ok && onClose());
+  return (
+    <Sheet title={titulo} onClose={onClose}>
+      <p className="faint">
+        {item.real ? `Registrada às ${hm(item.real)} — já conta como cumprida.` : item.manual === 'feito' ? 'Marcada como feita manualmente.' : item.manual === 'pulado' ? 'Marcada como pulada hoje (não conta contra a rotina).' : item.status === 'perdido' ? 'Nenhum registro perto deste horário (tolerância de 45 min).' : 'Ainda não aconteceu.'}
+      </p>
+      {podeEditar ? (
+        <div className="stack" style={{ gap: 8 }}>
+          {!item.real && item.manual !== 'feito' && !futuro && <button className="btn primary block" onClick={() => marcar('feito')}>✓ Marcar como feita</button>}
+          {futuro && !item.manual && <p className="faint">Ainda não chegou a hora: dá para marcar como feita a partir de 1 h antes.</p>}
+          <button className="btn block" onClick={() => { onClose(); abrirRegistro(item.tipo === 'mamada' ? 'mamada' : 'sono'); }}>✍️ Registrar com detalhes ({item.tipo === 'mamada' ? 'lado, duração' : 'início e fim'})</button>
+          {item.manual !== 'pulado' && !item.real && <button className="btn block" onClick={() => marcar('pulado')}>⏭️ Pulou hoje</button>}
+          {item.manual && <button className="btn ghost block" onClick={desmarcar}>Desmarcar</button>}
+          <p className="faint">Marcar como feita só conta para a rotina. Para entrar nos indicadores (sono, mamadas), use “Registrar com detalhes”.</p>
+        </div>
+      ) : <div className="chip warn">Seu acesso é somente leitura.</div>}
+    </Sheet>
   );
 }
 

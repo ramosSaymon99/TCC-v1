@@ -1,4 +1,4 @@
-import type { BabyData, BabyEvent, Routine, Supply } from '../types';
+import type { BabyData, BabyEvent, Check, Routine, Supply } from '../types';
 import { DIA, HORA, MIN, addDays, duracao, idade, minutosDoDia, startOfDay, t } from './time';
 import { VACINAS } from './constants';
 import { MARCOS, TESTES_RN, avaliarFebre } from './conteudo';
@@ -149,8 +149,11 @@ export function referencias(dias: number) {
 }
 
 /* ---------------- Rotina planejada × realizada ---------------- */
-export interface ItemRotina { hora: string; tipo: 'mamada' | 'soneca'; status: 'ok' | 'perdido' | 'pendente' | 'proximo'; real?: number }
-export function aderencia(events: BabyEvent[], routine: Routine | null | undefined, dia: number, agora = Date.now()) {
+export interface ItemRotina { hora: string; tipo: 'mamada' | 'soneca'; status: 'ok' | 'perdido' | 'pendente' | 'proximo' | 'pulado'; real?: number; code: string; manual?: 'feito' | 'pulado'; checkId?: string }
+/** `checks`: marcações manuais da rotina (kind 'rotina', code `AAAA-MM-DD_tipo_HHMM`, value 'feito' | 'pulado'). */
+export function aderencia(events: BabyEvent[], routine: Routine | null | undefined, dia: number, agora = Date.now(), checks: Check[] = []) {
+  const prefixo = `${new Date(dia).getFullYear()}-${String(new Date(dia).getMonth() + 1).padStart(2, '0')}-${String(new Date(dia).getDate()).padStart(2, '0')}_`;
+  const manuais = new Map(checks.filter((c) => c.kind === 'rotina' && c.code.startsWith(prefixo)).map((c) => [c.code, c]));
   const tol = 45 * MIN;
   const itens: ItemRotina[] = [];
   if (!routine) return { itens, feitos: 0, avaliados: 0, pct: null as number | null };
@@ -168,11 +171,15 @@ export function aderencia(events: BabyEvent[], routine: Routine | null | undefin
       .filter((x) => x.d <= tol)
       .sort((a, b) => a.d - b.d)[0];
     let status: ItemRotina['status'];
-    if (cand) { usados.add(cand.e.id); status = 'ok'; }
+    const code = `${prefixo}${p.tipo}_${p.hora.replace(':', '')}`;
+    const manual = manuais.get(code);
+    if (manual?.value === 'pulado') status = 'pulado';
+    else if (cand) { usados.add(cand.e.id); status = 'ok'; }
+    else if (manual?.value === 'feito') status = 'ok';
     else if (alvo + tol < agora) status = 'perdido';
     else if (!proximoMarcado) { status = 'proximo'; proximoMarcado = true; }
     else status = 'pendente';
-    itens.push({ ...p, status, real: cand ? t(cand.e.start_at) : undefined });
+    itens.push({ ...p, status, code, manual: manual?.value as 'feito' | 'pulado' | undefined, checkId: manual?.id, real: cand && status === 'ok' ? t(cand.e.start_at) : undefined });
   }
   const avaliados = itens.filter((i) => i.status === 'ok' || i.status === 'perdido').length;
   const feitos = itens.filter((i) => i.status === 'ok').length;
@@ -273,7 +280,7 @@ export function insights(d: BabyData, agora = Date.now()): Insight[] {
 
   // Rotina planejada
   if (r && (r.feeds?.length || r.naps?.length)) {
-    const ad = [1, 2, 3, 4, 5, 6, 7].map((i) => aderencia(events, r, addDays(hoje, -i), agora));
+    const ad = [1, 2, 3, 4, 5, 6, 7].map((i) => aderencia(events, r, addDays(hoje, -i), agora, d.checks ?? []));
     const av = ad.reduce((a, b) => a + b.avaliados, 0);
     const ok = ad.reduce((a, b) => a + b.feitos, 0);
     if (av >= 10) {
@@ -281,7 +288,7 @@ export function insights(d: BabyData, agora = Date.now()): Insight[] {
       out.push({
         nivel: pct >= 0.7 ? 'positivo' : 'info', titulo: `Rotina cumprida em ${Math.round(pct * 100)}% (7 dias)`,
         detalhe: `${ok} de ${av} horários planejados aconteceram com tolerância de 45 min.`,
-        acao: pct < 0.7 ? 'Se a rotina real mudou, ajuste os horários planejados em Família → Rotina.' : undefined, aba: 'familia',
+        acao: pct < 0.7 ? 'Se a rotina real mudou, veja a rotina sugerida pelos registros (Família → Rotina planejada → ✨ Sugerir) ou marque manualmente o que foi feito.' : undefined, aba: 'familia',
       });
     }
   }
