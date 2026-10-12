@@ -1,6 +1,8 @@
 import type { BabyData, BabyEvent, Routine, Supply } from '../types';
 import { DIA, HORA, MIN, addDays, duracao, idade, minutosDoDia, startOfDay, t } from './time';
 import { VACINAS } from './constants';
+import { MARCOS, TESTES_RN, avaliarFebre } from './conteudo';
+import { leiteGuardado } from './previsao';
 
 const VACINA_ATRASO_DIAS = 30;
 
@@ -198,6 +200,7 @@ export function insights(d: BabyData, agora = Date.now()): Insight[] {
   const hoje = startOfDay(agora);
   const r = baby.routine;
   const nome = baby.name.split(' ')[0];
+  if (baby.settings?.gestacao) return out; // ainda na barriga: sem rotina para avaliar
 
   // Última mamada × intervalo de referência
   const feeds = events.filter((e) => e.type === 'mamada' || e.type === 'mamadeira').sort((a, b) => t(b.start_at) - t(a.start_at));
@@ -336,6 +339,40 @@ export function insights(d: BabyData, agora = Date.now()): Insight[] {
       });
     }
   }
+
+
+  // Febre / sintomas nas últimas 24 h
+  const saude = events.filter((e) => e.type === 'saude' && t(e.start_at) > agora - DIA).sort((a, b) => t(b.start_at) - t(a.start_at))[0];
+  const aval = saude ? avaliarFebre(saude.data.temp, id.dias, saude.data.sintomas) : null;
+  if (saude && aval && aval.nivel !== 'ok') {
+    out.push({ nivel: aval.nivel === 'alerta' ? 'alerta' : 'atencao', titulo: saude.data.temp != null ? `Temperatura de ${String(saude.data.temp).replace('.', ',')} °C às ${new Date(saude.start_at).toTimeString().slice(0, 5)}` : 'Sintomas registrados', detalhe: aval.texto, acao: 'Meça de novo em 1 h e registre em Saúde → Febre; a curva vai no relatório do pediatra.', aba: 'saude' });
+  }
+
+  // Leite materno guardado vencendo ou vencido
+  const leite = leiteGuardado(d.milk ?? [], agora);
+  const vencidos = leite.filter((m) => m.vencido);
+  const vencendo = leite.filter((m) => m.vencendo);
+  if (vencidos.length) out.push({ nivel: 'atencao', titulo: `${vencidos.length} frasco(s) de leite vencido(s)`, detalhe: 'Leite fora da validade não deve ser oferecido.', acao: 'Descarte no Mural → Leite.', aba: 'mural' });
+  else if (vencendo.length) out.push({ nivel: 'info', titulo: `${vencendo.length} frasco(s) de leite vencem em breve`, detalhe: `${vencendo.map((m) => `${m.ml} ml`).join(', ')}: use esses primeiro.`, aba: 'mural' });
+
+  // Testes do recém-nascido sem registro após o prazo
+  if (id.dias < 120) {
+    const feitos = new Set((d.checks ?? []).filter((c) => c.kind === 'teste').map((c) => c.code));
+    const pend = TESTES_RN.filter((x) => !feitos.has(x.code) && id.dias > x.dias + 3);
+    if (pend.length) out.push({ nivel: 'atencao', titulo: `${pend.length} teste(s) do recém-nascido sem registro`, detalhe: `${pend.map((x) => x.nome.split(' (')[0]).join(', ')}.`, acao: 'Se já foram feitos, registre o resultado em Saúde → Testes RN; se não, procure a unidade de saúde.', aba: 'saude' });
+  }
+
+  // Marcos para comentar com o pediatra (só se a família já usa os marcos)
+  const marcados = new Set((d.checks ?? []).filter((c) => c.kind === 'marco').map((c) => c.code));
+  if (marcados.size) {
+    const comentar = MARCOS.filter((m) => !marcados.has(m.code) && id.dias / 30.4 > m.ate);
+    if (comentar.length) out.push({ nivel: 'info', titulo: 'Marco do desenvolvimento para comentar na consulta', detalhe: `${comentar.map((m) => m.nome.split(' (')[0]).join(', ')}. Cada bebê tem seu ritmo.`, acao: 'Anote em Saúde → Perguntas para levar ao pediatra.', aba: 'saude' });
+  }
+
+  // Perguntas pendentes com consulta chegando
+  const consulta = d.appointments.filter((a) => !a.done && t(a.date) > agora && t(a.date) < agora + 2 * DIA)[0];
+  const perguntas = d.notes.filter((n) => n.kind === 'pergunta' && !n.done).length;
+  if (consulta && perguntas) out.push({ nivel: 'info', titulo: `Consulta em breve: ${perguntas} pergunta(s) anotada(s)`, detalhe: `${consulta.title} em ${new Date(consulta.date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}.`, acao: 'Gere o relatório para o pediatra: as perguntas já vão nele.', aba: 'saude' });
 
   const ordem = { alerta: 0, atencao: 1, info: 2, positivo: 3 };
   return out.sort((a, b) => ordem[a.nivel] - ordem[b.nivel]);

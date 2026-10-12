@@ -90,9 +90,12 @@ async function garantirEsquema(env) {
     'CREATE TABLE IF NOT EXISTS contadores (dia TEXT NOT NULL, chave TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (dia, chave))',
     'CREATE TABLE IF NOT EXISTS sistema (chave TEXT PRIMARY KEY, valor TEXT NOT NULL, at TEXT NOT NULL)',
     'CREATE TABLE IF NOT EXISTS uso (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, baby_id TEXT, evento TEXT NOT NULL, valor TEXT, at TEXT NOT NULL)',
+    'CREATE TABLE IF NOT EXISTS posts (id TEXT PRIMARY KEY, baby_id TEXT NOT NULL, user_id TEXT NOT NULL, caption TEXT, taken_at TEXT NOT NULL, likes TEXT, photo_v TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)',
+    'CREATE TABLE IF NOT EXISTS checks (id TEXT PRIMARY KEY, baby_id TEXT NOT NULL, kind TEXT NOT NULL, code TEXT NOT NULL, date TEXT, value TEXT, note TEXT, user_id TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)',
+    'CREATE TABLE IF NOT EXISTS milk (id TEXT PRIMARY KEY, baby_id TEXT NOT NULL, ml REAL NOT NULL, collected_at TEXT NOT NULL, place TEXT, used_at TEXT, note TEXT, user_id TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)',
     'CREATE TABLE IF NOT EXISTS origem_cadastro (uid TEXT PRIMARY KEY, dia TEXT NOT NULL, demo INTEGER NOT NULL DEFAULT 0, pais TEXT, regiao TEXT, cidade TEXT, plataforma TEXT, tipo TEXT, navegador TEXT, modelo TEXT, modo TEXT)',
   ].map((s) => env.DB.prepare(s)));
-  for (const m of ['ALTER TABLE atividade ADD COLUMN cidade TEXT', 'ALTER TABLE atividade ADD COLUMN tipo TEXT']) {
+  for (const m of ['ALTER TABLE atividade ADD COLUMN cidade TEXT', 'ALTER TABLE atividade ADD COLUMN tipo TEXT', "ALTER TABLE notes ADD COLUMN kind TEXT DEFAULT 'recado'"]) {
     try { await env.DB.prepare(m).run(); } catch { /* coluna já existe */ }
   }
   esquemaOk = true;
@@ -190,7 +193,12 @@ async function metricas(env, dias) {
               (SELECT COUNT(*) FROM photos WHERE kind = 'baby' AND id IN (${FAM})) AS foto,
               (SELECT COUNT(DISTINCT baby_id) FROM uso WHERE evento = 'pdf_gerado' AND baby_id IN (${FAM})) AS pdf,
               (SELECT COUNT(DISTINCT m.baby_id) FROM members m JOIN push_subs p ON p.user_id = m.user_id WHERE m.baby_id IN (${FAM})) AS notificacoes,
-              (SELECT COUNT(*) FROM (SELECT baby_id FROM members WHERE baby_id IN (${FAM}) GROUP BY baby_id HAVING COUNT(*) >= 2)) AS convidou`),
+              (SELECT COUNT(*) FROM (SELECT baby_id FROM members WHERE baby_id IN (${FAM}) GROUP BY baby_id HAVING COUNT(*) >= 2)) AS convidou,
+              (SELECT COUNT(DISTINCT baby_id) FROM posts WHERE baby_id IN (${FAM})) AS fotos_dia,
+              (SELECT COUNT(DISTINCT baby_id) FROM checks WHERE kind = 'marco' AND baby_id IN (${FAM})) AS marcos,
+              (SELECT COUNT(DISTINCT baby_id) FROM milk WHERE baby_id IN (${FAM})) AS leite,
+              (SELECT COUNT(DISTINCT baby_id) FROM events WHERE type = 'saude' AND baby_id IN (${FAM})) AS febre,
+              (SELECT COUNT(DISTINCT baby_id) FROM notes WHERE kind = 'pergunta' AND baby_id IN (${FAM})) AS perguntas`),
     /* 29 */ q(`SELECT baby_id, SUM(created_at >= ?) AS r7, SUM(created_at < ?) AS rant FROM events WHERE created_at >= ? AND baby_id IN (${FAM}) GROUP BY baby_id`, d7, d7, d28),
     /* 30 */ q(`SELECT CASE WHEN endpoint LIKE '%apple.com%' THEN 'Apple (iPhone, iPad, Mac)' WHEN endpoint LIKE '%googleapis%' THEN 'Google (Android, Chrome)'
               WHEN endpoint LIKE '%mozilla%' THEN 'Mozilla (Firefox)' WHEN endpoint LIKE '%windows%' OR endpoint LIKE '%microsoft%' THEN 'Microsoft (Edge)' ELSE 'Outro serviço' END AS servico,

@@ -74,9 +74,10 @@ export async function enviarEmailRedefinicao(env, para, nome, link) {
 }
 
 /* ---------------- Exclusão de conta ---------------- */
-const TABELAS_BEBE = ['events', 'growth', 'supplies', 'notes', 'appointments', 'vaccines', 'invites', 'members'];
-async function apagarBebe(env, babyId) {
+const TABELAS_BEBE = ['events', 'growth', 'supplies', 'notes', 'appointments', 'vaccines', 'invites', 'members', 'checks', 'milk', 'posts', 'uso'];
+export async function apagarBebe(env, babyId) {
   await env.DB.batch([
+    env.DB.prepare("DELETE FROM photos WHERE kind = 'post' AND id IN (SELECT id FROM posts WHERE baby_id = ?)").bind(babyId),
     ...TABELAS_BEBE.map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE baby_id = ?`).bind(babyId)),
     env.DB.prepare("DELETE FROM photos WHERE kind = 'baby' AND id = ?").bind(babyId),
     env.DB.prepare('DELETE FROM babies WHERE id = ?').bind(babyId),

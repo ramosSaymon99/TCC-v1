@@ -13,26 +13,31 @@ import { vapid, sendPush } from './push.js';
 import { ESQUEMA_OBS, MIGRACOES_OBS, contar, limparObservabilidade, marcarSistema, normalizarRota, plataformaDe, registrarAtividade, registrarCadastro, registrarErro, registrarRequisicao } from './observabilidade.js';
 import { CATEGORIAS, dataHoraTz, descreverEvento, horaTz, lembretes, lerPrefs, nomePapel, notificar } from './notify.js';
 import {
-  DOMINIO_DEMO, VERSAO_TERMOS, bloqueado, codigoCurto, consumirRedefinicao, criarRedefinicao, emailConfigurado,
+  DOMINIO_DEMO, VERSAO_TERMOS, apagarBebe, bloqueado, codigoCurto, consumirRedefinicao, criarRedefinicao, emailConfigurado,
   enviarEmailRedefinicao, excluirConta, limparContasDemo, limparFalhas, registrarFalha,
 } from './conta.js';
 
 const TOKEN_DIAS = 30;
 /** Ações contadas para as métricas do piloto (nunca o conteúdo dos registros). */
-const EVENTOS_USO = ['pdf_gerado', 'pdf_compartilhado', 'push_ativado', 'push_desativado', 'desfazer', 'sync_offline', 'notif_clique', 'notif_acao', 'atalho_icone', 'app_instalado'];
+const EVENTOS_USO = ['pdf_gerado', 'pdf_compartilhado', 'push_ativado', 'push_desativado', 'desfazer', 'sync_offline', 'notif_clique', 'notif_acao', 'atalho_icone', 'app_instalado', 'cartao_mesversario'];
 const FOTO_MAX = 400_000; // ~300 KB de imagem em base64 (o app envia 320×320 JPEG, ~25 KB)
 const PBKDF2_ITER = 100000;
 const NIVEL = { leitor: 1, editor: 2, admin: 3 };
 const PAPEIS = ['mae', 'pai', 'avo_m', 'avo_f', 'baba', 'tio', 'tia', 'irmao', 'irma', 'padrinho', 'madrinha', 'outro'];
-const TIPOS_EVENTO = ['mamada', 'mamadeira', 'sono', 'fralda', 'remedio', 'banho', 'alimentacao', 'extracao', 'outro'];
+const TIPOS_EVENTO = ['mamada', 'mamadeira', 'sono', 'fralda', 'remedio', 'banho', 'alimentacao', 'extracao', 'saude', 'outro'];
+const POST_MAX = 750_000; // foto do Dia a dia: o app envia JPEG de até 1280 px (~200–400 KB em base64)
 
 /** Recursos filhos do bebê: colunas graváveis e campos obrigatórios. */
 const RES = {
   events: { cols: ['type', 'start_at', 'end_at', 'data', 'note'], obrig: ['type', 'start_at'], json: ['data'] },
   growth: { cols: ['date', 'weight_g', 'height_cm', 'head_cm', 'source', 'note'], obrig: ['date'] },
   supplies: { cols: ['name', 'category', 'unit', 'qty', 'min_qty', 'auto_type', 'per_use', 'buyer_id', 'note'], obrig: ['name'] },
-  notes: { cols: ['text', 'pinned', 'done'], obrig: ['text'] },
+  notes: { cols: ['text', 'pinned', 'done', 'kind'], obrig: ['text'] },
   appointments: { cols: ['date', 'title', 'doctor', 'note', 'done'], obrig: ['date', 'title'] },
+  /** Checklists do bebê: marcos do desenvolvimento, testes do recém-nascido, alimentos introduzidos, mala da maternidade. */
+  checks: { cols: ['kind', 'code', 'date', 'value', 'note'], obrig: ['kind', 'code'] },
+  /** Frascos de leite materno guardados (geladeira/congelador). */
+  milk: { cols: ['ml', 'collected_at', 'place', 'used_at', 'note'], obrig: ['ml', 'collected_at'] },
 };
 
 const enc = new TextEncoder();
@@ -112,6 +117,12 @@ const ESQUEMA = [
   'CREATE TABLE IF NOT EXISTS login_attempts (key TEXT PRIMARY KEY, count INTEGER NOT NULL, window_start TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS uso (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, baby_id TEXT, evento TEXT NOT NULL, valor TEXT, at TEXT NOT NULL)',
   'CREATE INDEX IF NOT EXISTS idx_uso_evento ON uso (evento, at)',
+  'CREATE TABLE IF NOT EXISTS checks (id TEXT PRIMARY KEY, baby_id TEXT NOT NULL, kind TEXT NOT NULL, code TEXT NOT NULL, date TEXT, value TEXT, note TEXT, user_id TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)',
+  'CREATE INDEX IF NOT EXISTS idx_checks_baby ON checks (baby_id, kind)',
+  'CREATE TABLE IF NOT EXISTS milk (id TEXT PRIMARY KEY, baby_id TEXT NOT NULL, ml REAL NOT NULL, collected_at TEXT NOT NULL, place TEXT, used_at TEXT, note TEXT, user_id TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)',
+  'CREATE INDEX IF NOT EXISTS idx_milk_baby ON milk (baby_id, used_at)',
+  'CREATE TABLE IF NOT EXISTS posts (id TEXT PRIMARY KEY, baby_id TEXT NOT NULL, user_id TEXT NOT NULL, caption TEXT, taken_at TEXT NOT NULL, likes TEXT, photo_v TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)',
+  'CREATE INDEX IF NOT EXISTS idx_posts_baby ON posts (baby_id, taken_at)',
   'CREATE TABLE IF NOT EXISTS password_resets (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, kind TEXT NOT NULL, created_by TEXT, expires_at TEXT NOT NULL, used_at TEXT, created_at TEXT NOT NULL)',
 ];
 /** Colunas adicionadas depois da 1ª versão (bancos antigos recebem via ALTER). */
@@ -119,6 +130,7 @@ const MIGRACOES = [
   'ALTER TABLE users ADD COLUMN photo_v TEXT', 'ALTER TABLE babies ADD COLUMN photo_v TEXT',
   'ALTER TABLE users ADD COLUMN consent_at TEXT', 'ALTER TABLE users ADD COLUMN terms_version TEXT',
   'ALTER TABLE babies ADD COLUMN guardian_consent_at TEXT', 'ALTER TABLE babies ADD COLUMN guardian_consent_by TEXT',
+  'ALTER TABLE babies ADD COLUMN settings TEXT', "ALTER TABLE notes ADD COLUMN kind TEXT DEFAULT 'recado'",
 ];
 let esquemaOk = false;
 async function garantirEsquema(env) {
@@ -136,7 +148,8 @@ async function fotoUrl(env, kind, id, v) {
   if (!v) return null;
   return `./api/photo/${kind}/${id}?v=${encodeURIComponent(v)}&s=${(await hmac(env, `foto:${kind}:${id}:${v}`)).slice(0, 24)}`;
 }
-const parseBaby = async (env, b) => b && { ...b, routine: b.routine ? JSON.parse(b.routine) : null, photo: await fotoUrl(env, 'baby', b.id, b.photo_v) };
+const parseBaby = async (env, b) => b && { ...b, routine: b.routine ? JSON.parse(b.routine) : null, settings: b.settings ? JSON.parse(b.settings) : {}, photo: await fotoUrl(env, 'baby', b.id, b.photo_v) };
+const parsePost = async (env, p) => ({ ...p, likes: p.likes ? JSON.parse(p.likes) : [], photo: await fotoUrl(env, 'post', p.id, p.photo_v) });
 const parseEvent = (e) => ({ ...e, data: e.data ? JSON.parse(e.data) : {} });
 const publicUser = async (env, u) => u && { id: u.id, name: u.name, email: u.email, photo: await fotoUrl(env, 'user', u.id, u.photo_v), demo: u.email.endsWith(DOMINIO_DEMO), created_at: u.created_at };
 
@@ -192,7 +205,7 @@ const ajusteEstoque = (env, babyId, tipo, sinal) => env.DB
   .bind(sinal, agora(), babyId, tipo);
 
 async function dadosDoBebe(env, babyId, since) {
-  const [baby, members, events, growth, supplies, notes, appointments, vaccines] = await Promise.all([
+  const [baby, members, events, growth, supplies, notes, appointments, vaccines, checks, milk, posts] = await Promise.all([
     env.DB.prepare('SELECT * FROM babies WHERE id = ?').bind(babyId).first(),
     env.DB.prepare('SELECT m.user_id, m.role, m.access, m.created_at, u.name, u.email, u.photo_v FROM members m JOIN users u ON u.id = m.user_id WHERE m.baby_id = ? ORDER BY m.created_at').bind(babyId).all(),
     env.DB.prepare('SELECT * FROM events WHERE baby_id = ? AND (start_at >= ? OR end_at IS NULL) ORDER BY start_at').bind(babyId, since).all(),
@@ -201,6 +214,9 @@ async function dadosDoBebe(env, babyId, since) {
     env.DB.prepare('SELECT * FROM notes WHERE baby_id = ? ORDER BY created_at DESC LIMIT 200').bind(babyId).all(),
     env.DB.prepare('SELECT * FROM appointments WHERE baby_id = ? ORDER BY date').bind(babyId).all(),
     env.DB.prepare('SELECT * FROM vaccines WHERE baby_id = ?').bind(babyId).all(),
+    env.DB.prepare('SELECT * FROM checks WHERE baby_id = ?').bind(babyId).all(),
+    env.DB.prepare('SELECT * FROM milk WHERE baby_id = ? AND (used_at IS NULL OR used_at >= ?) ORDER BY collected_at').bind(babyId, since).all(),
+    env.DB.prepare('SELECT * FROM posts WHERE baby_id = ? ORDER BY taken_at DESC LIMIT 600').bind(babyId).all(),
   ]);
   return {
     baby: await parseBaby(env, baby),
@@ -211,6 +227,9 @@ async function dadosDoBebe(env, babyId, since) {
     notes: notes.results,
     appointments: appointments.results,
     vaccines: vaccines.results,
+    checks: checks.results,
+    milk: milk.results,
+    posts: await Promise.all(posts.results.map((p) => parsePost(env, p))),
   };
 }
 
@@ -227,7 +246,7 @@ async function api(req, env, url, ctx) {
   if (path === '/status' && method === 'GET') return json({ ok: true, push: true });
 
   // Fotos: link assinado (gerado só para quem tem acesso) e cache longo, pois a versão muda a cada troca
-  const mf = path.match(/^\/photo\/(baby|user)\/([A-Za-z0-9-]+)$/);
+  const mf = path.match(/^\/photo\/(baby|user|post)\/([A-Za-z0-9_-]+)$/);
   if (mf && method === 'GET') {
     const [, kind, id] = mf;
     const v = url.searchParams.get('v') || '';
@@ -453,8 +472,8 @@ async function api(req, env, url, ctx) {
     const id = crypto.randomUUID();
     const t = agora();
     const stmts = [
-      env.DB.prepare('INSERT INTO babies (id, name, birth_date, sex, color, routine, notes, created_by, created_at, guardian_consent_at, guardian_consent_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-        .bind(id, name, body.birth_date, body.sex ?? null, body.color ?? null, JSON.stringify(body.routine ?? null), body.notes ?? null, me.id, t, t, me.id),
+      env.DB.prepare('INSERT INTO babies (id, name, birth_date, sex, color, routine, notes, created_by, created_at, guardian_consent_at, guardian_consent_by, settings) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(id, name, body.birth_date, body.sex ?? null, body.color ?? null, JSON.stringify(body.routine ?? null), body.notes ?? null, me.id, t, t, me.id, JSON.stringify(body.settings && typeof body.settings === 'object' ? body.settings : {})),
       env.DB.prepare('INSERT INTO members (baby_id, user_id, role, access, created_at) VALUES (?, ?, ?, ?, ?)').bind(id, me.id, role, 'admin', t),
     ];
     if (body.weight_g || body.height_cm) {
@@ -498,9 +517,10 @@ async function api(req, env, url, ctx) {
   if (sub === '' && method === 'PUT') {
     if (!pode('admin')) return erro('Somente administradores editam o perfil do bebê.', 403);
     const b = await env.DB.prepare('SELECT * FROM babies WHERE id = ?').bind(babyId).first();
-    await env.DB.prepare('UPDATE babies SET name = ?, birth_date = ?, sex = ?, color = ?, routine = ?, notes = ? WHERE id = ?').bind(
+    await env.DB.prepare('UPDATE babies SET name = ?, birth_date = ?, sex = ?, color = ?, routine = ?, notes = ?, settings = ? WHERE id = ?').bind(
       String(body.name ?? b.name).trim() || b.name, body.birth_date ?? b.birth_date, body.sex ?? b.sex, body.color ?? b.color,
-      'routine' in body ? JSON.stringify(body.routine) : b.routine, body.notes ?? b.notes, babyId,
+      'routine' in body ? JSON.stringify(body.routine) : b.routine, body.notes ?? b.notes,
+      body.settings && typeof body.settings === 'object' ? JSON.stringify({ ...(b.settings ? JSON.parse(b.settings) : {}), ...body.settings }).slice(0, 8000) : b.settings, babyId,
     ).run();
     return json({ ok: true });
   }
@@ -510,6 +530,7 @@ async function api(req, env, url, ctx) {
     if (!pode('admin')) return erro('Somente administradores exportam os dados do bebê.', 403);
     const d = await dadosDoBebe(env, babyId, '1970-01-01');
     d.members = d.members.map(({ photo, ...m }) => m);
+    d.posts = d.posts.map(({ photo, ...p }) => p);
     delete d.baby.photo;
     return new Response(JSON.stringify({ exportado_em: agora(), app: 'Ninho', ...d }, null, 2), {
       headers: { 'content-type': 'application/json; charset=utf-8', 'content-disposition': `attachment; filename="ninho-${babyId.slice(0, 8)}.json"`, 'cache-control': 'no-store' },
@@ -527,8 +548,7 @@ async function api(req, env, url, ctx) {
 
   if (sub === '' && method === 'DELETE') {
     if (!pode('admin')) return erro('Somente administradores excluem o bebê.', 403);
-    await env.DB.batch(['events', 'growth', 'supplies', 'notes', 'appointments', 'vaccines', 'invites', 'members'].map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE baby_id = ?`).bind(babyId))
-      .concat(env.DB.prepare('DELETE FROM babies WHERE id = ?').bind(babyId), env.DB.prepare("DELETE FROM photos WHERE kind = 'baby' AND id = ?").bind(babyId)));
+    await apagarBebe(env, babyId);
     return json({ ok: true });
   }
 
@@ -652,7 +672,11 @@ async function api(req, env, url, ctx) {
         });
       }
     }
-    if (res === 'notes' && metodo === 'POST') avisar(babyId, 'recados', { title: `📌 ${nome} · recado de ${me.name.split(' ')[0]}`, body: String(item.text).slice(0, 140), aba: 'mural', tag: `nota-${item.id}` }, me.id);
+    if (res === 'events' && metodo === 'POST' && item.type === 'saude') {
+      const d = typeof item.data === 'string' ? JSON.parse(item.data || '{}') : (item.data ?? {});
+      if (Number(d.temp) >= 37.8) avisar(babyId, 'lembretes', { title: `🌡️ ${nome} com ${String(d.temp).replace('.', ',')} °C`, body: `${(d.sintomas ?? []).length ? `${d.sintomas.join(', ')} · ` : ''}registrado por ${quem}.`, aba: 'saude', tag: `febre-${babyId}` }, me.id);
+    }
+    if (res === 'notes' && metodo === 'POST' && item.kind !== 'pergunta') avisar(babyId, 'recados', { title: `📌 ${nome} · recado de ${me.name.split(' ')[0]}`, body: String(item.text).slice(0, 140), aba: 'mural', tag: `nota-${item.id}` }, me.id);
     if (res === 'appointments' && metodo === 'POST') avisar(babyId, 'consultas', { title: `🩺 ${nome} · consulta agendada`, body: (tz) => `${item.title} em ${dataHoraTz(item.date, tz)} · por ${quem}`, aba: 'saude', ts: Date.parse(item.date) }, me.id);
     // Estoque: avisa quando um item cruza o mínimo (por ajuste manual ou baixa automática de fralda)
     const anterior = antesEstoque ?? (res === 'supplies' && antes ? { [antes.id]: antes } : null);
@@ -677,8 +701,59 @@ async function api(req, env, url, ctx) {
     }
   }
 
+  // Dia a dia: fotos do bebê compartilhadas com a família (foto guardada em `photos`, kind = 'post')
+  const mp = sub.match(/^\/posts(?:\/([A-Za-z0-9_-]+))?(\/like)?$/);
+  if (mp) {
+    const [, postId, like] = mp;
+    if (like && method === 'POST') {
+      // Curtir vale para todos os cuidadores, inclusive quem só acompanha
+      const p = await env.DB.prepare('SELECT likes FROM posts WHERE id = ? AND baby_id = ?').bind(postId, babyId).first();
+      if (!p) return erro('Foto não encontrada.', 404);
+      const likes = new Set(p.likes ? JSON.parse(p.likes) : []);
+      if (likes.has(me.id)) likes.delete(me.id); else likes.add(me.id);
+      await env.DB.prepare('UPDATE posts SET likes = ? WHERE id = ?').bind(JSON.stringify([...likes]), postId).run();
+      return json({ likes: [...likes] });
+    }
+    if (!pode('editor')) return erro('Seu acesso é somente leitura.', 403);
+    if (!postId && method === 'POST') {
+      const id = idValido(body.id) ? body.id : crypto.randomUUID();
+      if (await env.DB.prepare('SELECT 1 FROM posts WHERE id = ?').bind(id).first()) return json({ id, repetido: true });
+      const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(body.photo ?? ''));
+      if (!m) return erro('Imagem inválida. Use JPG, PNG ou WebP.');
+      if (m[2].length > POST_MAX) return erro('Imagem muito grande.', 413);
+      const taken = typeof body.taken_at === 'string' && !Number.isNaN(Date.parse(body.taken_at)) ? body.taken_at : agora();
+      const v = Date.now().toString(36);
+      const t = agora();
+      await env.DB.batch([
+        env.DB.prepare('INSERT INTO photos (kind, id, mime, data, updated_at) VALUES (?, ?, ?, ?, ?)').bind('post', id, m[1], m[2], t),
+        env.DB.prepare('INSERT INTO posts (id, baby_id, user_id, caption, taken_at, likes, photo_v, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+          .bind(id, babyId, me.id, String(body.caption ?? '').trim().slice(0, 500) || null, taken, '[]', v, t, t),
+      ]);
+      const bb = await env.DB.prepare('SELECT name FROM babies WHERE id = ?').bind(babyId).first();
+      avisar(babyId, 'familia', { title: `📸 ${me.name.split(' ')[0]} postou uma foto de ${bb.name.split(' ')[0]}`, body: String(body.caption ?? '').trim().slice(0, 120) || 'Toque para ver no Dia a dia.', aba: 'diario', tag: `post-${babyId}` }, me.id);
+      return json({ id });
+    }
+    if (postId) {
+      const p = await env.DB.prepare('SELECT user_id FROM posts WHERE id = ? AND baby_id = ?').bind(postId, babyId).first();
+      if (!p) return method === 'DELETE' ? json({ ok: true }) : erro('Foto não encontrada.', 404);
+      if (p.user_id !== me.id && !pode('admin')) return erro('Só quem postou (ou um administrador) pode alterar esta foto.', 403);
+      if (method === 'PUT') {
+        await env.DB.prepare('UPDATE posts SET caption = ?, taken_at = COALESCE(?, taken_at), updated_at = ? WHERE id = ?')
+          .bind(String(body.caption ?? '').trim().slice(0, 500) || null, typeof body.taken_at === 'string' ? body.taken_at : null, agora(), postId).run();
+        return json({ ok: true });
+      }
+      if (method === 'DELETE') {
+        await env.DB.batch([
+          env.DB.prepare("DELETE FROM photos WHERE kind = 'post' AND id = ?").bind(postId),
+          env.DB.prepare('DELETE FROM posts WHERE id = ?').bind(postId),
+        ]);
+        return json({ ok: true });
+      }
+    }
+  }
+
   // CRUD genérico dos recursos filhos
-  const mr = sub.match(/^\/(events|growth|supplies|notes|appointments)(?:\/([A-Za-z0-9_-]+))?$/);
+  const mr = sub.match(/^\/(events|growth|supplies|notes|appointments|checks|milk)(?:\/([A-Za-z0-9_-]+))?$/);
   if (mr) {
     const [, res, itemId] = mr;
     if (!pode('editor')) return erro('Seu acesso é somente leitura. Peça a um administrador para mudar.', 403);

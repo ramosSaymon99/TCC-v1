@@ -67,7 +67,16 @@ export function gerarDemo(birth: string, cuidadores: Record<string, string>, ago
       add('fralda', d + (h * 60 + var_(20)) * MIN, null, { diaper: coco ? (rnd() < 0.7 ? 'ambos' : 'coco') : 'xixi', consistency: coco ? (rnd() < 0.8 ? 'pastoso' : 'líquido') : undefined, color: coco ? 'amarelo' : undefined }, diurno(h));
     }
     add('banho', at(18, 20, 10), at(18, 35, 5), {}, fimDeSemana ? quem('pai') : mae);
-    add('remedio', at(9, 0, 30), null, { med: 'Vitamina D', dose: '2 gotas' }, diurno(9));
+    add('remedio', at(9, 0, 30), null, { med: 'Vitamina D', dose: '2 gotas', intervalo_h: 24 }, diurno(9));
+    // Um resfriado há 4 dias: febre baixa, coriza e antitérmico receitado (registrado com intervalo)
+    if (i === 4) {
+      add('saude', at(16, 10, 5), null, { temp: 37.9, sintomas: ['Coriza / nariz entupido'] }, mae, 'Mais sonolenta à tarde');
+      add('remedio', at(16, 20, 5), null, { med: 'Paracetamol (gotas)', dose: 'conforme receita', intervalo_h: 6, lembrar: true }, mae);
+      add('saude', at(19, 30, 5), null, { temp: 38.2, sintomas: ['Coriza / nariz entupido', 'Irritabilidade'] }, quem('pai'));
+      add('saude', at(22, 40, 5), null, { temp: 37.5, sintomas: ['Coriza / nariz entupido'] }, quem('pai'));
+      add('remedio', at(22, 45, 5), null, { med: 'Paracetamol (gotas)', dose: 'conforme receita', intervalo_h: 6, lembrar: true }, quem('pai'));
+    }
+    if (i === 3) add('saude', at(9, 15, 5), null, { temp: 36.8, sintomas: ['Coriza / nariz entupido'] }, quem('baba'));
   }
 
   const nasc = startOfDay(new Date(birth + 'T12:00').getTime());
@@ -97,8 +106,22 @@ export function gerarDemo(birth: string, cuidadores: Record<string, string>, ago
     { id: uid(), date: new Date(addDays(nasc, 60) + 10 * 3600_000).toISOString(), title: 'Consulta de puericultura (2 meses)', doctor: 'Dra. Helena', done: 1, user_id: mae },
   ].filter((a) => new Date(a.date).getTime() > nasc);
 
+  const checks = [
+    ...['coracao', 'olhinho', 'linguinha', 'pezinho', 'orelhinha'].map((code, k) => ({ id: uid(), kind: 'teste', code, date: ymd(addDays(nasc, [1, 1, 1, 4, 2][k])), value: 'normal', user_id: mae })),
+    ...([['olhar', 38], ['sorriso', 45], ['sons', 70], ['cabeca', 95]] as const).filter(([, dd]) => dd <= idadeDias).map(([code, dd]) => ({ id: uid(), kind: 'marco', code, date: ymd(addDays(nasc, dd)), user_id: mae })),
+  ];
+  const milk = [
+    { id: uid(), ml: 120, collected_at: new Date(agora - 3 * DIA).toISOString(), place: 'congelador', user_id: mae },
+    { id: uid(), ml: 150, collected_at: new Date(agora - 9 * DIA).toISOString(), place: 'congelador', user_id: mae },
+    { id: uid(), ml: 90, collected_at: new Date(agora - 2 * 3600_000).toISOString(), place: 'geladeira', user_id: mae },
+  ];
+  notes.push(
+    { id: uid(), text: 'É normal ela acordar 2 a 3 vezes à noite com quase 4 meses?', pinned: 0, done: 0, user_id: mae, kind: 'pergunta' } as typeof notes[number],
+    { id: uid(), text: 'Quando podemos começar a oferecer água?', pinned: 0, done: 0, user_id: quem('pai'), kind: 'pergunta' } as typeof notes[number],
+  );
+
   const vacinas = ['bcg', 'hepb_0', 'penta_1', 'vip_1', 'pneumo_1', 'rota_1', 'menc_1'];
-  return { seed: { events, growth, supplies, notes, appointments }, vacinas: vacinas.map((c) => ({ code: c, date: ymd(addDays(nasc, c.endsWith('_0') || c === 'bcg' ? 1 : c === 'menc_1' ? 92 : 61)) })) };
+  return { seed: { events, growth, supplies, notes, appointments, checks, milk }, vacinas: vacinas.map((c) => ({ code: c, date: ymd(addDays(nasc, c.endsWith('_0') || c === 'bcg' ? 1 : c === 'menc_1' ? 92 : 61)) })) };
 }
 
 export const nascimentoDemo = (agora = Date.now()) => ymd(addDays(startOfDay(agora), -108));

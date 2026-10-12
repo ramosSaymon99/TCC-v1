@@ -8,13 +8,17 @@ import { dataCurta, t, uid } from '../lib/time';
 import type { Supply } from '../types';
 import { Empty, Field, Seg, Sheet } from '../components/ui';
 import { Avatar } from '../components/Avatar';
+import { LeiteMaterno } from '../components/Leite';
+import { leiteGuardado } from '../lib/previsao';
 
 export function Mural() {
   const { data, act, podeEditar, user, nome, agora } = useApp();
-  const [aba, setAba] = useState<'materiais' | 'compras' | 'recados'>('materiais');
+  const [aba, setAba] = useState<'materiais' | 'compras' | 'recados' | 'leite'>('materiais');
   const [edit, setEdit] = useState<Supply | 'novo' | null>(null);
   const [texto, setTexto] = useState('');
   const babyId = data.baby.id;
+  const recados = data.notes.filter((n) => n.kind !== 'pergunta');
+  const frascos = leiteGuardado(data.milk, agora);
 
   const compras = data.supplies.filter((s) => statusSupply(s) !== 'ok' || (coberturaDias(s, data.events, agora) ?? 99) < 3);
   const porCat = CATEGORIAS_MURAL.map((c) => ({ c, itens: data.supplies.filter((s) => (s.category || 'Outros') === c) })).filter((g) => g.itens.length);
@@ -38,16 +42,17 @@ export function Mural() {
           <h1>Mural</h1>
           <p className="faint">Materiais de uso, lista de compras e recados entre cuidadores</p>
         </div>
-        {podeEditar && aba !== 'recados' && <button className="btn primary" onClick={() => setEdit('novo')}><Plus size={16} /> Material</button>}
+        {podeEditar && aba !== 'recados' && aba !== 'leite' && <button className="btn primary" onClick={() => setEdit('novo')}><Plus size={16} /> Material</button>}
       </div>
 
       <div className="grid g3">
         <div className="card kpi"><div className="lab">Itens</div><div className="val">{data.supplies.length}</div><div className="sub">no mural</div></div>
         <div className="card kpi"><div className="lab">Para comprar</div><div className="val" style={{ color: compras.length ? 'var(--warn)' : undefined }}>{compras.length}</div><div className="sub">{compras.filter((c) => !c.buyer_id).length} sem responsável</div></div>
-        <div className="card kpi"><div className="lab">Recados</div><div className="val">{data.notes.filter((n) => !n.done).length}</div><div className="sub">abertos</div></div>
+        <div className="card kpi"><div className="lab">Recados</div><div className="val">{recados.filter((n) => !n.done).length}</div><div className="sub">abertos</div></div>
       </div>
 
-      <Seg value={aba} onChange={setAba} options={[{ v: 'materiais', l: '🧺 Materiais' }, { v: 'compras', l: `🛒 Compras (${compras.length})` }, { v: 'recados', l: '📌 Recados' }]} />
+      <Seg value={aba} onChange={setAba} options={[{ v: 'materiais', l: '🧺 Materiais' }, { v: 'compras', l: `🛒 Compras (${compras.length})` }, { v: 'recados', l: '📌 Recados' }, { v: 'leite', l: `🥛 Leite${frascos.length ? ` (${frascos.length})` : ''}` }]} />
+      {aba === 'leite' && <LeiteMaterno />}
 
       {aba === 'materiais' && (porCat.length ? porCat.map(({ c, itens }) => (
         <div key={c} className="card">
@@ -113,9 +118,9 @@ export function Mural() {
               <div className="row" style={{ justifyContent: 'flex-end' }}><button className="btn primary" onClick={addRecado} disabled={!texto.trim()}>Publicar</button></div>
             </div>
           )}
-          {data.notes.length ? (
+          {recados.length ? (
             <div className="grid md2">
-              {[...data.notes].sort((a, b) => b.pinned - a.pinned || a.done - b.done || t(b.created_at) - t(a.created_at)).map((n) => {
+              {[...recados].sort((a, b) => b.pinned - a.pinned || a.done - b.done || t(b.created_at) - t(a.created_at)).map((n) => {
                 const m = data.members.find((x) => x.user_id === n.user_id);
                 return (
                   <div key={n.id} className={`note ${n.done ? 'done' : ''}`}>

@@ -83,3 +83,12 @@ CREATE TABLE IF NOT EXISTS origem_cadastro (uid TEXT PRIMARY KEY, dia TEXT NOT N
 CREATE INDEX IF NOT EXISTS idx_origem_dia ON origem_cadastro (dia);
 ALTER TABLE atividade ADD COLUMN cidade TEXT;
 ALTER TABLE atividade ADD COLUMN tipo TEXT;
+-- Fase bebê: checklists (marcos, testes do recém-nascido, alimentos, mala), leite guardado, fotos do Dia a dia, plantão/gestação
+CREATE TABLE IF NOT EXISTS checks (id TEXT PRIMARY KEY, baby_id TEXT NOT NULL, kind TEXT NOT NULL, code TEXT NOT NULL, date TEXT, value TEXT, note TEXT, user_id TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_checks_baby ON checks (baby_id, kind);
+CREATE TABLE IF NOT EXISTS milk (id TEXT PRIMARY KEY, baby_id TEXT NOT NULL, ml REAL NOT NULL, collected_at TEXT NOT NULL, place TEXT, used_at TEXT, note TEXT, user_id TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_milk_baby ON milk (baby_id, used_at);
+CREATE TABLE IF NOT EXISTS posts (id TEXT PRIMARY KEY, baby_id TEXT NOT NULL, user_id TEXT NOT NULL, caption TEXT, taken_at TEXT NOT NULL, likes TEXT, photo_v TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_posts_baby ON posts (baby_id, taken_at);
+ALTER TABLE notes ADD COLUMN kind TEXT DEFAULT 'recado';
+ALTER TABLE babies ADD COLUMN settings TEXT;

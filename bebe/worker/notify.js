@@ -4,11 +4,12 @@
  */
 import { sendPush } from './push.js';
 import { registrarErro } from './observabilidade.js';
+import { proximaSoneca } from '../src/lib/janela.ts';
 
 export const PREFS_PADRAO = {
   atividade: false, // cada registro feito por outro cuidador
   recados: true,
-  lembretes: true, // mamada atrasada e cronômetro esquecido
+  lembretes: true, // mamada atrasada, cronômetro esquecido, próxima dose, janela de sono e febre
   estoque: true,
   consultas: true,
   familia: true, // alguém entrou no perfil do bebê
@@ -34,6 +35,29 @@ function emSilencio(prefs, tz) {
   const h = horaLocal(tz);
   if (!h) return false;
   return s.de <= s.ate ? h >= s.de && h < s.ate : h >= s.de || h < s.ate;
+}
+
+/** Categorias que, à noite, vão só para quem está de plantão (quando a família definiu o plantão). */
+const NOTURNAS = ['lembretes', 'cronometro', 'atividade'];
+const DIAS_SEMANA = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+/** Quem está de plantão agora (no fuso de quem recebe), ou null fora do horário/sem plantão definido. */
+export function plantonista(settings, tz, quando = new Date()) {
+  const p = settings?.plantao;
+  if (!p?.dias) return null;
+  const de = p.de || '22:00';
+  const ate = p.ate || '06:00';
+  let h;
+  let dia;
+  try {
+    h = new Intl.DateTimeFormat('en-GB', { timeZone: tz || 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false }).format(quando);
+    dia = DIAS_SEMANA[new Intl.DateTimeFormat('en-US', { timeZone: tz || 'America/Sao_Paulo', weekday: 'short' }).format(quando)];
+  } catch {
+    return null;
+  }
+  const dentro = de <= ate ? h >= de && h < ate : h >= de || h < ate;
+  if (!dentro) return null;
+  if (de > ate && h < ate) dia = (dia + 6) % 7; // depois da meia-noite: a noite começou no dia anterior
+  return p.dias[String(dia)] || null;
 }
 
 export const lerPrefs = (raw) => {
@@ -83,6 +107,7 @@ export function descreverEvento(e, data) {
     case 'banho': return 'tomou banho';
     case 'alimentacao': return `comeu ${d.food || 'papinha'}`;
     case 'extracao': return `extração de ${d.ml ?? '?'} ml`;
+    case 'saude': return d.temp ? `temperatura ${String(d.temp).replace('.', ',')} °C` : `sintomas: ${(d.sintomas ?? []).join(', ') || 'registro de saúde'}`;
     default: return 'novo registro';
   }
 }
@@ -97,8 +122,9 @@ export async function notificar(env, babyId, categoria, msg, exceto = null) {
        FROM members m JOIN push_subs p ON p.user_id = m.user_id LEFT JOIN notif_prefs n ON n.user_id = m.user_id
       WHERE m.baby_id = ?`,
   ).bind(babyId).all()).results;
-  const baby = await env.DB.prepare('SELECT id, name, photo_v FROM babies WHERE id = ?').bind(babyId).first();
+  const baby = await env.DB.prepare('SELECT id, name, photo_v, settings FROM babies WHERE id = ?').bind(babyId).first();
   if (!baby) return 0;
+  const settings = baby.settings ? JSON.parse(baby.settings) : {};
   // Formato pensado para a tela de bloqueio: título curto (≤ ~40 car.), corpo em até 2–3 linhas,
   // agrupamento por `tag` (substitui em vez de empilhar), horário do fato (`ts`), botões de ação e prioridade.
   const base = {
@@ -120,6 +146,10 @@ export async function notificar(env, babyId, categoria, msg, exceto = null) {
     if (exceto && s.user_id === exceto) return;
     const prefs = lerPrefs(s.prefs);
     if (!prefs[categoria] || emSilencio(prefs, s.tz)) return;
+    if (NOTURNAS.includes(categoria)) {
+      const quem = plantonista(settings, s.tz);
+      if (quem && quem !== s.user_id) return; // à noite, só quem está de plantão recebe
+    }
     const noFuso = (v) => (typeof v === 'function' ? v(s.tz) : v);
     const payload = { ...base, title: noFuso(msg.title) ?? baby.name, body: noFuso(msg.body) };
     try {
@@ -161,6 +191,8 @@ export async function lembretes(env) {
   ).all()).results;
   for (const b of bebes) {
     const nome = b.name.split(' ')[0];
+    const cfg = b.settings ? JSON.parse(b.settings) : {};
+    if (cfg.gestacao) continue; // ainda na barriga: sem lembretes de rotina
 
     // 1) Mamada atrasada em relação ao intervalo planejado
     const max = intervaloMaxMin(b);
@@ -199,7 +231,49 @@ export async function lembretes(env) {
       }
     }
 
-    // 3) Consultas: véspera (24 h) e 2 h antes
+    // 3) Próxima dose liberada (remédios registrados com intervalo e "me lembrar")
+    const doses = (await env.DB.prepare("SELECT e.id, e.start_at, e.data, u.name AS quem FROM events e LEFT JOIN users u ON u.id = e.user_id WHERE e.baby_id = ? AND e.type = 'remedio' AND e.start_at >= ? ORDER BY e.start_at DESC").bind(b.id, iso(agora - 3 * 86400_000)).all()).results;
+    const vistos = new Set();
+    for (const e of doses) {
+      const d = e.data ? JSON.parse(e.data) : {};
+      const med = String(d.med || '').trim().toLowerCase();
+      if (!med || vistos.has(med)) continue;
+      vistos.add(med); // só a dose mais recente de cada remédio
+      const h = Number(d.intervalo_h);
+      if (!d.lembrar || !(h > 0)) continue;
+      const libera = Date.parse(e.start_at) + h * 3600_000;
+      if (agora >= libera && agora < libera + 3 * 3600_000 && (await primeiraVez(env, `dose:${e.id}`))) {
+        await notificar(env, b.id, 'lembretes', {
+          title: `💊 ${nome} · próxima dose de ${String(d.med).slice(0, 24)}`,
+          body: (tz) => `Última às ${hora(e.start_at, tz)}${e.quem ? ` (${e.quem.split(' ')[0]})` : ''}. Intervalo de ${h} h: já pode dar a próxima${d.dose ? ` (${d.dose})` : ''}.`,
+          tag: `dose-${b.id}-${med.slice(0, 20)}`,
+          aba: 'saude',
+          actions: [{ action: 'registrar', title: '💊 Registrar dose' }, { action: 'abrir', title: 'Ver' }],
+          acoes: { registrar: { url: `./?baby=${b.id}&acao=remedio#hoje` } },
+        });
+      }
+    }
+
+    // 4) Janela de sono chegando (bebês até 2 anos, só de dia)
+    const diasVida = (agora - Date.parse(`${b.birth_date}T12:00:00Z`)) / 86400_000;
+    const horaBR = Number(hora(new Date(agora).toISOString(), 'America/Sao_Paulo').slice(0, 2));
+    if (diasVida >= 0 && diasVida < 730 && horaBR >= 7 && horaBR < 19) {
+      const sonos = (await env.DB.prepare("SELECT id, start_at, end_at FROM events WHERE baby_id = ? AND type = 'sono' AND start_at >= ? ORDER BY start_at").bind(b.id, iso(agora - 8 * 86400_000)).all()).results;
+      const p = proximaSoneca(diasVida, sonos, agora);
+      const ultimo = sonos.filter((x) => x.end_at).sort((x, y) => Date.parse(y.end_at) - Date.parse(x.end_at))[0];
+      if (p && ultimo && agora >= p.ini - 10 * 60000 && agora < p.fim && (await primeiraVez(env, `janela:${ultimo.id}`))) {
+        await notificar(env, b.id, 'lembretes', {
+          title: `😴 ${nome} · janela de sono chegando`,
+          body: (tz) => `Acordada desde ${hora(ultimo.end_at, tz)}. Melhor hora para a soneca: ${hora(new Date(p.ini).toISOString(), tz)}–${hora(new Date(p.fim).toISOString(), tz)}.`,
+          tag: `janela-${b.id}`,
+          silent: true,
+          actions: [{ action: 'registrar', title: '😴 Dormiu' }, { action: 'abrir', title: 'Ver' }],
+          acoes: { registrar: { url: `./?baby=${b.id}&acao=sono#hoje` } },
+        });
+      }
+    }
+
+    // 5) Consultas: véspera (24 h) e 2 h antes
     const consultas = (await env.DB.prepare('SELECT * FROM appointments WHERE baby_id = ? AND done = 0 AND date > ? AND date <= ?').bind(b.id, iso(agora), iso(agora + 24 * 3600_000)).all()).results;
     for (const a of consultas) {
       const h = (Date.parse(a.date) - agora) / 3600_000;

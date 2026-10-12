@@ -85,6 +85,8 @@ export function Familia() {
         ) : <p className="muted">Ainda sem rotina. Defina os horários de mamadas e sonecas para o app medir quanto da rotina está sendo cumprida.</p>}
       </div>
 
+      <PlantaoCard />
+
       <div className="card">
         <div className="card-h">
           <h2>Cuidadores</h2>
@@ -359,5 +361,55 @@ function ExcluirContaSheet({ onClose }: { onClose: () => void }) {
       {!user.demo && <Field label="Sua senha"><input className="input" type="password" value={senha} onChange={(e) => setSenha(e.target.value)} autoComplete="current-password" /></Field>}
       <Field label='Digite EXCLUIR para confirmar'><input className="input" value={confirma} onChange={(e) => setConfirma(e.target.value)} /></Field>
     </Sheet>
+  );
+}
+
+const DIAS_PLANTAO = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+/** Plantão da noite: quem cuida em cada noite. À noite, só essa pessoa recebe lembretes e avisos de rotina. */
+function PlantaoCard() {
+  const { data, act, podeAdmin, nome, user } = useApp();
+  const atual = data.baby.settings?.plantao;
+  const [f, setF] = useState({ dias: { ...(atual?.dias ?? {}) } as Record<string, string>, de: atual?.de ?? '22:00', ate: atual?.ate ?? '06:00' });
+  const [editando, setEditando] = useState(false);
+  const definido = Object.values(atual?.dias ?? {}).some(Boolean);
+  const contagem: Record<string, number> = {};
+  for (const u of Object.values(atual?.dias ?? {})) if (u) contagem[u] = (contagem[u] ?? 0) + 1;
+  const salvar = async () => {
+    const dias = Object.fromEntries(Object.entries(f.dias).filter(([, v]) => v));
+    if (await act(() => api.updateBaby(data.baby.id, { settings: { plantao: { dias, de: f.de, ate: f.ate } } }), 'Plantão salvo 🌙')) setEditando(false);
+  };
+  return (
+    <div className="card">
+      <div className="card-h"><h2>🌙 Plantão da noite</h2>{podeAdmin && !editando && <button className="btn sm" onClick={() => setEditando(true)}><Pencil size={14} /> {definido ? 'Editar' : 'Definir'}</button>}</div>
+      {!editando && (definido ? (
+        <>
+          <div className="wrap-row">
+            {DIAS_PLANTAO.map((d, i) => <span key={d} className={`chip ${atual?.dias?.[String(i)] === user.id ? 'brand' : ''}`}>{d.slice(0, 3)}: {atual?.dias?.[String(i)] ? nome(atual.dias[String(i)]).split(' ')[0] : '—'}</span>)}
+          </div>
+          <p className="faint" style={{ marginTop: 8 }}>Das {atual?.de ?? '22:00'} às {atual?.ate ?? '06:00'}, lembretes, cronômetros e avisos de rotina vão só para quem está de plantão. Divisão da semana: {Object.entries(contagem).map(([u, n]) => `${nome(u).split(' ')[0]} ${n} noite(s)`).join(' · ')}.</p>
+        </>
+      ) : <p className="faint">Combine quem cuida em cada noite. Assim só a pessoa de plantão é acordada pelos avisos, e quem está de folga dorme.</p>)}
+      {editando && (
+        <div className="stack" style={{ gap: 10 }}>
+          {DIAS_PLANTAO.map((d, i) => (
+            <div key={d} className="row" style={{ gap: 10 }}>
+              <span style={{ width: 80, fontWeight: 700 }}>{d}</span>
+              <select className="input grow" value={f.dias[String(i)] ?? ''} onChange={(e) => setF({ ...f, dias: { ...f.dias, [String(i)]: e.target.value } })}>
+                <option value="">Sem plantão (todos recebem)</option>
+                {data.members.filter((m) => m.access !== 'leitor').map((m) => <option key={m.user_id} value={m.user_id}>{m.name}</option>)}
+              </select>
+            </div>
+          ))}
+          <div className="grid g2">
+            <Field label="Começa às"><input className="input" type="time" value={f.de} onChange={(e) => setF({ ...f, de: e.target.value })} /></Field>
+            <Field label="Termina às"><input className="input" type="time" value={f.ate} onChange={(e) => setF({ ...f, ate: e.target.value })} /></Field>
+          </div>
+          <div className="row" style={{ justifyContent: 'flex-end' }}>
+            <button className="btn" onClick={() => setEditando(false)}>Cancelar</button>
+            <button className="btn primary" onClick={salvar}>Salvar plantão</button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

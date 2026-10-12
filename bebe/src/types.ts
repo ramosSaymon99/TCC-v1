@@ -1,5 +1,5 @@
 export type Access = 'admin' | 'editor' | 'leitor';
-export type EventType = 'mamada' | 'mamadeira' | 'sono' | 'fralda' | 'remedio' | 'banho' | 'alimentacao' | 'extracao' | 'outro';
+export type EventType = 'mamada' | 'mamadeira' | 'sono' | 'fralda' | 'remedio' | 'banho' | 'alimentacao' | 'extracao' | 'saude' | 'outro';
 
 export interface Routine {
   wake?: string;
@@ -20,9 +20,17 @@ export interface Baby {
   routine?: Routine | null;
   notes?: string | null;
   photo?: string | null;
+  settings?: BabySettings | null;
   created_by?: string;
   role?: string;
   access?: Access;
+}
+
+/** Configurações do bebê: plantão da noite e modo gestação (birth_date = data prevista do parto). */
+export interface BabySettings {
+  plantao?: { dias: Record<string, string>; de?: string; ate?: string };
+  gestacao?: boolean;
+  nasceu_em?: string;
 }
 
 export interface Member { user_id: string; role: string; access: Access; name: string; email: string; created_at: string; photo?: string | null }
@@ -39,6 +47,18 @@ export interface EventData {
   food?: string;
   acceptance?: 'boa' | 'media' | 'recusou';
   quality?: 'tranquilo' | 'agitado';
+  /** Remédio: intervalo mínimo entre doses (h) e lembrete da próxima dose. */
+  intervalo_h?: number;
+  lembrar?: boolean;
+  /** Saúde: temperatura (°C) e sintomas. */
+  temp?: number;
+  sintomas?: string[];
+  /** Introdução alimentar. */
+  novo?: boolean;
+  alergeno?: string;
+  reacao?: string;
+  /** Extração: onde o leite foi guardado. */
+  guardar?: 'geladeira' | 'congelador' | 'usado';
 }
 
 export interface BabyEvent {
@@ -60,7 +80,11 @@ export interface Supply {
   id: string; name: string; category?: string | null; unit?: string | null; qty: number; min_qty: number;
   auto_type?: string | null; per_use?: number | null; buyer_id?: string | null; note?: string | null; user_id: string; updated_at?: string;
 }
-export interface Note { id: string; text: string; pinned: number; done: number; user_id: string; created_at: string }
+export interface Note { id: string; text: string; pinned: number; done: number; user_id: string; created_at: string; kind?: 'recado' | 'pergunta' | null }
+/** Checklists: marco do desenvolvimento, teste do recém-nascido, alimento introduzido, item da mala da maternidade. */
+export interface Check { id: string; kind: 'marco' | 'teste' | 'alimento' | 'mala'; code: string; date?: string | null; value?: string | null; note?: string | null; user_id: string }
+export interface Milk { id: string; ml: number; collected_at: string; place?: 'geladeira' | 'congelador' | null; used_at?: string | null; note?: string | null; user_id: string }
+export interface Post { id: string; user_id: string; caption?: string | null; taken_at: string; likes: string[]; photo: string | null; created_at: string; pendente?: boolean }
 export interface Appointment { id: string; date: string; title: string; doctor?: string | null; note?: string | null; done: number; user_id: string }
 export interface Vaccine { code: string; date: string; user_id: string }
 
@@ -73,11 +97,14 @@ export interface BabyData {
   notes: Note[];
   appointments: Appointment[];
   vaccines: Vaccine[];
+  checks: Check[];
+  milk: Milk[];
+  posts: Post[];
   access: Access;
   role: string;
 }
 
-export type Resource = 'events' | 'growth' | 'supplies' | 'notes' | 'appointments';
+export type Resource = 'events' | 'growth' | 'supplies' | 'notes' | 'appointments' | 'checks' | 'milk';
 
 export interface NotifPrefs {
   atividade: boolean;

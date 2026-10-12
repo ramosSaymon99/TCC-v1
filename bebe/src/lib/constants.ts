@@ -31,13 +31,14 @@ export const TIPOS: Record<EventType, { label: string; emoji: string; cor: strin
   banho: { label: 'Banho', emoji: '🛁', cor: '#3EA6D1' },
   alimentacao: { label: 'Papinha', emoji: '🥣', cor: '#74AE4F' },
   extracao: { label: 'Extração', emoji: '🥛', cor: '#B57BD0' },
+  saude: { label: 'Febre/sintoma', emoji: '🌡️', cor: '#E2873C' },
   outro: { label: 'Outro', emoji: '📝', cor: '#8A8F98' },
 };
 export const COR_COCO = '#A0713F';
 
 export const CORES_BEBE = ['#E0708A', '#6B78D6', '#2FA391', '#EE9B4A', '#B57BD0', '#3EA6D1'];
 
-export const CATEGORIAS_MURAL = ['Fraldas e higiene', 'Alimentação', 'Saúde e remédios', 'Banho', 'Roupas', 'Passeio e quarto', 'Outros'];
+export const CATEGORIAS_MURAL = ['Enxoval', 'Fraldas e higiene', 'Alimentação', 'Saúde e remédios', 'Banho', 'Roupas', 'Passeio e quarto', 'Outros'];
 
 /** Calendário Nacional de Vacinação (PNI) – criança, simplificado. Idade de referência em meses. */
 export const VACINAS: { code: string; nome: string; meses: number }[] = [

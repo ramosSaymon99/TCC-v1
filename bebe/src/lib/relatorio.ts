@@ -5,6 +5,7 @@
 import type { jsPDF as JsPDF } from 'jspdf';
 import type { BabyData, BabyEvent } from '../types';
 import { ACESSOS, VACINAS, papel } from './constants';
+import { MARCOS, TESTES_RN } from './conteudo';
 import { ehNoturno, fimEvento, insights, mediaDiaria, referencias, serieDiaria, type Dia } from './metrics';
 import { DIA, MIN, addDays, dataBr, duracao, hm, idade, parseYmd, startOfDay, t, ymd } from './time';
 
@@ -325,10 +326,40 @@ export async function gerarRelatorio(data: BabyData, op: OpcoesRelatorio): Promi
     secao('Remédios e suplementos', 'registrados no período');
     const porMed = new Map<string, BabyEvent[]>();
     for (const e of remedios) { const k = e.data.med || 'não informado'; porMed.set(k, [...(porMed.get(k) ?? []), e]); }
-    tabela(['Nome', 'Dose', 'Doses no período', 'Último registro'], [...porMed.entries()].map(([k, es]) => {
+    tabela(['Nome', 'Dose', 'Intervalo', 'Doses no período', 'Último registro'], [...porMed.entries()].map(([k, es]) => {
       const ult = es.sort((a, b) => t(b.start_at) - t(a.start_at))[0];
-      return [k, ult.data.dose || '—', String(es.length), `${new Date(ult.start_at).toLocaleDateString('pt-BR')} ${hm(ult.start_at)}`];
-    }), [45, 30, 25, 30], { alinhar: ['left', 'left', 'right', 'left'] });
+      return [k, ult.data.dose || '—', ult.data.intervalo_h ? `${ult.data.intervalo_h} h` : '—', String(es.length), `${new Date(ult.start_at).toLocaleDateString('pt-BR')} ${hm(ult.start_at)}`];
+    }), [40, 26, 18, 22, 30], { alinhar: ['left', 'left', 'left', 'right', 'left'] });
+  }
+
+  /* ================= Febre e sintomas ================= */
+  const saude = evPeriodo.filter((e) => e.type === 'saude').sort((a, b) => t(a.start_at) - t(b.start_at));
+  if (saude.length) {
+    const febres = saude.filter((e) => (e.data.temp ?? 0) >= 37.8);
+    secao('Febre e sintomas', `${saude.length} registro(s) · ${febres.length} com febre (≥ 37,8 °C)`);
+    tabela(['Data e hora', 'Temperatura', 'Sintomas', 'Observação'], saude.slice(-20).map((e) => [
+      `${new Date(e.start_at).toLocaleDateString('pt-BR')} ${hm(e.start_at)}`, e.data.temp != null ? `${String(e.data.temp).replace('.', ',')} °C` : '—', (e.data.sintomas ?? []).join(', ') || '—', e.note || '',
+    ]), [28, 20, 50, 32], { alinhar: ['left', 'right', 'left', 'left'], destaque: (i) => ((saude.slice(-20)[i].data.temp ?? 0) >= 37.8 ? COR.alerta : null) });
+  }
+
+  /* ================= Desenvolvimento ================= */
+  const marcos = (data.checks ?? []).filter((c) => c.kind === 'marco' && c.date).sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''));
+  const testes = (data.checks ?? []).filter((c) => c.kind === 'teste');
+  if (marcos.length || testes.length) {
+    secao('Desenvolvimento', 'marcos e triagens neonatais registrados pela família');
+    fonte(9);
+    if (marcos.length) paragrafo(`Marcos: ${marcos.map((c) => `${MARCOS.find((m) => m.code === c.code)?.nome.split(' (')[0] ?? c.code} (${dataBr(c.date!)}, ${idade(baby.birth_date, parseYmd(c.date!)).texto})`).join('; ')}.`);
+    if (testes.length) paragrafo(`Testes do recém-nascido: ${testes.map((c) => `${TESTES_RN.find((x) => x.code === c.code)?.nome.split(' (')[0] ?? c.code}: ${c.value ?? 'feito'}${c.date ? ` em ${dataBr(c.date)}` : ''}`).join('; ')}.`);
+  }
+
+  /* ================= Introdução alimentar ================= */
+  const alimentos = (data.checks ?? []).filter((c) => c.kind === 'alimento');
+  if (alimentos.length) {
+    const reacoes = alimentos.filter((a) => a.value && !['Sem reação', 'boa', 'media', 'recusou', 'Recusou o alimento'].includes(a.value));
+    secao('Introdução alimentar', `${alimentos.length} alimento(s) já oferecido(s)`);
+    fonte(9);
+    paragrafo(`Oferecidos: ${alimentos.map((a) => a.note).join(', ')}.`);
+    if (reacoes.length) { fonte(9, 'bold', COR.alerta); paragrafo(`Reações registradas: ${reacoes.map((a) => `${a.note} (${a.value})`).join('; ')}.`); }
   }
 
   /* ================= Vacinas ================= */
@@ -360,7 +391,8 @@ export async function gerarRelatorio(data: BabyData, op: OpcoesRelatorio): Promi
   }
 
   /* ================= Dúvidas e anotações ================= */
-  const duvidas = op.duvidas.split('\n').map((l) => l.trim()).filter(Boolean);
+  const perguntasApp = data.notes.filter((n) => n.kind === 'pergunta' && !n.done).map((n) => n.text.trim());
+  const duvidas = [...new Set([...perguntasApp, ...op.duvidas.split('\n').map((l) => l.trim())])].filter(Boolean);
   secao('Dúvidas da família para a consulta');
   fonte(9.5);
   if (duvidas.length) duvidas.forEach((d, i) => { paragrafo(`${i + 1}. ${d}`); y += 0.8; });

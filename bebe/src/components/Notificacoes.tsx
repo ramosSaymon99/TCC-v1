@@ -34,7 +34,7 @@ export function montarFeed(data: BabyData, userId: string, agora: number): ItemF
     if (e.user_id === userId || quando < desde) continue;
     itens.push({ id: `ev-${e.id}`, at: quando, criado: t(e.created_at ?? e.start_at), emoji: TIPOS[e.type].emoji, titulo: `${nome}: ${TIPOS[e.type].label.toLowerCase()}`, texto: descreve(e, agora), aba: 'hoje', quem: e.user_id });
   }
-  for (const n of data.notes) {
+  for (const n of data.notes.filter((x) => x.kind !== 'pergunta')) {
     const quando = t(n.created_at);
     if (n.user_id === userId || quando < agora - 7 * DIA) continue;
     itens.push({ id: `nota-${n.id}`, at: quando, criado: quando, emoji: '📌', titulo: 'Novo recado', texto: n.text, aba: 'mural', quem: n.user_id });
@@ -77,12 +77,13 @@ export function CentralSheet({ onClose, onConfig }: { onClose: () => void; onCon
 
 const CATS: { k: keyof Omit<NotifPrefs, 'silencio'>; t: string; d: string }[] = [
   { k: 'cronometro', t: '⏱️ Cronômetro na tela de bloqueio', d: 'Sono ou mamada em andamento fica fixo na tela, com botão "Acordou"/"Terminou"' },
-  { k: 'lembretes', t: '🍼 Lembretes', d: 'Mamada passou do intervalo planejado e cronômetro esquecido ligado' },
+  { k: 'lembretes', t: '🍼 Lembretes', d: 'Hora da mamada, janela de sono chegando, próxima dose liberada, febre registrada e cronômetro esquecido' },
   { k: 'recados', t: '📌 Recados', d: 'Novos recados no mural' },
   { k: 'estoque', t: '🛒 Materiais acabando', d: 'Quando um item fica abaixo do mínimo ou acaba' },
   { k: 'consultas', t: '🩺 Consultas', d: '24 h e 2 h antes, e quando alguém agenda' },
-  { k: 'familia', t: '👋 Família', d: 'Quando um novo cuidador entra' },
+  { k: 'familia', t: '👋 Família e fotos', d: 'Quando um novo cuidador entra e quando alguém posta foto no Dia a dia' },
   { k: 'atividade', t: '📝 Cada registro', d: 'Toda mamada, fralda e sono registrados pelos outros (bom para quem está longe)' },
+  // À noite, com o plantão definido em Família, lembretes, cronômetro e registros vão só para quem está de plantão
 ];
 
 export function ConfigNotificacoes({ onClose }: { onClose: () => void }) {

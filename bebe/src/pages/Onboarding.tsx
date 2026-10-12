@@ -16,6 +16,7 @@ export function Onboarding({ onDone, onCancel, userName }: { onDone: (babyId: st
   const [rotina, setRotina] = useState<Routine | null>(null);
   const [foto, setFoto] = useState<string | null>(null);
   const [responsavel, setResponsavel] = useState(false);
+  const [gestante, setGestante] = useState(false);
   const [code, setCode] = useState('');
   const [erro, setErro] = useState('');
   const [busy, setBusy] = useState(false);
@@ -23,8 +24,9 @@ export function Onboarding({ onDone, onCancel, userName }: { onDone: (babyId: st
 
   function avancar() {
     setErro('');
-    if (!f.name.trim()) return setErro('Informe o nome do bebê.');
-    if (!f.birth_date) return setErro('Informe a data de nascimento.');
+    if (!f.name.trim()) return setErro(gestante ? 'Informe o nome (ou apelido) do bebê.' : 'Informe o nome do bebê.');
+    if (!f.birth_date) return setErro(gestante ? 'Informe a data prevista do parto.' : 'Informe a data de nascimento.');
+    if (gestante) { setRotina(null); setPasso(2); return; }
     setRotina(rotina ?? rotinaSugerida(Math.max(0, idade(f.birth_date).dias)));
     setPasso(2);
   }
@@ -33,8 +35,8 @@ export function Onboarding({ onDone, onCancel, userName }: { onDone: (babyId: st
     setBusy(true);
     setErro('');
     try {
-      const peso = num(f.peso);
-      const r = await api.createBaby({ name: f.name.trim(), birth_date: f.birth_date, sex: f.sex ?? null, color: f.color, role: f.role, weight_g: peso ? Math.round(peso * 1000) : null, height_cm: num(f.altura), consult_date: f.consult_date, routine: semRotina ? null : rotina, guardian_consent: true });
+      const peso = gestante ? null : num(f.peso);
+      const r = await api.createBaby({ name: f.name.trim(), birth_date: f.birth_date, sex: f.sex ?? null, color: f.color, role: f.role, weight_g: peso ? Math.round(peso * 1000) : null, height_cm: gestante ? null : num(f.altura), consult_date: f.consult_date, routine: semRotina || gestante ? null : rotina, guardian_consent: true, ...(gestante ? { settings: { gestacao: true } } : {}) });
       if (foto) await api.setBabyPhoto(r.id, foto).catch(() => undefined);
       onDone(r.id);
     } catch (x) { setErro(x instanceof Error ? x.message : 'Erro'); }
@@ -71,25 +73,30 @@ export function Onboarding({ onDone, onCancel, userName }: { onDone: (babyId: st
             </>
           ) : passo === 1 ? (
             <>
+              <Choice value={gestante ? 'g' : 'n'} onChange={(v) => setGestante(v === 'g')} options={[{ v: 'n', l: '👶 Já nasceu' }, { v: 'g', l: '🤰 Ainda está na barriga' }]} />
               <PhotoPicker photo={foto} emoji={f.sex === 'M' ? '👦' : f.sex === 'F' ? '👧' : '👶'} color={f.color} onPick={setFoto} onRemove={() => setFoto(null)} />
               <Field label="Nome do bebê"><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="ex.: Helena" /></Field>
               <div className="grid g2">
-                <Field label="Data de nascimento" hint={f.birth_date ? idade(f.birth_date).texto : undefined}><input className="input" type="date" value={f.birth_date} max={ymd(Date.now())} onChange={(e) => setF({ ...f, birth_date: e.target.value })} /></Field>
+                {gestante
+                  ? <Field label="Data prevista do parto"><input className="input" type="date" value={f.birth_date} min={ymd(Date.now())} onChange={(e) => setF({ ...f, birth_date: e.target.value })} /></Field>
+                  : <Field label="Data de nascimento" hint={f.birth_date ? idade(f.birth_date).texto : undefined}><input className="input" type="date" value={f.birth_date} max={ymd(Date.now())} onChange={(e) => setF({ ...f, birth_date: e.target.value })} /></Field>}
                 <Field label="Sexo"><Choice value={f.sex} onChange={(v) => setF({ ...f, sex: v })} options={[{ v: 'F', l: 'Menina' }, { v: 'M', l: 'Menino' }]} /></Field>
               </div>
-              <h3 style={{ marginTop: 4 }}>Última consulta</h3>
-              <div className="grid g3">
+              {!gestante && <h3 style={{ marginTop: 4 }}>Última consulta</h3>}
+              {!gestante && <div className="grid g3">
                 <Field label="Peso (kg)"><input className="input" inputMode="decimal" value={f.peso} onChange={(e) => setF({ ...f, peso: e.target.value })} placeholder="5,3" /></Field>
                 <Field label="Altura (cm)"><input className="input" inputMode="decimal" value={f.altura} onChange={(e) => setF({ ...f, altura: e.target.value })} placeholder="58" /></Field>
                 <Field label="Data"><input className="input" type="date" value={f.consult_date} onChange={(e) => setF({ ...f, consult_date: e.target.value })} /></Field>
-              </div>
+              </div>}
               {erro && <div className="chip bad">{erro}</div>}
-              <button className="btn primary block" onClick={avancar}>Continuar: rotina</button>
+              <button className="btn primary block" onClick={avancar}>{gestante ? 'Continuar' : 'Continuar: rotina'}</button>
             </>
           ) : (
             <>
-              <p className="faint">Sugerimos uma rotina para {idade(f.birth_date).texto} — ajuste aos horários reais de {f.name.split(' ')[0]}. Dá para mudar depois.</p>
-              {rotina && <RotinaEditor r={rotina} onChange={setRotina} />}
+              {gestante
+                ? <p className="faint">Na gestação, o Ninho acompanha as semanas, as consultas do pré-natal, a mala da maternidade e o enxoval com a família. Quando {f.name.split(' ')[0]} nascer, é só tocar em “O bebê nasceu”.</p>
+                : <p className="faint">Sugerimos uma rotina para {idade(f.birth_date).texto} — ajuste aos horários reais de {f.name.split(' ')[0]}. Dá para mudar depois.</p>}
+              {rotina && !gestante && <RotinaEditor r={rotina} onChange={setRotina} />}
               <label className="check" style={{ marginTop: 6 }}>
                 <input type="checkbox" checked={responsavel} onChange={(e) => setResponsavel(e.target.checked)} />
                 <span>Sou mãe, pai ou responsável legal por {f.name.split(' ')[0] || 'esta criança'} (ou tenho autorização de um deles) e autorizo o registro dos dados dela no Ninho, compartilhados só com os cuidadores que eu convidar.</span>
@@ -97,7 +104,7 @@ export function Onboarding({ onDone, onCancel, userName }: { onDone: (babyId: st
               {erro && <div className="chip bad" style={{ whiteSpace: 'normal' }}>{erro}</div>}
               <div className="row">
                 <button className="btn" onClick={() => setPasso(1)}>Voltar</button>
-                <button className="btn ghost" onClick={() => criar(true)} disabled={busy || !responsavel}>Pular rotina</button>
+                {!gestante && <button className="btn ghost" onClick={() => criar(true)} disabled={busy || !responsavel}>Pular rotina</button>}
                 <button className="btn primary grow" onClick={() => criar()} disabled={busy || !responsavel}>{busy ? 'Criando…' : 'Concluir cadastro'}</button>
               </div>
             </>

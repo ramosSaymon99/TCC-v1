@@ -296,3 +296,63 @@ hr.sep { border: 0; border-top: 1px solid var(--line); margin: 6px 0; }
 .toast { display: flex; align-items: center; gap: 14px; }
 .toast-acao { border: 0; background: none; color: var(--brand); font-weight: 900; cursor: pointer; padding: 4px 2px; font-size: 14px; text-transform: uppercase; letter-spacing: .03em; }
 .pend { font-size: 11px; font-weight: 800; color: var(--info); }
+
+/* ===== Melhorias da fase bebê ===== */
+/* 6 abas na barra inferior */
+.bnav button { font-size: 10.5px; min-width: 0; }
+.bnav button span, .bnav button { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Previsões: soneca, mamada e doses */
+.prev-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.prev { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 10px 12px; box-shadow: var(--shadow); min-width: 0; }
+.prev .l { font-size: 12px; font-weight: 800; color: var(--ink-2); }
+.prev .v { font-size: 20px; font-weight: 900; font-variant-numeric: tabular-nums; margin: 2px 0; }
+.prev .faint { font-size: 12px; }
+.prev.agora { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 8%, var(--surface)); }
+.prev.bloq { border-color: var(--warn); background: var(--warn-soft); }
+
+.repetir .chip { cursor: pointer; border: 1px solid var(--line); background: var(--surface); }
+.chegada { border-left: 4px solid var(--brand); }
+.noite-card .grid b { font-size: 18px; }
+.dica p { line-height: 1.5; }
+.seg-rolagem { overflow-x: auto; margin: 0 -4px; padding: 0 4px; scrollbar-width: none; }
+.seg-rolagem::-webkit-scrollbar { display: none; }
+.seg-rolagem .seg { flex-wrap: nowrap; }
+.seg-rolagem .seg button { white-space: nowrap; }
+
+/* Modo madrugada (22h–6h): menos brilho, botões maiores para usar com uma mão */
+body.madrugada {
+  --bg: #0f0e13; --surface: #18171d; --surface-2: #141318; --ink: #d9d6e2; --ink-2: #a19eae; --ink-3: #7a7787; --line: #2a2731;
+  --brand: #c97489; --brand-ink: #e39aac; --brand-soft: #2e1e26; --ok: #3fa98d; --ok-soft: #17302a; --warn: #c9913f; --warn-soft: #30281a;
+  --bad: #d06b64; --bad-soft: #321d1d; --info: #7987d6; --info-soft: #20243a; --shadow: none; color-scheme: dark;
+}
+body.madrugada .timer { filter: brightness(.8); }
+body.madrugada .qbtn { min-height: 96px; font-size: 14px; }
+body.madrugada .qbtn .em { font-size: 34px; }
+body.madrugada .timer .btn { min-height: 52px; font-size: 17px; padding: 0 22px; }
+body.madrugada .hide-noite { display: none; }
+
+/* Dia a dia */
+.dia-titulo { font-size: 15px; font-weight: 900; margin-top: 4px; }
+.feed { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.post { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); display: flex; flex-direction: column; }
+.post-foto { border: 0; padding: 0; background: var(--surface-2); cursor: zoom-in; display: block; aspect-ratio: 4 / 5; width: 100%; }
+.post-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.post-corpo { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; }
+.legenda { white-space: pre-wrap; line-height: 1.45; }
+.curtir { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 10px; font-weight: 800; color: var(--ink-2); cursor: pointer; min-height: 32px; }
+.curtir.on { color: #d6416b; border-color: #d6416b55; background: #d6416b12; }
+.previa-post { width: 100%; max-height: 50vh; object-fit: contain; border-radius: 14px; background: var(--surface-2); }
+.visor { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.92); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px; gap: 12px; color: #fff; }
+.visor img { max-width: 100%; max-height: 82vh; object-fit: contain; border-radius: 10px; }
+.visor p { max-width: 640px; text-align: center; }
+.visor-fechar { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 12px; background: rgba(255,255,255,.15); color: #fff; border: 0; }
+.mesversario { background: linear-gradient(120deg, color-mix(in srgb, var(--brand) 14%, var(--surface)), var(--surface)); }
+
+/* Gestação */
+.gest-sem { font-size: 26px; font-weight: 900; }
+.barra-gest { height: 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; margin-top: 12px; }
+.barra-gest span { display: block; height: 100%; background: var(--brand); border-radius: 999px; }
+
+.gest-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (min-width: 760px) { .gest-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

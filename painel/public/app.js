@@ -199,9 +199,9 @@
   const NOMES_EVENTO = {
     pdf_gerado: 'Relatório PDF gerado', pdf_compartilhado: 'Relatório PDF compartilhado', push_ativado: 'Notificações ativadas', push_desativado: 'Notificações desativadas',
     desfazer: 'Usou “Desfazer”', sync_offline: 'Sincronizou registros feitos offline', notif_clique: 'Abriu uma notificação', notif_acao: 'Usou botão da notificação',
-    atalho_icone: 'Abriu por atalho/ação', app_instalado: 'Instalou o app', notif_enviada: 'Notificação enviada',
+    atalho_icone: 'Abriu por atalho/ação', app_instalado: 'Instalou o app', notif_enviada: 'Notificação enviada', cartao_mesversario: 'Gerou cartão de mêsversário',
   };
-  const NOMES_TIPO = { mamada: 'Amamentação', mamadeira: 'Mamadeira', sono: 'Sono', fralda: 'Fralda', remedio: 'Remédio', banho: 'Banho', alimentacao: 'Papinha', extracao: 'Extração', outro: 'Outro' };
+  const NOMES_TIPO = { mamada: 'Amamentação', mamadeira: 'Mamadeira', sono: 'Sono', fralda: 'Fralda', remedio: 'Remédio', banho: 'Banho', alimentacao: 'Papinha', extracao: 'Extração', saude: 'Febre/sintoma', outro: 'Outro' };
   const NOMES_CONT = { cadastros: 'Cadastros', cadastros_exemplo: 'Contas de exemplo criadas', logins: 'Logins', logins_falhos: 'Logins com senha errada', contas_excluidas: 'Contas excluídas', bebes_criados: 'Bebês cadastrados', convites_aceitos: 'Convites aceitos' };
   let nomePais = (c) => c;
   try { const dn = new Intl.DisplayNames(['pt-BR'], { type: 'region' }); nomePais = (c) => { if (!c || c === '??') return 'Não identificado'; try { return dn.of(c) || c; } catch { return c; } }; } catch { /* sem Intl.DisplayNames */ }
@@ -303,6 +303,7 @@
       ['Rotina (registros)', a.rotina], ['Família com 2+ cuidadores', a.convidou], ['Mural (estoque/compras)', a.mural], ['Recados', a.recados],
       ['Crescimento (2+ medidas)', a.crescimento], ['Consultas agendadas', a.consultas], ['Vacinas marcadas', a.vacinas], ['Foto do bebê', a.foto],
       ['Relatório PDF', a.pdf], ['Notificações ativas', a.notificacoes],
+      ['Dia a dia (fotos)', a.fotos_dia], ['Marcos do desenvolvimento', a.marcos], ['Leite guardado', a.leite], ['Febre e sintomas', a.febre], ['Perguntas ao pediatra', a.perguntas],
     ].map(([recurso, n]) => ({ recurso, n: n ?? 0 })).sort((x, y) => y.n - x.n);
     const menosUsado = adoc.filter((x) => x.recurso !== 'Rotina (registros)').slice(-1)[0];
 

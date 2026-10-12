@@ -8,10 +8,14 @@ import { referencias } from '../lib/metrics';
 import { DIA, dataBr, fromLocalInput, idade, parseYmd, t, toLocalInput, ymd } from '../lib/time';
 import type { Appointment, Growth } from '../types';
 import { Empty, Field, Seg, Sheet } from '../components/ui';
+import { Alimentos, FebreSintomas, Marcos, Perguntas, RemediosEmUso, TestesRN } from '../components/SaudeExtra';
+
+type AbaSaude = 'crescimento' | 'febre' | 'remedios' | 'vacinas' | 'consultas' | 'perguntas' | 'marcos' | 'testes' | 'alimentos';
 
 export function Saude() {
   const { data, act, podeEditar, agora, nome, abrirRegistro, abrirRelatorio } = useApp();
-  const [aba, setAba] = useState<'crescimento' | 'consultas' | 'vacinas' | 'remedios'>('crescimento');
+  const gestacao = !!data.baby.settings?.gestacao;
+  const [aba, setAba] = useState<AbaSaude>(gestacao ? 'consultas' : 'crescimento');
   const [gEdit, setGEdit] = useState<Growth | 'novo' | null>(null);
   const [cEdit, setCEdit] = useState<Appointment | 'novo' | null>(null);
   const { baby } = data;
@@ -37,19 +41,28 @@ export function Saude() {
       <div className="between" style={{ flexWrap: 'wrap' }}>
         <div>
           <h1>Saúde</h1>
-          <p className="faint">Crescimento, consultas, vacinas e remédios de {baby.name.split(' ')[0]}</p>
+          <p className="faint">{gestacao ? 'Consultas do pré-natal e perguntas para o médico' : `Crescimento, febre, remédios, vacinas, consultas e desenvolvimento de ${baby.name.split(' ')[0]}`}</p>
         </div>
         <button className="btn primary" onClick={abrirRelatorio}><FileText size={16} /> Relatório para o pediatra</button>
       </div>
 
-      <div className="grid g4">
+      {!gestacao && <div className="grid g4">
         <div className="card kpi"><div className="lab">⚖️ Peso atual</div><div className="val">{ult ? `${(ult.weight_g! / 1000).toFixed(2).replace('.', ',')} kg` : '—'}</div><div className="sub">{ult ? `em ${dataBr(ult.date)}` : 'sem registro'}</div></div>
         <div className="card kpi"><div className="lab">📈 Ganho de peso</div><div className="val">{ganho != null ? `${Math.round(ganho)} g/dia` : '—'}</div><div className="sub">{ref.ganhoGDia ? `ref. ${ref.ganhoGDia[0]}–${ref.ganhoGDia[1]} g/dia` : 'entre as últimas pesagens'}</div></div>
         <div className="card kpi"><div className="lab">🩺 Próxima consulta</div><div className="val" style={{ fontSize: 20 }}>{proximas[0] ? new Date(proximas[0].date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—'}</div><div className="sub">{proximas[0]?.title ?? 'nenhuma agendada'}</div></div>
         <div className="card kpi"><div className="lab">💉 Vacinas</div><div className="val">{aplicadas.size}</div><div className="sub" style={{ color: atrasadas ? 'var(--warn)' : undefined }}>{atrasadas ? `${atrasadas} sem registro p/ idade` : 'em dia pelos registros'}</div></div>
-      </div>
+      </div>}
 
-      <Seg value={aba} onChange={setAba} options={[{ v: 'crescimento', l: 'Crescimento' }, { v: 'consultas', l: 'Consultas' }, { v: 'vacinas', l: 'Vacinas' }, { v: 'remedios', l: 'Remédios' }]} />
+      <div className="seg-rolagem">
+        <Seg value={aba} onChange={setAba} options={(gestacao
+          ? [{ v: 'consultas', l: 'Consultas' }, { v: 'perguntas', l: 'Perguntas' }]
+          : [{ v: 'crescimento', l: 'Crescimento' }, { v: 'febre', l: 'Febre' }, { v: 'remedios', l: 'Remédios' }, { v: 'vacinas', l: 'Vacinas' }, { v: 'consultas', l: 'Consultas' }, { v: 'perguntas', l: 'Perguntas' }, { v: 'marcos', l: 'Marcos' }, { v: 'testes', l: 'Testes RN' }, { v: 'alimentos', l: 'Alimentos' }]) as { v: AbaSaude; l: string }[]} />
+      </div>
+      {aba === 'febre' && <FebreSintomas />}
+      {aba === 'perguntas' && <Perguntas />}
+      {aba === 'marcos' && <Marcos />}
+      {aba === 'testes' && <TestesRN />}
+      {aba === 'alimentos' && <Alimentos />}
 
       {aba === 'crescimento' && (
         <>
@@ -136,6 +149,7 @@ export function Saude() {
         </div>
       )}
 
+      {aba === 'remedios' && <RemediosEmUso />}
       {aba === 'remedios' && (
         <div className="card">
           <div className="card-h"><h2>Remédios e suplementos</h2>{podeEditar && <button className="btn sm primary" onClick={() => abrirRegistro('remedio')}><Plus size={14} /> Dar remédio</button>}</div>
@@ -143,7 +157,7 @@ export function Saude() {
             <div key={e.id} className="list-item">
               <div className="tl-ico" style={{ background: `${TIPOS.remedio.cor}22` }}>💊</div>
               <div className="grow">
-                <b>{e.data.med ?? 'Remédio'}</b> {e.data.dose && <span className="faint">· {e.data.dose}</span>}
+                <b>{e.data.med ?? 'Remédio'}</b> {e.data.dose && <span className="faint">· {e.data.dose}</span>}{e.data.intervalo_h ? <span className="faint"> · a cada {e.data.intervalo_h} h</span> : null}
                 <div className="faint">{new Date(e.start_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })} · {nome(e.user_id)}</div>
               </div>
             </div>

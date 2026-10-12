@@ -30,7 +30,7 @@ function gravar(k: string, v: unknown) {
 export const fila = (): Pendente[] => ler<Pendente[]>(LS_FILA, []);
 const salvarFila = (f: Pendente[]) => { gravar(LS_FILA, f); evento(); };
 
-const RE_MUT = /^\/babies\/([^/]+)\/(events|growth|supplies|notes|appointments|vaccines)(?:\/([^/]+))?$/;
+const RE_MUT = /^\/babies\/([^/]+)\/(events|growth|supplies|notes|appointments|vaccines|checks|milk)(?:\/([^/]+))?$/;
 /** Só alterações dentro de um bebê vão para a fila; login, convites, perfil etc. exigem conexão. */
 export const enfileiravel = (method: string, path: string) => method !== 'GET' && RE_MUT.test(path);
 
@@ -64,7 +64,7 @@ export const pendentesDoBebe = (babyId: string) => fila().filter((p) => p.path.s
 export function aplicarPendentes(base: BabyData, userId: string): BabyData {
   const ops = fila().filter((p) => p.path.startsWith(`/babies/${base.baby.id}/`));
   if (!ops.length) return base;
-  const d: BabyData = { ...base, events: [...base.events], growth: [...base.growth], supplies: [...base.supplies], notes: [...base.notes], appointments: [...base.appointments], vaccines: [...base.vaccines] };
+  const d: BabyData = { ...base, events: [...base.events], growth: [...base.growth], supplies: [...base.supplies], notes: [...base.notes], appointments: [...base.appointments], vaccines: [...base.vaccines], checks: [...(base.checks ?? [])], milk: [...(base.milk ?? [])] };
   for (const op of ops) {
     const [, , res, id] = op.path.match(RE_MUT)!;
     if (res === 'vaccines') {

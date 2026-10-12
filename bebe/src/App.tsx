@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, Bell, ChevronDown, Home, LayoutGrid, LogOut, Stethoscope, Users } from 'lucide-react';
+import { BarChart3, Bell, Camera, ChevronDown, Home, LayoutGrid, LogOut, Stethoscope, Users } from 'lucide-react';
 import { AppCtx, type Aba, type Ctx } from './ctx';
 import { api, ApiError, definirUsuarioAtual, detectarModo, getToken, SEM_REDE, sair as sairApi, sincronizar, temSessao, type Modo } from './lib/api';
 import { aplicarPendentes, lerCacheBebe, lerCacheMe, limparCaches, pendentesDoBebe, salvarCacheBebe, salvarCacheMe } from './lib/offline';
@@ -21,9 +21,14 @@ import { Indicadores } from './pages/Indicadores';
 import { Mural } from './pages/Mural';
 import { Saude } from './pages/Saude';
 import { Familia } from './pages/Familia';
+import { DiaADia } from './pages/DiaADia';
+import { Gestacao } from './pages/Gestacao';
+import { semanasGestacao } from './lib/conteudo';
+import { ehMadrugada } from './lib/previsao';
 
 const ABAS: { id: Aba; label: string; Icon: typeof Home }[] = [
   { id: 'hoje', label: 'Hoje', Icon: Home },
+  { id: 'diario', label: 'Dia a dia', Icon: Camera },
   { id: 'indicadores', label: 'Indicadores', Icon: BarChart3 },
   { id: 'mural', label: 'Mural', Icon: LayoutGrid },
   { id: 'saude', label: 'Saúde', Icon: Stethoscope },
@@ -67,7 +72,11 @@ export default function App() {
     toastT.current = window.setTimeout(() => setMsg(null), acao ? 6000 : 2800);
   }, []);
   // A tela mostra os dados do servidor + o que está na fila offline
-  const data = useMemo(() => (base && user ? aplicarPendentes(base, user.id) : base), [base, user, filaV]); // eslint-disable-line react-hooks/exhaustive-deps
+  const data = useMemo(() => {
+    // Caches antigos não têm os recursos novos: completa com listas vazias
+    const b = base && { ...base, checks: base.checks ?? [], milk: base.milk ?? [], posts: base.posts ?? [], baby: { ...base.baby, settings: base.baby.settings ?? {} } };
+    return b && user ? aplicarPendentes(b, user.id) : b;
+  }, [base, user, filaV]); // eslint-disable-line react-hooks/exhaustive-deps
   const pendentes = useMemo(() => (base ? pendentesDoBebe(base.baby.id) : 0), [base, filaV]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sair = useCallback(() => {
@@ -128,6 +137,19 @@ export default function App() {
   }, [babyId, sair, reloadMe, user, toast]);
 
   // Inicialização: descobre se há API (Cloudflare) e se há sessão
+  // Madrugada (22h–6h): tela mais escura e botões maiores, a menos que a pessoa desligue em Hoje
+  useEffect(() => {
+    const aplicar = () => {
+      let pref = 'auto';
+      try { pref = localStorage.getItem('ninho-madrugada') || 'auto'; } catch { /* sem storage */ }
+      document.body.classList.toggle('madrugada', pref === 'on' || (pref === 'auto' && ehMadrugada()));
+    };
+    aplicar();
+    const id = setInterval(aplicar, 60_000);
+    window.addEventListener('ninho-madrugada', aplicar);
+    return () => { clearInterval(id); window.removeEventListener('ninho-madrugada', aplicar); };
+  }, []);
+
   useEffect(() => {
     (async () => {
       setModo(await detectarModo());
@@ -267,7 +289,7 @@ export default function App() {
     const a = acaoDaUrl;
     acaoDaUrl = null;
     api.uso('atalho_icone', a, ctx.data.baby.id);
-    if (a === 'relatorio') { setAba('saude'); setRelatorio(true); } else if (ctx.podeEditar && ['mamada', 'mamadeira', 'sono', 'fralda', 'remedio'].includes(a)) { setAba('hoje'); setRegistro({ tipo: a as EventType }); }
+    if (a === 'relatorio') { setAba('saude'); setRelatorio(true); } else if (ctx.podeEditar && ['mamada', 'mamadeira', 'sono', 'fralda', 'remedio', 'saude'].includes(a)) { setAba('hoje'); setRegistro({ tipo: a as EventType }); }
   }, [ctx, acaoPendente, setAba]);
 
   // Contador no ícone do app (tela inicial) = notificações não lidas
@@ -305,7 +327,11 @@ export default function App() {
   if (!ctx) return <div className="auth"><p className="muted">Carregando a rotina…</p></div>;
 
   const { baby } = ctx.data;
-  const Pagina = { hoje: Hoje, indicadores: Indicadores, mural: Mural, saude: Saude, familia: Familia }[aba];
+  const gestacao = !!baby.settings?.gestacao;
+  // Na gestação não há rotina para medir: "Hoje" vira a tela da gestação e Indicadores some
+  const abasVisiveis = gestacao ? ABAS.filter((a) => a.id !== 'indicadores') : ABAS;
+  const abaAtual = gestacao && aba === 'indicadores' ? 'hoje' : aba;
+  const Pagina = { hoje: gestacao ? Gestacao : Hoje, diario: DiaADia, indicadores: Indicadores, mural: Mural, saude: Saude, familia: Familia }[abaAtual];
   const emojiBebe = (b: Baby) => (b.sex === 'M' ? '👦' : b.sex === 'F' ? '👧' : '👶');
   const avatar = <Avatar photo={baby.photo} emoji={emojiBebe(baby)} color={baby.color || 'var(--brand)'} size={42} ring />;
   const naoLidas = naoLidasGlobal;
@@ -315,8 +341,8 @@ export default function App() {
       <div className="app">
         <aside className="side">
           <div className="brand" style={{ padding: '0 8px 16px' }}><span className="logo">🪺</span> Ninho</div>
-          {ABAS.map(({ id, label, Icon }) => (
-            <button key={id} className={`navitem ${aba === id ? 'on' : ''}`} onClick={() => setAba(id)}><Icon size={19} /> {label}</button>
+          {abasVisiveis.map(({ id, label, Icon }) => (
+            <button key={id} className={`navitem ${abaAtual === id ? 'on' : ''}`} onClick={() => setAba(id)}><Icon size={19} /> {id === 'hoje' && gestacao ? 'Gestação' : label}</button>
           ))}
           <div style={{ marginTop: 'auto' }} className="stack">
             <div className="row" style={{ padding: '0 8px' }}>
@@ -333,7 +359,7 @@ export default function App() {
                 {avatar}
                 <div style={{ minWidth: 0 }}>
                   <div className="nm">{baby.name} <ChevronDown size={14} style={{ verticalAlign: 'middle' }} /></div>
-                  <div className="faint">{idade(baby.birth_date, agora).texto}</div>
+                  <div className="faint">{gestacao ? `${semanasGestacao(baby.birth_date, agora).semanas} semanas de gestação` : idade(baby.birth_date, agora).texto}</div>
                 </div>
               </button>
               <div className="av-stack hide-mob">
@@ -359,8 +385,8 @@ export default function App() {
           <main className="wrap"><Pagina /></main>
         </div>
         <nav className="bnav">
-          {ABAS.map(({ id, label, Icon }) => (
-            <button key={id} className={aba === id ? 'on' : ''} onClick={() => setAba(id)}><Icon size={22} />{label}</button>
+          {abasVisiveis.map(({ id, label, Icon }) => (
+            <button key={id} className={abaAtual === id ? 'on' : ''} onClick={() => setAba(id)}><Icon size={22} />{id === 'hoje' && gestacao ? 'Gestação' : label}</button>
           ))}
         </nav>
       </div>

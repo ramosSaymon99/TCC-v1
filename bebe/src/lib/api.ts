@@ -182,6 +182,11 @@ export const api = {
   pushSubscribe: (sub: PushSubscriptionJSON, tz: string) => req('POST', '/push/subscribe', { ...sub, tz }),
   pushUnsubscribe: (endpoint: string) => req('POST', '/push/unsubscribe', { endpoint }),
   pushTest: () => req<{ enviados: number; aparelhos: number }>('POST', '/push/test'),
+  /** Dia a dia: fotos precisam de conexão (não entram na fila offline, para não lotar o aparelho). */
+  createPost: (id: string, b: { id: string; photo: string; caption?: string; taken_at?: string }) => req<{ id: string }>('POST', `/babies/${id}/posts`, b),
+  updatePost: (id: string, postId: string, b: { caption?: string; taken_at?: string }) => req('PUT', `/babies/${id}/posts/${postId}`, b),
+  removePost: (id: string, postId: string) => req('DELETE', `/babies/${id}/posts/${postId}`),
+  likePost: (id: string, postId: string) => req<{ likes: string[] }>('POST', `/babies/${id}/posts/${postId}/like`),
 };
 
 /* =====================================================================
@@ -199,13 +204,19 @@ interface LocalDB {
   notes: Row[];
   appointments: Row[];
   vaccines: Row[];
+  checks: Row[];
+  milk: Row[];
+  posts: Row[];
 }
 const LS_DB = 'ninho-local-db';
 let cache: LocalDB | null = null;
 function db(): LocalDB {
   if (cache) return cache;
   try { cache = JSON.parse(lerLS(LS_DB) || ''); } catch { cache = null; }
-  cache ??= { users: [], babies: [], members: [], invites: [], events: [], growth: [], supplies: [], notes: [], appointments: [], vaccines: [] };
+  cache ??= { users: [], babies: [], members: [], invites: [], events: [], growth: [], supplies: [], notes: [], appointments: [], vaccines: [], checks: [], milk: [], posts: [] };
+  cache.checks ??= [];
+  cache.milk ??= [];
+  cache.posts ??= [];
   return cache;
 }
 function salvar() {
@@ -217,8 +228,10 @@ const COLS: Record<Resource, string[]> = {
   events: ['type', 'start_at', 'end_at', 'data', 'note'],
   growth: ['date', 'weight_g', 'height_cm', 'head_cm', 'source', 'note'],
   supplies: ['name', 'category', 'unit', 'qty', 'min_qty', 'auto_type', 'per_use', 'buyer_id', 'note'],
-  notes: ['text', 'pinned', 'done'],
+  notes: ['text', 'pinned', 'done', 'kind'],
   appointments: ['date', 'title', 'doctor', 'note', 'done'],
+  checks: ['kind', 'code', 'date', 'value', 'note'],
+  milk: ['ml', 'collected_at', 'place', 'used_at', 'note'],
 };
 const pick = (res: Resource, b: Row) => Object.fromEntries(COLS[res].filter((c) => c in b).map((c) => [c, typeof b[c] === 'boolean' ? (b[c] ? 1 : 0) : b[c]]));
 
@@ -349,12 +362,17 @@ function local(method: string, path: string, body: any): unknown {
       notes: doBebe(D.notes).sort((a, b) => b.created_at.localeCompare(a.created_at)),
       appointments: doBebe(D.appointments).sort((a, b) => a.date.localeCompare(b.date)),
       vaccines: doBebe(D.vaccines),
+      checks: doBebe(D.checks),
+      milk: doBebe(D.milk).filter((m) => !m.used_at || m.used_at >= since).sort((a, b) => a.collected_at.localeCompare(b.collected_at)),
+      posts: doBebe(D.posts).sort((a, b) => b.taken_at.localeCompare(a.taken_at)),
       access: v!.access, role: v!.role,
     });
   }
   if (method === 'PUT' && sub === '') {
     if (!pode('admin')) falha('Somente administradores editam o perfil do bebê.', 403);
-    Object.assign(D.babies.find((b) => b.id === babyId)!, Object.fromEntries(['name', 'birth_date', 'sex', 'color', 'routine', 'notes'].filter((k) => k in body).map((k) => [k, body[k]])));
+    const bb = D.babies.find((b) => b.id === babyId)!;
+    Object.assign(bb, Object.fromEntries(['name', 'birth_date', 'sex', 'color', 'routine', 'notes'].filter((k) => k in body).map((k) => [k, body[k]])));
+    if (body.settings) bb.settings = { ...(bb.settings ?? {}), ...body.settings };
     salvar();
     return { ok: true };
   }
@@ -366,7 +384,7 @@ function local(method: string, path: string, body: any): unknown {
   }
   if (method === 'DELETE' && sub === '') {
     if (!pode('admin')) falha('Somente administradores excluem o bebê.', 403);
-    for (const k of ['events', 'growth', 'supplies', 'notes', 'appointments', 'vaccines', 'invites', 'members'] as const) D[k] = D[k].filter((x) => x.baby_id !== babyId);
+    for (const k of ['events', 'growth', 'supplies', 'notes', 'appointments', 'vaccines', 'invites', 'members', 'checks', 'milk', 'posts'] as const) D[k] = D[k].filter((x) => x.baby_id !== babyId);
     D.babies = D.babies.filter((b) => b.id !== babyId);
     salvar();
     return { ok: true };
@@ -428,7 +446,26 @@ function local(method: string, path: string, body: any): unknown {
     salvar();
     return { ok: true };
   }
-  const mr = sub.match(/^\/(events|growth|supplies|notes|appointments)(?:\/([^/]+))?$/);
+  const mp = sub.match(/^\/posts(?:\/([^/]+))?(\/like)?$/);
+  if (mp) {
+    const [, postId, like] = mp;
+    const p = postId ? D.posts.find((x) => x.id === postId && x.baby_id === babyId) : undefined;
+    if (like) {
+      if (!p) falha('Foto não encontrada.', 404);
+      p!.likes = p!.likes.includes(myId) ? p!.likes.filter((x: string) => x !== myId) : [...p!.likes, myId];
+      salvar();
+      return { likes: p!.likes };
+    }
+    if (!pode('editor')) falha('Seu acesso é somente leitura.', 403);
+    if (method === 'POST') {
+      D.posts.push({ id: body.id || uid(), baby_id: babyId, user_id: myId, caption: body.caption || null, taken_at: body.taken_at || agora, likes: [], photo: body.photo, created_at: agora });
+      try { salvar(); } catch { D.posts.pop(); falha('Sem espaço neste navegador para mais fotos. No modo local as fotos ficam no aparelho.', 413); }
+    } else if (p && method === 'PUT') Object.assign(p, { caption: body.caption ?? p.caption, taken_at: body.taken_at ?? p.taken_at });
+    else if (p && method === 'DELETE') D.posts = D.posts.filter((x) => x !== p);
+    salvar();
+    return { ok: true, id: body.id };
+  }
+  const mr = sub.match(/^\/(events|growth|supplies|notes|appointments|checks|milk)(?:\/([^/]+))?$/);
   if (mr) {
     const res = mr[1] as Resource;
     const itemId = mr[2];

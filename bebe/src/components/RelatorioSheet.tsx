@@ -41,7 +41,7 @@ export function RelatorioSheet({ onClose }: { onClose: () => void }) {
       <Field label="Período analisado" hint="Usa dias completos até ontem e compara com o período anterior">
         <Seg value={dias} onChange={(v) => { setDias(v); setPdf(null); }} options={[{ v: '7', l: '7 dias' }, { v: '14', l: '14 dias' }, { v: '30', l: '30 dias' }]} />
       </Field>
-      <Field label="Dúvidas para levar à consulta" hint="Uma por linha. Fica salvo neste aparelho até a consulta.">
+      <Field label="Dúvidas para levar à consulta" hint={`Uma por linha. ${data.notes.filter((n) => n.kind === 'pergunta' && !n.done).length ? `As ${data.notes.filter((n) => n.kind === 'pergunta' && !n.done).length} pergunta(s) anotadas pela família em Saúde → Perguntas entram automaticamente.` : 'Dica: a família pode anotar perguntas ao longo das semanas em Saúde → Perguntas.'}`}>
         <textarea className="input" rows={4} value={duvidas} onChange={(e) => { setDuvidas(e.target.value); setPdf(null); }} placeholder={'Ex.: É normal acordar 3 vezes à noite?\nQuando começar a papinha?'} />
       </Field>
       {!pdf ? (
