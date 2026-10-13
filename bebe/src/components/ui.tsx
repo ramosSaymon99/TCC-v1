@@ -53,11 +53,11 @@ export function Seg<T extends string>({ value, onChange, options }: { value: T; 
 
 /** Variação % com seta e cor. `bomQuandoSobe=false` inverte a leitura (ex.: despertares). */
 export function Delta({ atual, anterior, bomQuandoSobe = true, neutro = false }: { atual: number; anterior: number; bomQuandoSobe?: boolean; neutro?: boolean }) {
-  if (!anterior) return <span className="delta flat">sem base</span>;
+  if (!anterior) return <span className="delta flat" title="Ainda não há dias anteriores para comparar">ainda sem histórico</span>;
   const v = atual / anterior - 1;
   if (Math.abs(v) < 0.03) return <span className="delta flat">= estável</span>;
   const cls = neutro ? 'flat' : (v > 0) === bomQuandoSobe ? 'up' : 'down';
-  return <span className={`delta ${cls}`}>{v > 0 ? '▲' : '▼'} {Math.abs(Math.round(v * 100))}%</span>;
+  return <span className={`delta ${cls}`} title={`${Math.abs(Math.round(v * 100))}% ${v > 0 ? 'a mais' : 'a menos'} que o período de comparação`}>{v > 0 ? '▲' : '▼'} {Math.abs(Math.round(v * 100))}% {v > 0 ? 'a mais' : 'a menos'}</span>;
 }
 
 export function Empty({ emoji, children }: { emoji: string; children: ReactNode }) {

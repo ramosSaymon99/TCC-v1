@@ -25,13 +25,14 @@ import { DiaADia } from './pages/DiaADia';
 import { Gestacao } from './pages/Gestacao';
 import { semanasGestacao } from './lib/conteudo';
 import { ehMadrugada } from './lib/previsao';
+import { MomentoSheet } from './components/Guia';
 
 const ABAS: { id: Aba; label: string; Icon: typeof Home }[] = [
   { id: 'hoje', label: 'Hoje', Icon: Home },
   { id: 'diario', label: 'Dia a dia', Icon: Camera },
-  { id: 'indicadores', label: 'Indicadores', Icon: BarChart3 },
-  { id: 'mural', label: 'Mural', Icon: LayoutGrid },
+  { id: 'indicadores', label: 'Evolução', Icon: BarChart3 },
   { id: 'saude', label: 'Saúde', Icon: Stethoscope },
+  { id: 'mural', label: 'Mural', Icon: LayoutGrid },
   { id: 'familia', label: 'Família', Icon: Users },
 ];
 const LS_BABY = 'ninho-baby';
@@ -137,6 +138,14 @@ export default function App() {
   }, [babyId, sair, reloadMe, user, toast]);
 
   // Inicialização: descobre se há API (Cloudflare) e se há sessão
+  // Momentos de orientação: 1º registro e 1º convite (comemoração + notificações na hora certa)
+  const [momentoAberto, setMomentoAberto] = useState<'registro' | 'convite' | null>(null);
+  useEffect(() => {
+    const f = (e: Event) => setTimeout(() => setMomentoAberto((e as CustomEvent).detail), 600);
+    window.addEventListener('ninho-momento', f);
+    return () => window.removeEventListener('ninho-momento', f);
+  }, []);
+
   // Madrugada (22h–6h): tela mais escura e botões maiores, a menos que a pessoa desligue em Hoje
   useEffect(() => {
     const aplicar = () => {
@@ -329,7 +338,10 @@ export default function App() {
   const { baby } = ctx.data;
   const gestacao = !!baby.settings?.gestacao;
   // Na gestação não há rotina para medir: "Hoje" vira a tela da gestação e Indicadores some
-  const abasVisiveis = gestacao ? ABAS.filter((a) => a.id !== 'indicadores') : ABAS;
+  // Barra com 5 itens: Mural e Família ficam juntos em "Casa" (com seletor dentro da página)
+  const NAV = ABAS.filter((a) => a.id !== 'familia').map((a) => (a.id === 'mural' ? { ...a, label: 'Casa' } : a));
+  const abasVisiveis = gestacao ? NAV.filter((a) => a.id !== 'indicadores') : NAV;
+  const ativa = (id: Aba) => abaAtual === id || (id === 'mural' && abaAtual === 'familia');
   const abaAtual = gestacao && aba === 'indicadores' ? 'hoje' : aba;
   const Pagina = { hoje: gestacao ? Gestacao : Hoje, diario: DiaADia, indicadores: Indicadores, mural: Mural, saude: Saude, familia: Familia }[abaAtual];
   const emojiBebe = (b: Baby) => (b.sex === 'M' ? '👦' : b.sex === 'F' ? '👧' : '👶');
@@ -342,7 +354,7 @@ export default function App() {
         <aside className="side">
           <div className="brand" style={{ padding: '0 8px 16px' }}><span className="logo">🪺</span> Ninho</div>
           {abasVisiveis.map(({ id, label, Icon }) => (
-            <button key={id} className={`navitem ${abaAtual === id ? 'on' : ''}`} onClick={() => setAba(id)}><Icon size={19} /> {id === 'hoje' && gestacao ? 'Gestação' : label}</button>
+            <button key={id} className={`navitem ${ativa(id) ? 'on' : ''}`} onClick={() => setAba(id)}><Icon size={19} /> {id === 'hoje' && gestacao ? 'Gestação' : label}</button>
           ))}
           <div style={{ marginTop: 'auto' }} className="stack">
             <div className="row" style={{ padding: '0 8px' }}>
@@ -386,7 +398,7 @@ export default function App() {
         </div>
         <nav className="bnav">
           {abasVisiveis.map(({ id, label, Icon }) => (
-            <button key={id} className={abaAtual === id ? 'on' : ''} onClick={() => setAba(id)}><Icon size={22} />{id === 'hoje' && gestacao ? 'Gestação' : label}</button>
+            <button key={id} className={ativa(id) ? 'on' : ''} aria-current={ativa(id) ? 'page' : undefined} onClick={() => setAba(id)}><Icon size={22} />{id === 'hoje' && gestacao ? 'Gestação' : label}</button>
           ))}
         </nav>
       </div>
@@ -407,6 +419,7 @@ export default function App() {
       {central && <CentralSheet onClose={() => setCentral(false)} onConfig={ctx.abrirConfigNotif} />}
       {configNotif && <ConfigNotificacoes onClose={() => setConfigNotif(false)} />}
       {relatorio && <RelatorioSheet onClose={() => setRelatorio(false)} />}
+      {momentoAberto && <MomentoSheet tipo={momentoAberto} onClose={() => setMomentoAberto(null)} />}
       {msg && <div className="toast" role="status">{msg.texto}{msg.acao && <button className="toast-acao" onClick={msg.acao.fn}>{msg.acao.label}</button>}</div>}
     </AppCtx.Provider>
   );

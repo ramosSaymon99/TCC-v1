@@ -13,9 +13,10 @@ type Periodo = 'dia' | 'semana' | 'mes';
 const N: Record<Periodo, number> = { dia: 1, semana: 7, mes: 30 };
 
 export function Indicadores() {
-  const { data, agora, nome, user, abrirRelatorio } = useApp();
+  const { data, agora, nome, user, abrirRelatorio, abrirRegistro, podeEditar } = useApp();
   const { baby } = data;
   const hoje = startOfDay(agora);
+  const diasComRegistro = new Set(data.events.filter((e) => t(e.start_at) >= addDays(hoje, -14)).map((e) => new Date(t(e.start_at)).toDateString())).size;
   const [per, setPer] = useState<Periodo>('semana');
   const [fim, setFim] = useState(hoje);
   const [quem, setQuem] = useState<string>('todos');
@@ -76,7 +77,7 @@ export function Indicadores() {
     <div className="page">
       <div className="between" style={{ flexWrap: 'wrap' }}>
         <div>
-          <h1>Indicadores</h1>
+          <h1>Evolução</h1>
           <p className="faint">{titulo} · comparado com {compara}</p>
         </div>
         <div className="row">
@@ -102,14 +103,23 @@ export function Indicadores() {
 
       {quem !== 'todos' && <div className="chip info" style={{ alignSelf: 'flex-start' }}>Mostrando apenas o que {nome(quem)} registrou</div>}
 
+      {diasComRegistro < 2 ? (
+        <div className="card">
+          <Empty emoji="🌱">
+            <b>A evolução aparece com 2 dias de registros.</b><br />
+            {diasComRegistro === 0 ? 'Ainda não há registros nas últimas 2 semanas.' : 'Falta pouco: continue registrando hoje e amanhã.'} Depois, aqui você vê sono, mamadas e fraldas por dia, semana e mês, comparados com o período anterior e com a referência da idade.
+            {podeEditar && <><br /><button className="btn sm primary" style={{ marginTop: 10 }} onClick={() => abrirRegistro('mamada')}>Registrar agora</button></>}
+          </Empty>
+        </div>
+      ) : (<>
       <div className="grid g4">
-        <Kpi lab="😴 Sono total" val={duracao(atual.sleepMin)} suf={sufixo} a={atual.sleepMin} b={ant.sleepMin} faixa={per !== 'dia' || fim !== hoje ? [ref.sonoH[0] * 60, ref.sonoH[1] * 60] : undefined} max={ref.sonoH[1] * 60 * 1.3} sub={`ref. ${ref.sonoH[0]}–${ref.sonoH[1]} h`} />
+        <Kpi lab="😴 Sono total" val={duracao(atual.sleepMin)} suf={sufixo} a={atual.sleepMin} b={ant.sleepMin} faixa={per !== 'dia' || fim !== hoje ? [ref.sonoH[0] * 60, ref.sonoH[1] * 60] : undefined} max={ref.sonoH[1] * 60 * 1.3} sub={`esperado: ${ref.sonoH[0]}–${ref.sonoH[1]} h`} />
         <Kpi lab="🌙 Sono noturno" val={duracao(atual.nightSleepMin)} suf={sufixo} a={atual.nightSleepMin} b={ant.nightSleepMin} sub={`maior bloco ${duracao(atual.longestSleepMin)}`} />
         <Kpi lab="☀️ Sonecas" val={atual.naps.toFixed(per === 'dia' ? 0 : 1)} suf={sufixo} a={atual.naps} b={ant.naps} neutro sub={`${duracao(atual.daySleepMin)} de sono diurno`} />
-        <Kpi lab="🍼 Mamadas" val={atual.feeds.toFixed(per === 'dia' ? 0 : 1)} suf={sufixo} a={atual.feeds} b={ant.feeds} faixa={ref.mamadas && (per !== 'dia' || fim !== hoje) ? ref.mamadas : undefined} max={ref.mamadas ? ref.mamadas[1] * 1.4 : undefined} sub={ref.mamadas ? `ref. ${ref.mamadas[0]}–${ref.mamadas[1]}` : `${atual.breastFeeds.toFixed(0)} no peito`} />
+        <Kpi lab="🍼 Mamadas" val={atual.feeds.toFixed(per === 'dia' ? 0 : 1)} suf={sufixo} a={atual.feeds} b={ant.feeds} faixa={ref.mamadas && (per !== 'dia' || fim !== hoje) ? ref.mamadas : undefined} max={ref.mamadas ? ref.mamadas[1] * 1.4 : undefined} sub={ref.mamadas ? `esperado: ${ref.mamadas[0]}–${ref.mamadas[1]}` : `${atual.breastFeeds.toFixed(0)} no peito`} />
         <Kpi lab="⏱️ Intervalo médio" val={atual.avgFeedIntervalMin ? duracao(atual.avgFeedIntervalMin) : '—'} a={atual.avgFeedIntervalMin ?? 0} b={ant.avgFeedIntervalMin ?? 0} neutro sub="entre mamadas" />
         <Kpi lab="🥛 Mamadeira" val={`${Math.round(atual.bottleMl)} ml`} suf={sufixo} a={atual.bottleMl} b={ant.bottleMl} neutro sub={`${duracao(atual.breastMin)} no peito${sufixo}`} />
-        <Kpi lab="💧 Fraldas de xixi" val={atual.wet.toFixed(per === 'dia' ? 0 : 1)} suf={sufixo} a={atual.wet} b={ant.wet} faixa={ref.fraldasMolhadas && (per !== 'dia' || fim !== hoje) ? [ref.fraldasMolhadas, ref.fraldasMolhadas * 1.7] : undefined} max={ref.fraldasMolhadas ? ref.fraldasMolhadas * 2 : undefined} sub={ref.fraldasMolhadas ? `ref. ≥ ${ref.fraldasMolhadas}/dia` : `${atual.diapers.toFixed(0)} trocas`} />
+        <Kpi lab="💧 Fraldas de xixi" val={atual.wet.toFixed(per === 'dia' ? 0 : 1)} suf={sufixo} a={atual.wet} b={ant.wet} faixa={ref.fraldasMolhadas && (per !== 'dia' || fim !== hoje) ? [ref.fraldasMolhadas, ref.fraldasMolhadas * 1.7] : undefined} max={ref.fraldasMolhadas ? ref.fraldasMolhadas * 2 : undefined} sub={ref.fraldasMolhadas ? `esperado: ≥ ${ref.fraldasMolhadas}/dia` : `${atual.diapers.toFixed(0)} trocas`} />
         <Kpi lab="💩 Cocôs" val={atual.poop.toFixed(per === 'dia' ? 0 : 1)} suf={sufixo} a={atual.poop} b={ant.poop} neutro sub={`${atual.diapers.toFixed(per === 'dia' ? 0 : 1)} trocas${sufixo}`} />
       </div>
 
@@ -187,6 +197,7 @@ export function Indicadores() {
 
       <Padrao fim={fim} dias={per === 'mes' ? 30 : 7} />
       {per === 'dia' && <Cuidadores dias={r.atualDias} />}
+      </>)}
     </div>
   );
 }

@@ -101,7 +101,7 @@ export function Auth({ onOk, onDemo }: { onOk: (babyId?: string, aviso?: string)
           </div>
         )}
 
-        {tela === 'esqueci' && <p className="muted" style={{ marginBottom: 12 }}>{emailOn === false ? 'Peça a um administrador do bebê (ex.: mãe ou pai) um código de redefinição: Família → toque no seu nome → "Gerar código de senha".' : 'Informe o e-mail da conta. Vamos enviar um link para criar uma nova senha.'}</p>}
+        {tela === 'esqueci' && <p className="muted" style={{ marginBottom: 12 }}>{emailOn === false ? 'Peça a um administrador do bebê (ex.: mãe ou pai) um código de redefinição: Casa → Família e ajustes → toque no seu nome → "Gerar código de senha".' : 'Informe o e-mail da conta. Vamos enviar um link para criar uma nova senha.'}</p>}
         {tela === 'codigo' && <p className="muted" style={{ marginBottom: 12 }}>Para quem <b>esqueceu a senha</b>: use o código de 8 caracteres que um administrador do bebê gerou para você (vale 30 minutos). Recebeu um <b>convite para a família</b>? Volte e use "Criar conta".</p>}
 
         <form className="stack" style={{ gap: 12 }} onSubmit={enviar}>

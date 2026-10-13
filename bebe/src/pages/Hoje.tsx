@@ -17,6 +17,7 @@ import { sugerirRotina } from '../lib/rotina';
 import { idCheck } from '../lib/conteudo';
 import { SugestaoRotinaSheet } from './Familia';
 import { Sheet } from '../components/ui';
+import { Ajuda, DicaUnica, PrimeirosPassos, Secao } from '../components/Guia';
 import type { ItemRotina } from '../lib/metrics';
 
 const RAPIDOS: EventType[] = ['mamada', 'mamadeira', 'sono', 'fralda', 'remedio', 'saude', 'banho', 'alimentacao'];
@@ -63,6 +64,8 @@ export function Hoje() {
   }, [events, agora, hoje, baby.routine]);
 
   const rotina = aderencia(events, baby.routine, hoje, agora, data.checks);
+  const mobile = typeof window !== 'undefined' && window.innerWidth < 900;
+  const semHistorico = !events.some((e) => t(e.start_at) >= addDays(hoje, -7));
   const [itemRotina, setItemRotina] = useState<ItemRotina | null>(null);
   const [verSugestao, setVerSugestao] = useState(false);
   const sugestao = useMemo(() => sugerirRotina(events, baby.routine, baby.birth_date, agora), [events, baby.routine, baby.birth_date, agora]);
@@ -159,6 +162,13 @@ export function Hoje() {
       </div>
 
       {(soneca || mamadaPrev || listaDoses.length > 0) && (
+        <div className="stack" style={{ gap: 6 }}>
+        <div className="row titulo-bloco"><h3>O que vem agora</h3><Ajuda titulo="Como o Ninho prevê?">
+          <p><b>Próxima soneca:</b> o tempo que o bebê aguenta acordado muda com a idade. O Ninho começa pela faixa da idade e, com 4 sonecas registradas na semana, passa a usar o ritmo do seu bebê.</p>
+          <p><b>Próxima mamada:</b> média do intervalo entre as mamadas das últimas 24 h.</p>
+          <p><b>Remédios:</b> se você informar o intervalo da receita, o app mostra quando a próxima dose fica liberada e avisa se alguém tentar dar antes.</p>
+        </Ajuda></div>
+        <DicaUnica id="previsoes">Quando a janela de sono abrir, o card fica destacado. É um bom momento para começar o ritual de sono.</DicaUnica>
         <div className="prev-grid">
           {soneca && (
             <div className={`prev ${agora >= soneca.ini ? 'agora' : ''}`}>
@@ -182,6 +192,7 @@ export function Hoje() {
             </div>
           ))}
         </div>
+        </div>
       )}
 
       {podeEditar && (
@@ -193,6 +204,7 @@ export function Hoje() {
           ))}
         </div>
       )}
+      {podeEditar && repetir.length > 0 && <DicaUnica id="repetir">Os atalhos com ↻ repetem o último registro igual (ex.: mesma fralda) com um toque. A mamada já sugere o outro peito.</DicaUnica>}
       {podeEditar && (
         <div className="wrap-row repetir">
           {repetir.map((r) => (
@@ -204,6 +216,8 @@ export function Hoje() {
           <button className="chip" onClick={() => abrirRegistro('outro')}>{TIPOS.outro.emoji} Outro</button>
         </div>
       )}
+
+      <PrimeirosPassos />
 
       {noiteRes && (
         <div className="card noite-card">
@@ -219,26 +233,32 @@ export function Hoje() {
       )}
 
       <div className="card hide-desk">
-        <div className="card-h"><h2>Onde agir agora</h2><span className="faint">{lista.length} ponto(s)</span></div>
+        <div className="card-h"><h2>Onde agir agora</h2><div className="row" style={{ gap: 4 }}><span className="faint">{lista.length} ponto(s)</span><AjudaOndeAgir /></div></div>
         <InsightList itens={lista.slice(0, 3)} vazio="Tudo dentro do esperado por aqui. 💛" />
-        {lista.length > 3 && <p className="faint" style={{ marginTop: 8 }}>+{lista.length - 3} ponto(s) em Indicadores, Mural e Saúde.</p>}
+        {lista.length > 3 && <p className="faint" style={{ marginTop: 8 }}>+{lista.length - 3} ponto(s) em Evolução, Casa e Saúde.</p>}
       </div>
 
       <div className="grid lg3">
         <div className="stack" style={{ gap: 16 }}>
-          <div className="card">
-            <div className="card-h"><h2>Hoje até agora</h2><span className="faint">× média 7 dias no mesmo horário</span></div>
-            <div className="grid g4">
-              <Mini rot="Sono" val={duracao(hj.sleepMin)} base={base.sleepMin} atual={hj.sleepMin} sub={`${hj.naps} soneca(s)`} />
-              <Mini rot="Mamadas" val={String(hj.feeds)} base={base.feeds} atual={hj.feeds} sub={hj.bottleMl ? `${hj.bottleMl} ml na mamadeira` : `${duracao(hj.breastMin)} no peito`} />
-              <Mini rot="Xixi" val={String(hj.wet)} base={base.wet} atual={hj.wet} sub={`${hj.diapers} fralda(s)`} />
-              <Mini rot="Cocô" val={String(hj.poop)} base={base.poop} atual={hj.poop} neutro sub={`média ${base.poop.toFixed(1)}`} />
-            </div>
-          </div>
+          <Secao id="hoje-ate-agora" aberta={!mobile} titulo="Hoje até agora" extra={<Ajuda titulo="Hoje até agora"><p>Soma do dia até este horário. A seta compara com a <b>média dos últimos 7 dias no mesmo horário</b>, para ser uma comparação justa no meio do dia.</p><p>Verde: melhor que o habitual · vermelho: abaixo do habitual · cinza: parecido.</p></Ajuda>}>
+            {semHistorico ? (
+              <Empty emoji="📊">Os números do dia aparecem conforme a família registra. Com alguns dias de registros, o Ninho compara cada dia com a média da semana.</Empty>
+            ) : (
+              <>
+                <p className="faint" style={{ marginBottom: 8 }}>Comparado com a média dos últimos 7 dias, no mesmo horário.</p>
+                <div className="grid g4">
+                  <Mini rot="Sono" val={duracao(hj.sleepMin)} base={base.sleepMin} atual={hj.sleepMin} sub={`${hj.naps} soneca(s)`} />
+                  <Mini rot="Mamadas" val={String(hj.feeds)} base={base.feeds} atual={hj.feeds} sub={hj.bottleMl ? `${hj.bottleMl} ml na mamadeira` : `${duracao(hj.breastMin)} no peito`} />
+                  <Mini rot="Xixi" val={String(hj.wet)} base={base.wet} atual={hj.wet} sub={`${hj.diapers} fralda(s)`} />
+                  <Mini rot="Cocô" val={String(hj.poop)} base={base.poop} atual={hj.poop} neutro sub={`média ${base.poop.toFixed(1)}`} />
+                </div>
+              </>
+            )}
+          </Secao>
 
           <div className="card">
             <div className="card-h">
-              <h2>Rotina planejada</h2>
+              <div className="row" style={{ gap: 4 }}><h2>Rotina planejada</h2><Ajuda titulo="Rotina planejada"><p>Cada horário é comparado com os registros (tolerância de 45 min): <b>verde</b> aconteceu, <b>vermelho</b> passou sem registro, <b>rosa</b> é o próximo.</p><p>Toque num horário para marcar como feito ou pulado. Com alguns dias de registros, o Ninho sugere uma rotina com os horários reais do bebê.</p></Ajuda></div>
               {rotina.pct != null && <span className={`chip ${rotina.pct >= 0.7 ? 'ok' : 'warn'}`}>{rotina.feitos}/{rotina.avaliados} no horário</span>}
             </div>
             {rotina.itens.length ? (
@@ -255,15 +275,12 @@ export function Hoje() {
             {rotina.itens.length > 0 && <p className="faint" style={{ marginTop: 8 }}>Toque num horário para marcar como feito ou pulado. {sugestao && sugestao.mudancas.length > 0 && <button className="linkbtn" onClick={() => setVerSugestao(true)}>✨ A rotina real mudou: ver sugestão</button>}</p>}
           </div>
 
-          <div className="card">
-            <div className="card-h">
-              <h2>Linha do tempo</h2>
+          <Secao id="linha-tempo" aberta={!mobile} titulo={`Linha do tempo · ${doDia.length} registro(s)`} extra={
               <div className="row">
                 <button className="icon-btn" onClick={() => setDiaSel(addDays(diaSel, -1))} aria-label="Dia anterior"><ChevronLeft size={16} /></button>
-                <span style={{ fontWeight: 800, minWidth: 82, textAlign: 'center' }}>{diaSel === hoje ? 'Hoje' : diaSel === hoje - DIA ? 'Ontem' : `${diaSemana(diaSel)} ${dataCurta(diaSel)}`}</span>
+                <span style={{ fontWeight: 800, minWidth: 70, textAlign: 'center' }}>{diaSel === hoje ? 'Hoje' : diaSel === hoje - DIA ? 'Ontem' : `${diaSemana(diaSel)} ${dataCurta(diaSel)}`}</span>
                 <button className="icon-btn" disabled={diaSel >= hoje} onClick={() => setDiaSel(addDays(diaSel, 1))} aria-label="Próximo dia"><ChevronRight size={16} /></button>
-              </div>
-            </div>
+              </div>}>
             {doDia.length ? (
               <div className="tl">
                 {doDia.map((e) => (
@@ -278,22 +295,21 @@ export function Hoje() {
                   </div>
                 ))}
               </div>
-            ) : <Empty emoji="🌙">Nenhum registro neste dia.</Empty>}
-          </div>
+            ) : <Empty emoji="🌙">{diaSel === hoje && podeEditar ? <>Nenhum registro hoje ainda.<br /><button className="btn sm primary" style={{ marginTop: 8 }} onClick={() => abrirRegistro('mamada')}>Registrar agora</button></> : 'Nenhum registro neste dia.'}</Empty>}
+          </Secao>
         </div>
 
         <div className="stack" style={{ gap: 16 }}>
-          <div className="card dica">
-            <div className="card-h"><h2>💡 {dica.titulo}</h2><span className="faint">dica da semana</span></div>
+          <Secao id="dica-semana" className="dica" titulo={`💡 ${dica.titulo}`} aberta>
             <p>{dica.texto}</p>
             <p className="faint" style={{ marginTop: 6 }}>Fonte: {dica.fonte}. Em caso de dúvida, fale com o pediatra.</p>
-          </div>
+          </Secao>
           <div className="card hide-mob">
-            <div className="card-h"><h2>Onde agir agora</h2><span className="faint">{lista.length} ponto(s)</span></div>
+            <div className="card-h"><h2>Onde agir agora</h2><div className="row" style={{ gap: 4 }}><span className="faint">{lista.length} ponto(s)</span><AjudaOndeAgir /></div></div>
             <InsightList itens={lista.slice(0, 5)} vazio="Tudo dentro do esperado por aqui. 💛" />
           </div>
           <div className="card">
-            <div className="card-h"><h2>Recados fixados</h2><button className="btn sm ghost" onClick={() => setAba('mural')}>Ver mural</button></div>
+            <div className="card-h"><h2>Recados fixados</h2><button className="btn sm ghost" onClick={() => setAba('mural')}>Ver recados</button></div>
             {fixados.length ? (
               <div className="stack">
                 {fixados.map((n) => <div key={n.id} className="note"><Pin size={13} style={{ float: 'right', opacity: 0.6 }} />{n.text}<div className="faint" style={{ marginTop: 4, color: 'inherit', opacity: 0.7 }}>{nome(n.user_id)}</div></div>)}
@@ -336,6 +352,15 @@ function ItemRotinaSheet({ item, onClose }: { item: ItemRotina; onClose: () => v
         </div>
       ) : <div className="chip warn">Seu acesso é somente leitura.</div>}
     </Sheet>
+  );
+}
+
+function AjudaOndeAgir() {
+  return (
+    <Ajuda titulo="Onde agir agora">
+      <p>O Ninho lê os registros e aponta o que merece atenção: mamada atrasada, febre, estoque acabando, vacina ou consulta chegando.</p>
+      <p><b>Vermelho</b> é urgente, <b>amarelo</b> pede atenção e <b>azul</b> é informação. Toque em “Ver” para ir direto ao lugar certo.</p>
+    </Ajuda>
   );
 }
 

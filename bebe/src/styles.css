@@ -362,3 +362,30 @@ body.madrugada .hide-noite { display: none; }
 .tab-simples table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .tab-simples th, .tab-simples td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
 .tab-simples th { font-size: 12px; color: var(--ink-3); }
+
+/* ===== Orientação (UX) ===== */
+.bnav button { font-size: 11.5px; }
+.passos { border: 1px solid color-mix(in srgb, var(--brand) 35%, var(--line)); }
+.passos-barra { height: 8px; border-radius: 999px; background: var(--surface-2); overflow: hidden; margin-top: 6px; }
+.passos-barra span { display: block; height: 100%; background: var(--brand); border-radius: 999px; transition: width .3s; }
+.passo { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; font: inherit; }
+.passo:disabled { cursor: default; }
+.passo.feito { opacity: .6; }
+.passo.feito b { text-decoration: line-through; }
+.passo-ic { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand-ink); flex: none; }
+.passo.feito .passo-ic { background: var(--ok-soft); color: var(--ok); }
+.titulo-bloco { gap: 4px; }
+.titulo-bloco h3 { font-size: 14px; font-weight: 900; color: var(--ink-2); text-transform: uppercase; letter-spacing: .04em; }
+.ajuda-btn { border: 0; background: none; color: var(--ink-3); cursor: pointer; padding: 4px; border-radius: 999px; display: inline-grid; place-items: center; min-width: 30px; min-height: 30px; }
+.ajuda-btn:hover { color: var(--brand-ink); background: var(--brand-soft); }
+.ajuda-texto p { margin: 0 0 10px; line-height: 1.5; }
+.dica-unica { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: var(--info-soft); border: 1px solid color-mix(in srgb, var(--info) 30%, transparent); font-size: 14px; line-height: 1.4; }
+.secao-h { cursor: pointer; user-select: none; }
+.secao:not(.aberta) .card-h { margin-bottom: 0; }
+.destaque-suave { background: var(--brand-soft); border-color: transparent; box-shadow: none; }
+.lista-passos { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; line-height: 1.45; }
+.casa-tabs { width: 100%; display: flex; }
+.casa-tabs button { flex: 1; padding: 8px 6px; font-size: 14px; }
+.eu-sou { gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); }
+.resumo-rotina { box-shadow: none; background: var(--surface-2); }
+.delta { white-space: nowrap; }

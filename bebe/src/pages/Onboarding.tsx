@@ -17,6 +17,9 @@ export function Onboarding({ onDone, onCancel, userName }: { onDone: (babyId: st
   const [foto, setFoto] = useState<string | null>(null);
   const [responsavel, setResponsavel] = useState(false);
   const [gestante, setGestante] = useState(false);
+  const [trocarPapel, setTrocarPapel] = useState(false);
+  const [ajustarRotina, setAjustarRotina] = useState(false);
+  const [maisDados, setMaisDados] = useState(false);
   const [code, setCode] = useState('');
   const [erro, setErro] = useState('');
   const [busy, setBusy] = useState(false);
@@ -61,7 +64,9 @@ export function Onboarding({ onDone, onCancel, userName }: { onDone: (babyId: st
         </div>
 
         <div className="stack" style={{ gap: 14 }}>
-          <Field label="Eu sou"><div className="choice">{PAPEIS.map((p) => <button key={p.id} className={f.role === p.id ? 'on' : ''} onClick={() => setF({ ...f, role: p.id })}>{p.emoji} {p.label}</button>)}</div></Field>
+          {(modo === 'codigo' || passo === 1) && (trocarPapel
+            ? <Field label="Eu sou"><div className="choice">{PAPEIS.map((p) => <button key={p.id} className={f.role === p.id ? 'on' : ''} onClick={() => { setF({ ...f, role: p.id }); setTrocarPapel(false); }}>{p.emoji} {p.label}</button>)}</div></Field>
+            : <div className="row eu-sou"><span className="faint">Você é</span><b>{PAPEIS.find((p) => p.id === f.role)?.emoji} {PAPEIS.find((p) => p.id === f.role)?.label}</b><button className="linkbtn" onClick={() => setTrocarPapel(true)}>trocar</button></div>)}
 
           {modo === 'codigo' ? (
             <>
@@ -82,8 +87,9 @@ export function Onboarding({ onDone, onCancel, userName }: { onDone: (babyId: st
                   : <Field label="Data de nascimento" hint={f.birth_date ? idade(f.birth_date).texto : undefined}><input className="input" type="date" value={f.birth_date} max={ymd(Date.now())} onChange={(e) => setF({ ...f, birth_date: e.target.value })} /></Field>}
                 <Field label="Sexo"><Choice value={f.sex} onChange={(v) => setF({ ...f, sex: v })} options={[{ v: 'F', l: 'Menina' }, { v: 'M', l: 'Menino' }]} /></Field>
               </div>
-              {!gestante && <h3 style={{ marginTop: 4 }}>Última consulta</h3>}
-              {!gestante && <div className="grid g3">
+              {!gestante && !maisDados && <button className="linkbtn" style={{ alignSelf: 'flex-start' }} onClick={() => setMaisDados(true)}>+ Peso e altura da última consulta (opcional)</button>}
+              {!gestante && maisDados && <h3 style={{ marginTop: 4 }}>Última consulta</h3>}
+              {!gestante && maisDados && <div className="grid g3">
                 <Field label="Peso (kg)"><input className="input" inputMode="decimal" value={f.peso} onChange={(e) => setF({ ...f, peso: e.target.value })} placeholder="5,3" /></Field>
                 <Field label="Altura (cm)"><input className="input" inputMode="decimal" value={f.altura} onChange={(e) => setF({ ...f, altura: e.target.value })} placeholder="58" /></Field>
                 <Field label="Data"><input className="input" type="date" value={f.consult_date} onChange={(e) => setF({ ...f, consult_date: e.target.value })} /></Field>
@@ -95,8 +101,16 @@ export function Onboarding({ onDone, onCancel, userName }: { onDone: (babyId: st
             <>
               {gestante
                 ? <p className="faint">Na gestação, o Ninho acompanha as semanas, as consultas do pré-natal, a mala da maternidade e o enxoval com a família. Quando {f.name.split(' ')[0]} nascer, é só tocar em “O bebê nasceu”.</p>
-                : <p className="faint">Sugerimos uma rotina para {idade(f.birth_date).texto} — ajuste aos horários reais de {f.name.split(' ')[0]}. Dá para mudar depois.</p>}
-              {rotina && !gestante && <RotinaEditor r={rotina} onChange={setRotina} />}
+                : <p className="faint">Preparamos uma rotina de partida para {idade(f.birth_date).texto}. Você não precisa ajustar agora: com alguns dias de registros, o Ninho sugere os horários reais de {f.name.split(' ')[0]}.</p>}
+              {rotina && !gestante && !ajustarRotina && (
+                <div className="card resumo-rotina">
+                  <div className="row faint" style={{ gap: 12, flexWrap: 'wrap' }}><span>☀️ Acorda {rotina.wake}</span><span>🌙 Dorme {rotina.bedtime}</span></div>
+                  <div className="wrap-row" style={{ marginTop: 8 }}>{rotina.feeds.map((h) => <span key={`f${h}`} className="chip">🍼 {h}</span>)}</div>
+                  <div className="wrap-row" style={{ marginTop: 6 }}>{rotina.naps.map((h) => <span key={`n${h}`} className="chip">😴 {h}</span>)}</div>
+                  <button className="linkbtn" style={{ marginTop: 10 }} onClick={() => setAjustarRotina(true)}>Ajustar horários agora</button>
+                </div>
+              )}
+              {rotina && !gestante && ajustarRotina && <RotinaEditor r={rotina} onChange={setRotina} />}
               <label className="check" style={{ marginTop: 6 }}>
                 <input type="checkbox" checked={responsavel} onChange={(e) => setResponsavel(e.target.checked)} />
                 <span>Sou mãe, pai ou responsável legal por {f.name.split(' ')[0] || 'esta criança'} (ou tenho autorização de um deles) e autorizo o registro dos dados dela no Ninho, compartilhados só com os cuidadores que eu convidar.</span>
@@ -104,7 +118,7 @@ export function Onboarding({ onDone, onCancel, userName }: { onDone: (babyId: st
               {erro && <div className="chip bad" style={{ whiteSpace: 'normal' }}>{erro}</div>}
               <div className="row">
                 <button className="btn" onClick={() => setPasso(1)}>Voltar</button>
-                {!gestante && <button className="btn ghost" onClick={() => criar(true)} disabled={busy || !responsavel}>Pular rotina</button>}
+                {!gestante && <button className="btn ghost" onClick={() => criar(true)} disabled={busy || !responsavel}>Sem rotina</button>}
                 <button className="btn primary grow" onClick={() => criar()} disabled={busy || !responsavel}>{busy ? 'Criando…' : 'Concluir cadastro'}</button>
               </div>
             </>

@@ -40,8 +40,8 @@ export function PoliticaSheet({ onClose }: { onClose: () => void }) {
         <h3>8. Seus direitos</h3>
         <ul>
           <li><b>Acesso e correção:</b> pelo próprio app (perfil, registros e perfil da criança).</li>
-          <li><b>Portabilidade:</b> Família → Dados → <i>Exportar dados (JSON)</i>.</li>
-          <li><b>Exclusão:</b> Família → Meu perfil → <i>Excluir minha conta</i>. Se você for o único cuidador de uma criança, o perfil dela e todo o histórico são apagados; se houver outros cuidadores, o histórico continua com a família e seus dados pessoais são removidos.</li>
+          <li><b>Portabilidade:</b> Casa → Família e ajustes → Dados → <i>Exportar dados (JSON)</i>.</li>
+          <li><b>Exclusão:</b> Casa → Família e ajustes → Meu perfil → <i>Excluir minha conta</i>. Se você for o único cuidador de uma criança, o perfil dela e todo o histórico são apagados; se houver outros cuidadores, o histórico continua com a família e seus dados pessoais são removidos.</li>
           <li><b>Revogar o consentimento</b> a qualquer momento, excluindo a conta ou o perfil da criança.</li>
         </ul>
 

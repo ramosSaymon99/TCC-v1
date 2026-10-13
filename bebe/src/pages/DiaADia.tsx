@@ -10,6 +10,7 @@ import { DIA, dataBr, dataCurta, diaSemana, fromLocalInput, hm, idade, parseYmd,
 import type { Post } from '../types';
 import { Avatar } from '../components/Avatar';
 import { Empty, Field, Sheet } from '../components/ui';
+import { DicaUnica } from '../components/Guia';
 
 /** Dia a dia: fotos do bebê compartilhadas só com a família, com curtidas, marcos e o cartão de mêsversário. */
 export function DiaADia() {
@@ -84,6 +85,8 @@ export function DiaADia() {
           )}
         </div>
       </div>
+
+      <DicaUnica id="diario">As fotos ficam guardadas por dia e só os cuidadores de {primeiro} veem. Toque no ❤️ para curtir e, no mêsversário, gere um cartão para compartilhar.</DicaUnica>
 
       {pertoMesversario && (
         <div className="card mesversario">

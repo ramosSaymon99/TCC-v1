@@ -14,7 +14,8 @@ import { Choice, Field, Sheet } from './ui';
 const COM_TIMER: EventType[] = ['mamada', 'sono'];
 
 export function LogSheet({ tipo, ev, onClose }: { tipo: EventType; ev?: BabyEvent; onClose: () => void }) {
-  const { data, act, podeEditar, nome } = useApp();
+  const { data, act, podeEditar, nome, user } = useApp();
+  const primeiroMeu = !data.events.some((e) => e.user_id === user.id);
   const agora = Date.now();
   const novo = !ev;
   const [modo, setModo] = useState<'timer' | 'manual'>(novo && COM_TIMER.includes(tipo) ? 'timer' : 'manual');
@@ -80,6 +81,8 @@ export function LogSheet({ tipo, ev, onClose }: { tipo: EventType; ev?: BabyEven
     );
     setSalvando(false);
     if (ok) onClose();
+    // Primeiro registro desta pessoa: comemora e oferece notificações (uma vez por bebê)
+    if (ok && !ev && primeiroMeu) momento('registro', `${user.id}-${babyId}`);
   }
   async function excluir() {
     if (!ev) return;
@@ -213,4 +216,11 @@ export function LogSheet({ tipo, ev, onClose }: { tipo: EventType; ev?: BabyEven
       <Field label="Observação"><textarea className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Opcional" /></Field>
     </Sheet>
   );
+}
+
+/** Abre o "momento" (comemoração + pedido de notificação) só uma vez por chave. */
+export function momento(tipo: 'registro' | 'convite', chave: string) {
+  const k = `ninho-momento-${tipo}-${chave}`;
+  try { if (localStorage.getItem(k)) return; localStorage.setItem(k, '1'); } catch { /* sem storage */ }
+  window.dispatchEvent(new CustomEvent('ninho-momento', { detail: tipo }));
 }

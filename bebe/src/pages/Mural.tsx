@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Check, Minus, Pin, PinOff, Plus, ShoppingCart, Trash2 } from 'lucide-react';
 import { useApp } from '../ctx';
+import { CasaTabs, DicaUnica } from '../components/Guia';
 import { api } from '../lib/api';
 import { CATEGORIAS_MURAL, papel } from '../lib/constants';
 import { coberturaDias, statusSupply } from '../lib/metrics';
@@ -37,6 +38,8 @@ export function Mural() {
 
   return (
     <div className="page">
+      <CasaTabs atual="mural" />
+      <DicaUnica id="casa-mural">No Mural a família combina o que falta em casa: marque “Eu compro” num item e todos ficam sabendo. Itens de fralda baixam sozinhos a cada troca registrada.</DicaUnica>
       <div className="between" style={{ flexWrap: 'wrap' }}>
         <div>
           <h1>Mural</h1>

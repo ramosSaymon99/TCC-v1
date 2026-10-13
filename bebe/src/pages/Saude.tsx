@@ -48,7 +48,7 @@ export function Saude() {
 
       {!gestacao && <div className="grid g4">
         <div className="card kpi"><div className="lab">⚖️ Peso atual</div><div className="val">{ult ? `${(ult.weight_g! / 1000).toFixed(2).replace('.', ',')} kg` : '—'}</div><div className="sub">{ult ? `em ${dataBr(ult.date)}` : 'sem registro'}</div></div>
-        <div className="card kpi"><div className="lab">📈 Ganho de peso</div><div className="val">{ganho != null ? `${Math.round(ganho)} g/dia` : '—'}</div><div className="sub">{ref.ganhoGDia ? `ref. ${ref.ganhoGDia[0]}–${ref.ganhoGDia[1]} g/dia` : 'entre as últimas pesagens'}</div></div>
+        <div className="card kpi"><div className="lab">📈 Ganho de peso</div><div className="val">{ganho != null ? `${Math.round(ganho)} g/dia` : '—'}</div><div className="sub">{ref.ganhoGDia ? `esperado: ${ref.ganhoGDia[0]}–${ref.ganhoGDia[1]} g/dia` : 'entre as últimas pesagens'}</div></div>
         <div className="card kpi"><div className="lab">🩺 Próxima consulta</div><div className="val" style={{ fontSize: 20 }}>{proximas[0] ? new Date(proximas[0].date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—'}</div><div className="sub">{proximas[0]?.title ?? 'nenhuma agendada'}</div></div>
         <div className="card kpi"><div className="lab">💉 Vacinas</div><div className="val">{aplicadas.size}</div><div className="sub" style={{ color: atrasadas ? 'var(--warn)' : undefined }}>{atrasadas ? `${atrasadas} sem registro p/ idade` : 'em dia pelos registros'}</div></div>
       </div>}

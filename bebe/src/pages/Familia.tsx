@@ -3,6 +3,8 @@ import { Bell, Camera, Copy, Database, Download, KeyRound, LogOut, Pencil, Plus,
 import { Avatar, PhotoPicker } from '../components/Avatar';
 import { PoliticaSheet } from '../components/Privacidade';
 import { useApp } from '../ctx';
+import { CasaTabs, DicaUnica } from '../components/Guia';
+import { momento } from '../components/LogSheet';
 import { api, localCriarUsuarioDemo } from '../lib/api';
 import { ACESSOS, CORES_BEBE, PAPEIS, papel } from '../lib/constants';
 import { carregarExemplo } from '../lib/seed';
@@ -50,6 +52,8 @@ export function Familia() {
 
   return (
     <div className="page">
+      <CasaTabs atual="familia" />
+      <DicaUnica id="casa-familia">Aqui ficam os cuidadores e convites, a rotina planejada, o plantão da noite, as notificações e a sua conta. Materiais, compras e recados estão em <b>🧺 Mural</b>.</DicaUnica>
       <div><h1>Família</h1><p className="faint">O bebê é o centro: cada cuidador se vincula a ele com um papel e um nível de acesso</p></div>
 
       <div className="card">
@@ -288,7 +292,7 @@ function ConviteSheet({ onClose }: { onClose: () => void }) {
   const [nomeDemo, setNomeDemo] = useState('');
   const texto = cod ? `Oi! Você foi convidado(a) para acompanhar a rotina de ${data.baby.name.split(' ')[0]} no app Ninho 👶\n\nToque no link para entrar (o convite já vem preenchido): ${location.origin}${location.pathname}?convite=${cod.code}\n\nSe pedir, o código de convite é ${cod.code} (vale 7 dias). Crie sua conta com seu e-mail e senha.` : '';
   async function gerar() {
-    await act(async () => setCod(await api.invite(data.baby.id, role, access)));
+    if (await act(async () => setCod(await api.invite(data.baby.id, role, access)))) momento('convite', data.baby.id);
   }
   return (
     <Sheet title="Convidar cuidador" onClose={onClose}>

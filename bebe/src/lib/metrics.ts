@@ -280,15 +280,17 @@ export function insights(d: BabyData, agora = Date.now()): Insight[] {
 
   // Rotina planejada
   if (r && (r.feeds?.length || r.naps?.length)) {
-    const ad = [1, 2, 3, 4, 5, 6, 7].map((i) => aderencia(events, r, addDays(hoje, -i), agora, d.checks ?? []));
+    // Só dias em que a família usou o app (sem registros = não usava ainda, não "descumpriu" a rotina)
+    const usados = [1, 2, 3, 4, 5, 6, 7].map((i) => addDays(hoje, -i)).filter((dia) => events.some((e) => t(e.start_at) >= dia && t(e.start_at) < addDays(dia, 1)));
+    const ad = usados.map((dia) => aderencia(events, r, dia, agora, d.checks ?? []));
     const av = ad.reduce((a, b) => a + b.avaliados, 0);
     const ok = ad.reduce((a, b) => a + b.feitos, 0);
     if (av >= 10) {
       const pct = ok / av;
       out.push({
-        nivel: pct >= 0.7 ? 'positivo' : 'info', titulo: `Rotina cumprida em ${Math.round(pct * 100)}% (7 dias)`,
-        detalhe: `${ok} de ${av} horários planejados aconteceram com tolerância de 45 min.`,
-        acao: pct < 0.7 ? 'Se a rotina real mudou, veja a rotina sugerida pelos registros (Família → Rotina planejada → ✨ Sugerir) ou marque manualmente o que foi feito.' : undefined, aba: 'familia',
+        nivel: pct >= 0.7 ? 'positivo' : 'info', titulo: `Rotina cumprida em ${Math.round(pct * 100)}% (${usados.length} dia${usados.length > 1 ? 's' : ''})`,
+        detalhe: `${ok} de ${av} horários planejados aconteceram (tolerância de 45 min).`,
+        acao: pct < 0.7 ? 'Se a rotina real mudou, veja a rotina sugerida pelos registros (Casa → Família e ajustes → Rotina planejada → ✨ Sugerir) ou marque manualmente o que foi feito.' : undefined, aba: 'familia',
       });
     }
   }
@@ -366,7 +368,9 @@ export function insights(d: BabyData, agora = Date.now()): Insight[] {
   if (id.dias < 120) {
     const feitos = new Set((d.checks ?? []).filter((c) => c.kind === 'teste').map((c) => c.code));
     const pend = TESTES_RN.filter((x) => !feitos.has(x.code) && id.dias > x.dias + 3);
-    if (pend.length) out.push({ nivel: 'atencao', titulo: `${pend.length} teste(s) do recém-nascido sem registro`, detalhe: `${pend.map((x) => x.nome.split(' (')[0]).join(', ')}.`, acao: 'Se já foram feitos, registre o resultado em Saúde → Testes RN; se não, procure a unidade de saúde.', aba: 'saude' });
+    // Convite, não cobrança: aparece depois que a família já começou a usar o app
+    const usaHaDias = events.filter((e) => t(e.start_at) < hoje).length >= 5;
+    if (pend.length && usaHaDias) out.push({ nivel: 'info', titulo: 'Já fez os testes do recém-nascido?', detalhe: `Registre o resultado de: ${pend.map((x) => x.nome.split(' (')[0].replace('Teste do ', '').replace('Teste da ', '')).join(', ')}. Assim tudo fica no relatório do pediatra.`, acao: 'Abra Saúde → Testes RN. Se algum não foi feito, procure a unidade de saúde.', aba: 'saude' });
   }
 
   // Marcos para comentar com o pediatra (só se a família já usa os marcos)
