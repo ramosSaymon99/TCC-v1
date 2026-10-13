@@ -10,7 +10,7 @@ import { MODULOS } from '../store/seed';
 const PERFIS: Perfil[] = ['Proprietário', 'Operador', 'Financeiro', 'Técnico'];
 
 export default function Usuarios() {
-  const { db, user, upsert, remove, setPermissoes, changePassword, modo, toast } = useStore();
+  const { db, user, upsert, remove, setPermissoes, changePassword, modo, toast, assinatura } = useStore();
   const [perfil, setPerfil] = useState<Perfil>('Operador');
   const [perms, setPerms] = useState<Modulo[]>(db.permissoes['Operador']);
   const [editing, setEditing] = useState<Usuario | null>(null);
@@ -19,10 +19,12 @@ export default function Usuarios() {
   const trocarPerfil = (p: Perfil) => { setPerfil(p); setPerms(db.permissoes[p]); };
   const toggle = (m: Modulo) => setPerms((xs) => (xs.includes(m) ? xs.filter((x) => x !== m) : [...xs, m]));
   const donos = db.usuarios.filter((u) => u.perfil === 'Proprietário' && u.status === 'Ativo');
+  const ativos = db.usuarios.filter((u) => u.status === 'Ativo').length;
+  const limite = assinatura && !assinatura.principal ? assinatura.maxUsuarios : null;
 
   return (
     <>
-      <PageHeader title="Usuários e Permissões" subtitle="Controle quem pode acessar o sistema e o que cada um pode fazer.">
+      <PageHeader title="Usuários e Permissões" subtitle={`Controle quem pode acessar o sistema e o que cada um pode fazer.${limite ? ` Plano ${assinatura?.plano}: ${ativos} de ${limite} usuário(s) ativo(s).` : ''}`}>
         <button className="btn btn-primary" onClick={() => setEditing({ id: uid(), nome: '', email: '', perfil: 'Operador', status: 'Ativo', ultimoAcesso: '' })}><Plus size={16} /> Novo usuário</button>
       </PageHeader>
 
@@ -80,6 +82,8 @@ export default function Usuarios() {
         const eraDono = db.usuarios.find((x) => x.id === u.id)?.perfil === 'Proprietário';
         if (eraDono && (u.perfil !== 'Proprietário' || u.status !== 'Ativo') && donos.length <= 1) return toast('É preciso manter ao menos um proprietário ativo.', 'error');
         const novo = !db.usuarios.some((x) => x.id === u.id);
+        const ativando = u.status === 'Ativo' && db.usuarios.find((x) => x.id === u.id)?.status !== 'Ativo';
+        if (limite && ativando && ativos + 1 > limite) return toast(`Seu plano ${assinatura?.plano} permite ${limite} usuário(s) ativo(s). Fale com o comercial Pivot Hub para ampliar.`, 'error');
         upsert('usuarios', u);
         setEditing(null);
         if (senha) {

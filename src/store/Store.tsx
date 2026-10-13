@@ -1,10 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { Database, Empresa, Modulo, Perfil, Usuario } from '../types';
+import type { Assinatura, Database, Empresa, Modulo, Perfil, Usuario } from '../types';
 import { createSeed, migrar } from './seed';
-
-const DB_KEY = 'techgest:db:v1';
-const SESSION_KEY = 'techgest:session:v1';
-const TOKEN_KEY = 'techgest:token:v1';
+import { assinaturaDe, bloqueio, TENANT_PRINCIPAL } from './plataforma';
+import { ls, loadPlataformaLocal, loadTenantLocal, saveTenantLocal, SESSION_KEY, TENANT_KEY, TOKEN_KEY } from './local';
 
 type Collection = Exclude<keyof Database, 'permissoes' | 'empresa'>;
 type Item<K extends Collection> = Database[K][number];
@@ -21,6 +19,11 @@ interface StoreValue {
   db: Database;
   user: Usuario | null;
   modo: Modo;
+  /** Empresa (base) logada e o que o plano dela libera. */
+  tenant: string;
+  assinatura: Assinatura | null;
+  /** Proprietário da empresa principal: acessa o console da plataforma SaaS. */
+  adminPlataforma: boolean;
   login: (email: string, senha: string) => Promise<string | null>;
   logout: () => void;
   upsert: <K extends Collection>(col: K, item: Item<K>) => void;
@@ -30,44 +33,37 @@ interface StoreValue {
   replaceDb: (db: Database) => Promise<string | null>;
   resetDemo: () => Promise<string | null>;
   changePassword: (nova: string, atual?: string, userId?: string) => Promise<string | null>;
+  /** Perfil do usuário E plano da empresa permitem o módulo. */
   can: (m: Modulo) => boolean;
+  /** O plano da empresa inclui o módulo (independente do perfil). */
+  liberado: (m: Modulo) => boolean;
   toast: (text: string, kind?: Toast['kind']) => void;
   toasts: Toast[];
 }
 
 const Ctx = createContext<StoreValue | null>(null);
 
-const ls = {
-  get: (k: string) => { try { return localStorage.getItem(k); } catch { return null; } },
-  set: (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* ignore */ } },
-  del: (k: string) => { try { localStorage.removeItem(k); } catch { /* ignore */ } },
-};
-
-function loadLocal(): Database {
-  const raw = ls.get(DB_KEY);
-  if (raw) {
-    try {
-      const db = JSON.parse(raw) as Database;
-      return migrar(db) ?? db;
-    } catch { /* base corrompida: usa demonstração */ }
-  }
-  return createSeed();
-}
-
-async function call<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
+export async function call<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
   const token = ls.get(TOKEN_KEY);
   const res = await fetch(`/api${path}`, {
     ...init,
     headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}), ...init.headers },
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error((data as { error?: string }).error || `Erro ${res.status}`), { status: res.status });
+  if (!res.ok) {
+    const d = data as { error?: string; bloqueado?: boolean };
+    throw Object.assign(new Error(d.error || `Erro ${res.status}`), { status: res.status, bloqueado: !!d.bloqueado });
+  }
   return data as T;
 }
 
+const tenantInicial = () => ls.get(TENANT_KEY) || TENANT_PRINCIPAL;
+
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [modo, setModo] = useState<Modo>('checking');
-  const [db, setDb] = useState<Database>(() => (location.protocol.startsWith('http') ? createSeed() : loadLocal()));
+  const [tenant, setTenant] = useState<string>(tenantInicial);
+  const [db, setDb] = useState<Database>(() => (location.protocol.startsWith('http') ? createSeed() : loadTenantLocal(tenantInicial()) ?? createSeed()));
+  const [assinatura, setAssinatura] = useState<Assinatura | null>(null);
   const [userId, setUserId] = useState<string | null>(() => ls.get(SESSION_KEY));
   const [toasts, setToasts] = useState<Toast[]>([]);
   const modoRef = useRef<Modo>('checking');
@@ -81,29 +77,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const sair = useCallback(() => {
     setUserId(null);
-    ls.del(SESSION_KEY); ls.del(TOKEN_KEY);
+    ls.del(SESSION_KEY); ls.del(TOKEN_KEY); ls.del(TENANT_KEY);
+    setTenant(TENANT_PRINCIPAL);
+    setAssinatura(null);
+    // volta para a base principal (a tela de login lista os usuários de demonstração dela)
+    setDb(modoRef.current === 'local' ? loadTenantLocal(TENANT_PRINCIPAL)! : createSeed());
   }, []);
 
   const recarregar = useCallback(async () => {
     try {
-      const remoto = await call<Database>('/db');
-      const migrado = migrar(remoto);
-      setDb(migrado ?? remoto);
+      const { _assinatura, ...remoto } = await call<Database & { _assinatura?: Assinatura }>('/db');
+      const migrado = migrar(remoto as Database);
+      setDb(migrado ?? (remoto as Database));
+      setAssinatura(_assinatura ?? null);
       // Base criada antes dos módulos novos: o proprietário grava a versão completada no banco
       if (migrado) await call('/reset', { method: 'POST', body: JSON.stringify({ db: migrado }) }).catch(() => undefined);
     } catch (e) {
-      if ((e as { status?: number }).status === 401) sair();
+      const err = e as Error & { status?: number; bloqueado?: boolean };
+      if (err.status === 401 || err.bloqueado) { if (err.bloqueado) toast(err.message, 'error'); sair(); }
       else throw e;
     }
-  }, [sair]);
+  }, [sair, toast]);
 
   // Detecta se existe a API do Worker; na primeira execução, popula o banco com os dados de demonstração.
   useEffect(() => {
     (async () => {
-      if (!location.protocol.startsWith('http')) { setModo('local'); return; }
+      const local = () => {
+        const t = tenantInicial();
+        setDb(loadTenantLocal(t) ?? createSeed());
+        setAssinatura(assinaturaDe(t, loadPlataformaLocal()));
+        setModo('local');
+      };
+      if (!location.protocol.startsWith('http')) { local(); return; }
       let status: { ok?: boolean; initialized?: boolean };
-      try { status = await call('/status'); } catch { setDb(loadLocal()); setModo('local'); return; }
-      if (!status.ok) { setDb(loadLocal()); setModo('local'); return; }
+      try { status = await call('/status'); } catch { local(); return; }
+      if (!status.ok) { local(); return; }
       if (!status.initialized) {
         try { await call('/bootstrap', { method: 'POST', body: JSON.stringify({ db: createSeed() }) }); } catch { /* outro acesso já inicializou */ }
       }
@@ -113,40 +121,57 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [recarregar, toast]);
 
   useEffect(() => {
-    if (modo === 'local') ls.set(DB_KEY, JSON.stringify(db));
-  }, [db, modo]);
+    if (modo === 'local') saveTenantLocal(tenant, db);
+  }, [db, modo, tenant]);
 
   /** Aplica a mudança na tela na hora e sincroniza com o servidor; se falhar, recarrega do banco. */
   const sync = useCallback((path: string, init: RequestInit) => {
     if (modoRef.current !== 'remote') return;
-    call(path, init).catch((e: Error & { status?: number }) => {
+    call(path, init).catch((e: Error & { status?: number; bloqueado?: boolean }) => {
       toast(e.message || 'Falha ao salvar no servidor.', 'error');
-      if (e.status === 401) sair(); else recarregar().catch(() => undefined);
+      if (e.status === 401 || e.bloqueado) sair(); else recarregar().catch(() => undefined);
     });
   }, [toast, sair, recarregar]);
 
   const user = db.usuarios.find((u) => u.id === userId) ?? null;
+  const liberado = useCallback((m: Modulo) => !assinatura || assinatura.modulos.includes(m), [assinatura]);
 
   const value = useMemo<StoreValue>(() => ({
-    db, user, modo, toasts, toast,
+    db, user, modo, toasts, toast, tenant, assinatura, liberado,
+    adminPlataforma: tenant === TENANT_PRINCIPAL && user?.perfil === 'Proprietário',
     login: async (email, senha) => {
       if (modo === 'remote') {
         try {
-          const r = await call<{ token: string; userId: string }>('/login', { method: 'POST', body: JSON.stringify({ email, senha }) });
-          ls.set(TOKEN_KEY, r.token); ls.set(SESSION_KEY, r.userId);
+          const r = await call<{ token: string; userId: string; tenant: string }>('/login', { method: 'POST', body: JSON.stringify({ email, senha }) });
+          ls.set(TOKEN_KEY, r.token); ls.set(SESSION_KEY, r.userId); ls.set(TENANT_KEY, r.tenant);
+          setTenant(r.tenant);
           await recarregar();
           setUserId(r.userId);
           return null;
         } catch (e) { return (e as Error).message; }
       }
-      const u = db.usuarios.find((x) => x.email.toLowerCase() === email.trim().toLowerCase());
-      if (!u) return 'Usuário não encontrado.';
-      if (u.status !== 'Ativo') return 'Usuário inativo. Fale com o administrador.';
-      if (senha !== '123456') return 'Senha incorreta.';
-      setUserId(u.id);
-      ls.set(SESSION_KEY, u.id);
-      setDb((cur) => ({ ...cur, usuarios: cur.usuarios.map((x) => (x.id === u.id ? { ...x, ultimoAcesso: new Date().toISOString() } : x)) }));
-      return null;
+      // Modo local: procura o e-mail na base principal e nas empresas criadas neste navegador
+      const plataforma = loadPlataformaLocal();
+      const alvo = email.trim().toLowerCase();
+      const candidatos = [TENANT_PRINCIPAL, ...plataforma.assinantes.filter((a) => a.provisionado).map((a) => a.id)];
+      for (const t of candidatos) {
+        const base = t === tenant ? db : loadTenantLocal(t);
+        const u = base?.usuarios.find((x) => x.email.toLowerCase() === alvo);
+        if (!base || !u) continue;
+        if (u.status !== 'Ativo') return 'Usuário inativo. Fale com o administrador.';
+        if (senha !== '123456') return 'Senha incorreta.';
+        if (t !== TENANT_PRINCIPAL) {
+          const motivo = bloqueio(plataforma.assinantes.find((a) => a.id === t));
+          if (motivo) return motivo;
+        }
+        setTenant(t); ls.set(TENANT_KEY, t);
+        setAssinatura(assinaturaDe(t, plataforma));
+        setDb({ ...base, usuarios: base.usuarios.map((x) => (x.id === u.id ? { ...x, ultimoAcesso: new Date().toISOString() } : x)) });
+        setUserId(u.id);
+        ls.set(SESSION_KEY, u.id);
+        return null;
+      }
+      return 'Usuário não encontrado.';
     },
     logout: sair,
     upsert: (col, item) => {
@@ -179,11 +204,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return null;
     },
     resetDemo: async () => {
+      // Empresas assinantes recebem os dados de exemplo mantendo os próprios usuários e cadastro
       const seed = createSeed();
+      const novo = tenant === TENANT_PRINCIPAL ? seed : { ...seed, usuarios: db.usuarios, permissoes: db.permissoes, empresa: { ...db.empresa, versaoDados: seed.empresa.versaoDados } };
       if (modo === 'remote') {
-        try { await call('/reset', { method: 'POST', body: JSON.stringify({ db: seed }) }); await recarregar(); }
+        try { await call('/reset', { method: 'POST', body: JSON.stringify({ db: novo }) }); await recarregar(); }
         catch (e) { return (e as Error).message; }
-      } else setDb(seed);
+      } else setDb(novo);
       return null;
     },
     changePassword: async (nova, atual, alvo) => {
@@ -191,8 +218,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       try { await call('/password', { method: 'POST', body: JSON.stringify({ nova, atual, userId: alvo }) }); return null; }
       catch (e) { return (e as Error).message; }
     },
-    can: (m) => !!user && (user.perfil === 'Proprietário' || db.permissoes[user.perfil]?.includes(m)),
-  }), [db, user, modo, toasts, toast, sair, sync, recarregar]);
+    can: (m) => !!user && liberado(m) && (user.perfil === 'Proprietário' || !!db.permissoes[user.perfil]?.includes(m)),
+  }), [db, user, modo, toasts, toast, tenant, assinatura, liberado, sair, sync, recarregar]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

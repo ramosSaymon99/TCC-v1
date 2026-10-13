@@ -1,6 +1,6 @@
 # Pivot Hub · Gestão Comercial
 
-Sistema web de gestão comercial para pequenos negócios de tecnologia (treinamentos de informática, manutenção de computadores e criação de sites), desenvolvido como TCC.
+Sistema web (SaaS multiempresa) de gestão comercial para pequenos negócios de serviços, desenvolvido como TCC. A base de demonstração é uma empresa de tecnologia (treinamentos, manutenção de computadores e criação de sites).
 
 ## Telas
 
@@ -26,6 +26,19 @@ Sistema web de gestão comercial para pequenos negócios de tecnologia (treiname
 | 17 | Social Media | Calendário editorial, produção (ideia → publicado), métricas por post, engajamento por formato/pilar/rede, seguidores, sugestões de pauta baseadas nos dados do negócio e atribuição de leads e receita por canal (custo por lead e retorno do impulsionamento) |
 
 Funções transversais: busca global (Ctrl+K), proposta comercial e OS/termo de entrega em PDF, NPS de satisfação nas OS, menu agrupado por área e novos alertas no painel "Onde agir agora". Bases criadas na versão anterior são completadas automaticamente com os módulos novos, sem perder dados.
+
+## Plataforma SaaS (console do fornecedor)
+
+O Pivot Hub é multiempresa: cada empresa assinante tem uma base isolada e o plano contratado define o que ela acessa. O console aparece no menu **Plataforma SaaS** apenas para o proprietário da empresa principal (`saymon@pivothub.com`).
+
+| Tela | Destaques |
+|------|-----------|
+| Visão da plataforma | MRR/ARR, pagantes e ticket médio (ARPA), churn de receita e NRR, inadimplência, testes grátis e conversão, CAC, LTV e payback; "Onde agir agora" (testes acabando, atrasos, contas em risco, empresas no limite de usuários, fidelidades a renovar); decomposição do MRR (novos, expansão, contração, cancelamentos); receita por plano e aquisição por canal |
+| Empresas assinantes | Cadastro da empresa com geração de acesso (senha provisória), teste grátis ou assinatura paga, base vazia ou com dados de exemplo; troca de plano com impacto no MRR e módulos ganhos/perdidos; estender teste, converter, marcar inadimplente, suspender, reativar, cancelar com motivo; saúde da conta (acesso + adoção + pagamento) e histórico |
+| Planos e preços | Básico, Intermediário e Completo (editáveis): preço, desconto anual, usuários incluídos, usuário extra e módulos liberados; matriz de módulos × adoção real; simulador de reajuste com ponto de equilíbrio; regras comerciais (módulo avulso, dias de teste, tolerância de atraso, investimento em aquisição) |
+| Faturamento SaaS | Emissão das faturas do mês, baixa de pagamento (reativa a conta automaticamente), régua de inadimplência e suspensão, adimplência por competência, exportação CSV |
+
+Na empresa assinante: módulos fora do plano aparecem com cadeado e mostram o plano que os libera (com a diferença de preço); o limite de usuários é aplicado ao criar ou reativar usuários; avisos de teste grátis e de fatura em atraso; "Minha assinatura" em Configurações. As regras também são validadas no Worker (plano, limite de usuários, e-mail único na plataforma, bloqueio de contas suspensas, canceladas ou com teste vencido).
 
 ## Tecnologias
 

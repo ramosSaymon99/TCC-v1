@@ -376,3 +376,7 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .modal { box-shadow: none; max-height: none; width: 100%; }
   body { background: #fff; }
 }
+
+/* Itens do menu fora do plano contratado */
+.nav a.locked { opacity: 0.55; }
+.nav a.locked .lock { margin-left: auto; }

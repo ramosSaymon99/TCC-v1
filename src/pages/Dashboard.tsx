@@ -6,12 +6,13 @@ import { useClienteNome, useStore } from '../store/Store';
 import { Avatar, Badge, Kpi, Trend } from '../components/ui';
 import { date, DIAS_SEMANA, MESES_LONGOS, money, monthLabel, moneyShort, parseDate, pct, today, variation } from '../utils/format';
 import { ABERTAS, gerarInsights, periodos, resumoPeriodo, serieMensal } from '../utils/metrics';
+import { moduloDaRota } from '../utils/rotas';
 
 const INSIGHT_ICON = { risk: AlertTriangle, warn: AlertTriangle, good: CheckCircle2, opp: Lightbulb };
 const INSIGHT_TONE = { risk: 'red', warn: 'orange', good: 'green', opp: 'blue' };
 
 export default function Dashboard() {
-  const { db, user } = useStore();
+  const { db, user, can } = useStore();
   const nome = useClienteNome();
   const nav = useNavigate();
   const hoje = today();
@@ -31,7 +32,7 @@ export default function Dashboard() {
   const serie = useMemo(() => serieMensal(db.lancamentos, 6).map((s, i, arr) => ({
     ...s, label: monthLabel(s.mes), parcial: i === arr.length - 1,
   })), [db.lancamentos]);
-  const insights = useMemo(() => gerarInsights(db), [db]);
+  const insights = useMemo(() => gerarInsights(db).filter((i) => can(moduloDaRota(i.to))), [db, can]);
 
   const proximos = db.compromissos
     .filter((c) => c.data >= hoje)
@@ -86,6 +87,11 @@ export default function Dashboard() {
               </div>
             );
           })}
+          {!insights.length && (
+            <div className="small muted">
+              {db.clientes.length ? 'Nenhum alerta no momento: operação dentro do esperado.' : 'Base nova: cadastre clientes, serviços e os primeiros orçamentos. Os alertas e oportunidades aparecem aqui conforme o sistema ganha dados.'}
+            </div>
+          )}
         </div>
       </div>
 

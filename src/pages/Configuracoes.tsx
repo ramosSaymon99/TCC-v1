@@ -1,13 +1,15 @@
 import { useRef, useState } from 'react';
-import { Building2, Database as DbIcon, Download, KeyRound, RotateCcw, Target, Upload } from 'lucide-react';
+import { BadgeCheck, Building2, Check, Database as DbIcon, Download, KeyRound, Lock, RotateCcw, Target, Upload } from 'lucide-react';
 import { useStore } from '../store/Store';
 import type { Database, Empresa } from '../types';
-import { Confirm, PageHeader } from '../components/ui';
+import { Badge, Confirm, PageHeader } from '../components/ui';
+import { MODULOS } from '../store/seed';
 import { Field, toNumber } from '../components/fields';
-import { money, today } from '../utils/format';
+import { date, money, today } from '../utils/format';
 
 export default function Configuracoes() {
-  const { db, setEmpresa, resetDemo, replaceDb, changePassword, modo, toast } = useStore();
+  const { db, setEmpresa, resetDemo, replaceDb, changePassword, modo, toast, assinatura } = useStore();
+  const cliente = assinatura && !assinatura.principal ? assinatura : null;
   const [senhas, setSenhas] = useState({ atual: '', nova: '', conf: '' });
   const [f, setF] = useState<Empresa>(db.empresa);
   const [reset, setReset] = useState(false);
@@ -42,6 +44,28 @@ export default function Configuracoes() {
   return (
     <>
       <PageHeader title="Configurações" subtitle="Dados da empresa, metas e gestão dos dados do sistema." />
+      {cliente && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-head">
+            <h3 className="row"><BadgeCheck size={16} color="var(--primary)" /> Minha assinatura</h3>
+            <Badge tone={cliente.status === 'Ativa' ? 'green' : cliente.status === 'Trial' ? 'purple' : 'orange'}>{cliente.status === 'Trial' ? 'Teste grátis' : cliente.status}</Badge>
+          </div>
+          <div className="card-pad" style={{ display: 'grid', gap: 12 }}>
+            <div className="row" style={{ gap: 28, flexWrap: 'wrap' }}>
+              <div><div className="small muted">Plano</div><div className="strong" style={{ fontSize: 18 }}>{cliente.plano}</div></div>
+              <div><div className="small muted">Mensalidade</div><div className="strong" style={{ fontSize: 18 }}>{money(cliente.valorMensal)}</div></div>
+              <div><div className="small muted">Usuários</div><div className="strong" style={{ fontSize: 18 }}>{db.usuarios.filter((u) => u.status === 'Ativo').length} de {cliente.maxUsuarios}</div></div>
+              {cliente.status === 'Trial' && cliente.trialFim && <div><div className="small muted">Teste até</div><div className="strong" style={{ fontSize: 18 }}>{date(cliente.trialFim)}</div></div>}
+            </div>
+            <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+              {MODULOS.map((m) => cliente.modulos.includes(m.id)
+                ? <Badge key={m.id} tone="blue"><Check size={10} /> {m.label}</Badge>
+                : <Badge key={m.id} tone="gray"><Lock size={10} /> {m.label}</Badge>)}
+            </div>
+            <div className="small muted">Para mudar de plano, contratar usuários extras ou módulos avulsos, fale com o comercial Pivot Hub. A liberação é imediata e os dados são mantidos.</div>
+          </div>
+        </div>
+      )}
       <div className="grid g-2">
         <div className="card">
           <div className="card-head"><h3 className="row"><Building2 size={16} color="var(--primary)" /> Dados da empresa</h3></div>
@@ -84,7 +108,7 @@ export default function Configuracoes() {
               <strong>Resumo da base:</strong> {db.clientes.length} clientes · {db.orcamentos.length} orçamentos · {db.ordens.length} OS · {db.equipamentos.length} equipamentos · {db.lancamentos.length} lançamentos
             </div>
             <div>
-              <button className="btn" style={{ color: 'var(--danger)' }} onClick={() => setReset(true)}><RotateCcw size={15} /> Restaurar dados de demonstração</button>
+              <button className="btn" style={{ color: 'var(--danger)' }} onClick={() => setReset(true)}><RotateCcw size={15} /> {cliente ? 'Carregar dados de exemplo' : 'Restaurar dados de demonstração'}</button>
             </div>
           </div>
         </div>
@@ -106,7 +130,7 @@ export default function Configuracoes() {
           </form>
         </div>
       )}
-      {reset && <Confirm label="Restaurar" text="Todos os dados atuais serão substituídos pelos dados de demonstração. Deseja continuar?" onClose={() => setReset(false)} onConfirm={() => { resetDemo().then((err) => toast(err ?? 'Dados de demonstração restaurados.', err ? 'error' : 'success')); }} />}
+      {reset && <Confirm label="Restaurar" text={cliente ? 'Clientes, orçamentos, OS e demais registros serão substituídos por dados de exemplo. Usuários e dados da empresa são mantidos. Deseja continuar?' : 'Todos os dados atuais serão substituídos pelos dados de demonstração. Deseja continuar?'} onClose={() => setReset(false)} onConfirm={() => { resetDemo().then((err) => toast(err ?? 'Dados de demonstração restaurados.', err ? 'error' : 'success')); }} />}
     </>
   );
 }
