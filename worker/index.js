@@ -1,5 +1,5 @@
 /**
- * TechGest · Worker Cloudflare
+ * Pivot Hub · Worker Cloudflare
  * Serve o app (index.html estático) e a API /api/* com persistência no D1.
  *
  * Tabelas (ver worker/schema.sql):
@@ -157,7 +157,9 @@ async function api(req, env, url) {
 
   if (path === '/login' && method === 'POST') {
     const email = String(body?.email ?? '').trim().toLowerCase();
-    const r = await env.DB.prepare("SELECT data FROM items WHERE col = 'usuarios' AND lower(json_extract(data, '$.email')) = ?").bind(email).first();
+    const buscar = (e) => env.DB.prepare("SELECT data FROM items WHERE col = 'usuarios' AND lower(json_extract(data, '$.email')) = ?").bind(e).first();
+    // Bases criadas antes da troca de marca ainda guardam os e-mails @techgest.com até a migração v4 rodar
+    const r = (await buscar(email)) ?? (email.endsWith('@pivothub.com') ? await buscar(email.replace(/@pivothub\.com$/, '@techgest.com')) : null);
     const u = r ? JSON.parse(r.data) : null;
     const cred = u ? await env.DB.prepare('SELECT salt, hash FROM credentials WHERE user_id = ?').bind(String(u.id)).first() : null;
     const ok = cred ? iguais((await hashSenha(String(body?.senha ?? ''), cred.salt)).hash, cred.hash) : false;

@@ -8,7 +8,7 @@ export default function Login() {
   const { login, db, modo } = useStore();
   const [enviando, setEnviando] = useState(false);
   const nav = useNavigate();
-  const [email, setEmail] = useState('saymon@techgest.com');
+  const [email, setEmail] = useState('saymon@pivothub.com');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState<string | null>(null);
 
@@ -27,7 +27,7 @@ export default function Login() {
         <div className="row" style={{ gap: 12, position: 'relative', zIndex: 1 }}>
           <Logo size={42} />
           <div>
-            <div style={{ fontSize: 24, fontWeight: 700 }}>TechGest</div>
+            <div style={{ fontSize: 24, fontWeight: 700 }}>Pivot Hub</div>
             <div style={{ color: '#7fa6e3', fontSize: 13 }}>Gestão Comercial</div>
           </div>
         </div>

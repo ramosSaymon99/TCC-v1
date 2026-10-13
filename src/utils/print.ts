@@ -60,7 +60,7 @@ ${blocoCliente(c)}
   • Garantia de 90 dias sobre o serviço executado.
 </div>
 <div class="sign"><div>${esc(e.nome)}</div><div>De acordo — ${esc(c?.nome ?? 'Cliente')}</div></div>
-<div class="foot">Documento gerado pelo TechGest em ${date(today())}.</div>`);
+<div class="foot">Documento gerado pelo Pivot Hub em ${date(today())}.</div>`);
 }
 
 export function imprimirOS(o: OrdemServico, c: Cliente | undefined, e: Empresa, equipamento?: string, pecas: { nome: string; qtd: number }[] = []) {
@@ -82,5 +82,5 @@ ${pecas.length ? `<h2>Peças utilizadas</h2><table><thead><tr><th>Peça</th><th 
 <h2>Termo de entrega</h2>
 <div class="box">Declaro ter recebido o equipamento/serviço acima em perfeito funcionamento. Garantia de 90 dias para o serviço executado, não cobrindo mau uso, quedas, líquidos ou intervenção de terceiros.</div>
 <div class="sign"><div>Técnico — ${esc(o.tecnico ?? e.nome)}</div><div>Cliente — ${esc(c?.nome ?? '')}</div></div>
-<div class="foot">Documento gerado pelo TechGest em ${date(today())}.</div>`);
+<div class="foot">Documento gerado pelo Pivot Hub em ${date(today())}.</div>`);
 }

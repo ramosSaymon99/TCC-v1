@@ -28,7 +28,7 @@ export default function Configuracoes() {
   const backup = () => {
     const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = `techgest-backup-${today()}.json`; a.click();
+    a.href = URL.createObjectURL(blob); a.download = `pivothub-backup-${today()}.json`; a.click();
     URL.revokeObjectURL(a.href);
   };
   const importar = (file: File) => {

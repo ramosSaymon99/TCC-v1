@@ -66,7 +66,7 @@ export default function Layout() {
         <div className="brand">
           <Logo />
           <div>
-            <div className="brand-name">TechGest</div>
+            <div className="brand-name">Pivot Hub</div>
             <div className="brand-sub">Gestão Comercial</div>
           </div>
         </div>
