@@ -268,3 +268,101 @@ export interface Database {
   permissoes: Record<Perfil, Modulo[]>;
   empresa: Empresa;
 }
+
+/* ---------------- Plataforma SaaS (console do fornecedor) ---------------- */
+export type StatusAssinatura = 'Trial' | 'Ativa' | 'Inadimplente' | 'Suspensa' | 'Cancelada';
+export type CicloAssinatura = 'Mensal' | 'Anual';
+export type OrigemAssinante = 'Indicação' | 'Instagram' | 'Google' | 'Parceiro contábil' | 'Evento' | 'Site' | 'Outros';
+
+export interface Plano {
+  id: string;
+  nome: string;
+  descricao: string;
+  precoMensal: number;
+  descontoAnual: number;     // fração (0.15 = 15%) aplicada na fidelidade de 12 meses
+  maxUsuarios: number;
+  precoUsuarioExtra: number;
+  modulos: Modulo[];
+  destaque?: boolean;
+  ativo: boolean;
+  ordem: number;
+}
+
+export interface EventoAssinatura { data: string; tipo: string; detalhe: string }
+
+/** Uso simulado das empresas de demonstração (as reais têm o uso medido no banco). */
+export interface UsoSimulado { usuarios: number; diasSemAcesso: number; modulosEmUso: number; registros: number }
+
+export interface Assinante {
+  id: string;                 // também é o identificador da base (tenant)
+  empresa: string;
+  cnpj: string;
+  segmento: string;
+  cidade: string;
+  responsavel: string;
+  email: string;              // login do responsável (proprietário)
+  telefone: string;
+  origem: OrigemAssinante;
+  planoId: string;
+  ciclo: CicloAssinatura;
+  status: StatusAssinatura;
+  inicio: string;
+  trialFim?: string;
+  convertidoEm?: string;
+  fimFidelidade?: string;
+  diaVencimento: number;
+  usuariosExtras: number;
+  modulosExtras: Modulo[];
+  descontoPct: number;        // fração de desconto negociado
+  canceladoEm?: string;
+  motivoCancelamento?: string;
+  valorNoCancelamento?: number;
+  observacoes?: string;
+  provisionado: boolean;      // tem base de dados própria (login funciona)
+  usoSimulado?: UsoSimulado;
+  historico: EventoAssinatura[];
+}
+
+export type StatusFatura = 'Paga' | 'Em aberto' | 'Cancelada';
+export interface Fatura {
+  id: string;
+  assinanteId: string;
+  competencia: string;        // yyyy-mm
+  vencimento: string;
+  valor: number;
+  planoId: string;
+  status: StatusFatura;
+  pagoEm?: string;
+}
+
+export interface ConfigPlataforma {
+  id: 'geral';
+  precoModuloAvulso: number;
+  diasTrial: number;
+  diasTolerancia: number;          // dias de atraso antes de marcar como inadimplente
+  investimentoAquisicaoMes: number; // marketing + comissões por mês (para CAC)
+}
+
+export interface Plataforma {
+  planos: Plano[];
+  assinantes: Assinante[];
+  faturas: Fatura[];
+  config: ConfigPlataforma[];
+}
+
+/** O que o plano da empresa logada libera (calculado no servidor ou localmente). */
+export interface Assinatura {
+  tenant: string;
+  principal: boolean;
+  empresa: string;
+  plano: string;
+  status: StatusAssinatura;
+  modulos: Modulo[];
+  maxUsuarios: number;
+  valorMensal: number;
+  trialFim?: string;
+  /** Planos à venda (para a tela de upgrade). */
+  ofertas?: { id: string; nome: string; precoMensal: number; maxUsuarios: number; modulos: Modulo[] }[];
+}
+
+export interface UsoTenant { usuarios: number; ultimoAcesso?: string; modulosEmUso: Modulo[]; registros: number; real: boolean }

@@ -1,14 +1,14 @@
 import { useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Bell, BarChart3, Boxes, CalendarDays, ClipboardList, DollarSign, FileText, Filter, GraduationCap, Home, LogOut, Menu,
-  Megaphone, Monitor, Repeat, Settings, Tag, Target, UserCog, Users, Wrench,
+  Bell, BarChart3, Boxes, Building2, CalendarDays, ClipboardList, DollarSign, FileText, Filter, GraduationCap, Home, Layers, LayoutDashboard,
+  Lock, LogOut, Menu, Megaphone, Monitor, Receipt, Repeat, Settings, Tag, Target, UserCog, Users, Wrench,
 } from 'lucide-react';
 import { BuscaGlobal } from './BuscaGlobal';
 import { useStore } from '../store/Store';
 import type { Modulo } from '../types';
 import { Avatar, Logo } from './ui';
-import { addDays, today } from '../utils/format';
+import { addDays, date, diffDays, today } from '../utils/format';
 import { ABERTAS } from '../utils/metrics';
 
 type NavItem = { to: string; label: string; icon: ReactNode; mod: Modulo };
@@ -40,8 +40,17 @@ const NAV: { secao?: string; itens: NavItem[] }[] = [
   ] },
 ];
 
+const NAV_PLATAFORMA = [
+  { to: '/console', label: 'Visão da plataforma', icon: <LayoutDashboard size={18} /> },
+  { to: '/console/assinantes', label: 'Empresas assinantes', icon: <Building2 size={18} /> },
+  { to: '/console/planos', label: 'Planos e preços', icon: <Layers size={18} /> },
+  { to: '/console/faturas', label: 'Faturamento SaaS', icon: <Receipt size={18} /> },
+];
+
 export default function Layout() {
-  const { user, logout, can, db } = useStore();
+  const { user, logout, can, liberado, db, assinatura, adminPlataforma } = useStore();
+  // Proprietário vê os módulos fora do plano com cadeado (vitrine de upgrade); demais perfis só o que podem usar
+  const visivel = (m: Modulo) => can(m) || (user?.perfil === 'Proprietário' && !liberado(m));
   const [open, setOpen] = useState(false);
   const [notif, setNotif] = useState(false);
   const nav = useNavigate();
@@ -72,14 +81,14 @@ export default function Layout() {
         </div>
         <nav className="nav" onClick={() => setOpen(false)}>
           {NAV.map((g) => {
-            const itens = g.itens.filter((n) => can(n.mod));
+            const itens = g.itens.filter((n) => visivel(n.mod));
             if (!itens.length) return null;
             return (
               <div key={g.secao ?? 'inicio'} style={{ display: 'contents' }}>
                 {g.secao && <div className="nav-section">{g.secao}</div>}
                 {itens.map((n) => (
-                  <NavLink key={n.to} to={n.to} end={n.to === '/'}>
-                    {n.icon}{n.label}
+                  <NavLink key={n.to} to={n.to} end={n.to === '/'} className={liberado(n.mod) ? undefined : 'locked'} title={liberado(n.mod) ? undefined : 'Fora do seu plano'}>
+                    {n.icon}{n.label}{!liberado(n.mod) && <Lock size={13} className="lock" />}
                     {n.mod === 'ordens' && abertas > 0 && <span className="count">{abertas}</span>}
                     {n.mod === 'estoque' && baixos > 0 && <span className="count" style={{ background: 'var(--danger)' }}>{baixos}</span>}
                   </NavLink>
@@ -87,6 +96,12 @@ export default function Layout() {
               </div>
             );
           })}
+          {adminPlataforma && (
+            <>
+              <div className="nav-section">Plataforma SaaS</div>
+              {NAV_PLATAFORMA.map((n) => <NavLink key={n.to} to={n.to} end={n.to === '/console'}>{n.icon}{n.label}</NavLink>)}
+            </>
+          )}
         </nav>
         <div className="sidebar-foot">
           <button className="btn btn-ghost btn-sm" style={{ color: '#c9d6ee', width: '100%', justifyContent: 'flex-start' }} onClick={() => { logout(); nav('/login'); }}>
@@ -125,15 +140,39 @@ export default function Layout() {
               <Avatar nome={user.nome} navy />
               <div className="hide-sm">
                 <div className="name">{user.nome}</div>
-                <div className="meta">{user.perfil}{user.perfil === 'Proprietário' ? ' (MEI)' : ''}</div>
+                <div className="meta">{user.perfil}{assinatura && !assinatura.principal ? ` · Plano ${assinatura.plano}` : adminPlataforma ? ' · Admin da plataforma' : ''}</div>
               </div>
             </div>
           )}
         </header>
         <main className="content" key={loc.pathname}>
+          <AvisoAssinatura />
           <Outlet />
         </main>
       </div>
     </div>
   );
+}
+
+/** Avisos da assinatura da empresa: teste grátis acabando e fatura em atraso. */
+function AvisoAssinatura() {
+  const { assinatura, user } = useStore();
+  if (!assinatura || assinatura.principal) return null;
+  const dono = user?.perfil === 'Proprietário';
+  if (assinatura.status === 'Trial' && assinatura.trialFim) {
+    const dias = diffDays(assinatura.trialFim, today());
+    return (
+      <div className={`insight ${dias <= 3 ? 'warn' : 'opp'}`} style={{ marginBottom: 16 }}>
+        <div className="d"><strong>Teste grátis do plano {assinatura.plano}:</strong> {dias > 0 ? `faltam ${dias} dia(s) (até ${date(assinatura.trialFim)}).` : 'termina hoje.'}{dono ? ' Fale com o comercial Pivot Hub para contratar e manter seus dados.' : ''}</div>
+      </div>
+    );
+  }
+  if (assinatura.status === 'Inadimplente' && dono) {
+    return (
+      <div className="insight risk" style={{ marginBottom: 16 }}>
+        <div className="d"><strong>Há fatura da assinatura em atraso.</strong> Regularize para evitar a suspensão do acesso da equipe.</div>
+      </div>
+    );
+  }
+  return null;
 }
