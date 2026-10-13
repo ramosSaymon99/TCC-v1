@@ -221,6 +221,9 @@ function RegrasComerciais({ cfg, onClose, onSave }: { cfg: ConfigPlataforma; onC
         <Field label="Preço do módulo avulso (R$/mês)"><input className="input" inputMode="decimal" defaultValue={String(f.precoModuloAvulso).replace('.', ',')} onChange={(e) => set('precoModuloAvulso', toNumber(e.target.value))} /></Field>
         <Field label="Dias de teste grátis"><input className="input" type="number" min={0} value={f.diasTrial} onChange={(e) => set('diasTrial', Number(e.target.value))} /></Field>
         <Field label="Tolerância de atraso (dias)" hint="Acima disso a conta entra em risco e aparece para suspensão"><input className="input" type="number" min={0} value={f.diasTolerancia} onChange={(e) => set('diasTolerancia', Number(e.target.value))} /></Field>
+        <Field label="Rotina automática" full hint="Todo dia às 7h o servidor confere os pagamentos no Asaas; com a régua ativada, também marca inadimplência e suspende o acesso conforme a tolerância.">
+          <label className="check"><input type="checkbox" checked={!!f.reguaAutomatica} onChange={(e) => set('reguaAutomatica', e.target.checked)} /> Aplicar a régua de inadimplência automaticamente</label>
+        </Field>
         <Field label="Investimento em aquisição (R$/mês)" hint="Marketing, anúncios e comissões — base do CAC"><input className="input" inputMode="decimal" defaultValue={String(f.investimentoAquisicaoMes).replace('.', ',')} onChange={(e) => set('investimentoAquisicaoMes', toNumber(e.target.value))} /></Field>
       </div>
     </Modal>

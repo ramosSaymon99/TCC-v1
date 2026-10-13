@@ -56,6 +56,15 @@ export default function Configuracoes() {
               <div><div className="small muted">Mensalidade</div><div className="strong" style={{ fontSize: 18 }}>{money(cliente.valorMensal)}</div></div>
               <div><div className="small muted">Usuários</div><div className="strong" style={{ fontSize: 18 }}>{db.usuarios.filter((u) => u.status === 'Ativo').length} de {cliente.maxUsuarios}</div></div>
               {cliente.status === 'Trial' && cliente.trialFim && <div><div className="small muted">Teste até</div><div className="strong" style={{ fontSize: 18 }}>{date(cliente.trialFim)}</div></div>}
+              {cliente.faturaAberta && (
+                <div>
+                  <div className="small muted">Próxima mensalidade{cliente.forma ? ` · ${({ UNDEFINED: 'Pix, boleto ou cartão', PIX: 'Pix', BOLETO: 'boleto', CREDIT_CARD: 'cartão' } as Record<string, string>)[cliente.forma]}` : ''}</div>
+                  <div className="row" style={{ gap: 10 }}>
+                    <span className={`strong ${cliente.faturaAberta.vencida ? 'text-danger' : ''}`} style={{ fontSize: 18 }}>{money(cliente.faturaAberta.valor)} · {date(cliente.faturaAberta.vencimento)}</span>
+                    {cliente.faturaAberta.link && <a className="btn btn-sm btn-primary" href={cliente.faturaAberta.link} target="_blank" rel="noreferrer">Pagar</a>}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
               {MODULOS.map((m) => cliente.modulos.includes(m.id)

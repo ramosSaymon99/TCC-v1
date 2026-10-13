@@ -1,22 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowDownRight, ArrowUpRight, Building2, Copy, KeyRound, Lock, Plus } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Building2, Copy, CreditCard, ExternalLink, KeyRound, Lock, Plus } from 'lucide-react';
 import { usePlataforma } from '../../store/PlataformaStore';
 import { useStore } from '../../store/Store';
-import type { Assinante, CicloAssinatura, Modulo, OrigemAssinante, Plano, StatusAssinatura } from '../../types';
+import type { Assinante, CicloAssinatura, FormaPagamento, Modulo, OrigemAssinante, Plano, StatusAssinatura } from '../../types';
 import { Badge, Confirm, Empty, Modal, PageHeader, Pager, RowMenu, SearchInput, Th, useSortPage } from '../../components/ui';
 import { Field, Options } from '../../components/fields';
 import { addDays, date, dateTime, money, monthLabel, normalize, pct, today, uid } from '../../utils/format';
 import { linhas, type LinhaAssinante } from '../../utils/saas';
-import { cfgDe, criarBaseVazia, ESSENCIAIS, modulosLiberados, MODULOS_DADOS, planoDe, valorMensal, vencida } from '../../store/plataforma';
+import { cfgDe, criarBaseVazia, documentoValido, ESSENCIAIS, modulosLiberados, MODULOS_DADOS, planoDe, proximoVencimento, valorMensal, vencida } from '../../store/plataforma';
 import { createSeed, MODULOS } from '../../store/seed';
-import { nomeModulo, SaudeBadge, STATUS_ASSINATURA, StatusBadge } from './comum';
+import { FORMAS_PAGAMENTO, nomeForma, nomeModulo, SaudeBadge, STATUS_ASSINATURA, StatusBadge } from './comum';
 
 const ORIGENS: OrigemAssinante[] = ['Indicação', 'Instagram', 'Google', 'Parceiro contábil', 'Evento', 'Site', 'Outros'];
 const MOTIVOS = ['Preço alto para o uso', 'Baixa adoção / não implantou', 'Faltou funcionalidade', 'Encerrou as atividades', 'Migrou para concorrente', 'Problemas de suporte', 'Outros'];
 
 export default function ConsoleAssinantes() {
-  const { dados, uso, salvar, redefinirSenha, excluirEmpresa } = usePlataforma();
+  const { dados, uso, salvar, redefinirSenha, excluirEmpresa, asaas } = usePlataforma();
   const { toast } = useStore();
   const [params, setParams] = useSearchParams();
   const [q, setQ] = useState('');
@@ -31,6 +31,8 @@ export default function ConsoleAssinantes() {
   const [detalhe, setDetalhe] = useState<string | null>(null);
   const [excluindo, setExcluindo] = useState<LinhaAssinante | null>(null);
   const [credencial, setCredencial] = useState<{ empresa: string; email: string; senha: string } | null>(null);
+  const [cobrando, setCobrando] = useState<LinhaAssinante | null>(null);
+  const [parando, setParando] = useState<LinhaAssinante | null>(null);
   const hoje = today();
 
   useEffect(() => { if (params.get('novo')) { params.delete('novo'); setParams(params, { replace: true }); } }, [params, setParams]);
@@ -107,7 +109,7 @@ export default function ConsoleAssinantes() {
                     <div className="sub">{r.segmento} · {r.cidade}{!r.provisionado && ' · demonstração'}</div>
                   </td>
                   <td>{r.plano}<div className="sub">{r.ciclo === 'Anual' ? 'Anual (fidelidade)' : 'Mensal'}{r.modulosExtras.length ? ` · +${r.modulosExtras.length} módulo(s)` : ''}</div></td>
-                  <td className="num strong">{money(r.valor)}<div className="sub">{r.descontoPct ? `${pct(r.descontoPct)} desc.` : r.mrr ? '' : 'fora do MRR'}</div></td>
+                  <td className="num strong">{money(r.valor)}<div className="sub">{r.cobranca?.ativa ? <span className={r.cobranca.erro ? 'text-danger' : 'text-success'} title={r.cobranca.erro}>Asaas · {nomeForma(r.cobranca.forma)}{r.cobranca.erro ? ' (erro)' : ''}</span> : r.descontoPct ? `${pct(r.descontoPct)} desc.` : r.mrr ? '' : 'fora do MRR'}</div></td>
                   <td>
                     <StatusBadge s={r.status} />
                     {r.diasTrial !== null && <div className={`sub ${r.diasTrial <= 3 ? 'text-danger' : ''}`}>{r.diasTrial < 0 ? 'teste expirado' : `${r.diasTrial} dia(s) restantes`}</div>}
@@ -125,6 +127,8 @@ export default function ConsoleAssinantes() {
                       { label: 'Editar cadastro e assinatura', onClick: () => setEditando(base(r)) },
                       { label: 'Alterar plano', onClick: () => setTrocando(r), hidden: r.status === 'Cancelada' },
                       { label: 'Gerar nova senha do responsável', onClick: () => gerarSenha(r), hidden: !r.provisionado },
+                      { label: 'Ativar cobrança automática (Asaas)', onClick: () => setCobrando(r), hidden: !asaas.disponivel || !!r.cobranca?.ativa || r.status === 'Cancelada' },
+                      { label: 'Desativar cobrança automática', onClick: () => setParando(r), hidden: !r.cobranca?.ativa },
                       { label: 'Converter teste em assinatura', onClick: () => mudarStatus(r, 'Ativa', 'Conversão', 'Teste convertido em assinatura paga', { convertidoEm: hoje }), hidden: r.status !== 'Trial' },
                       { label: 'Estender teste por 7 dias', onClick: () => mudarStatus(r, 'Trial', 'Teste estendido', `Novo fim: ${date(addDays(r.trialFim && r.trialFim > hoje ? r.trialFim : hoje, 7))}`, { trialFim: addDays(r.trialFim && r.trialFim > hoje ? r.trialFim : hoje, 7) }), hidden: r.status !== 'Trial' },
                       { label: 'Marcar como inadimplente', onClick: () => mudarStatus(r, 'Inadimplente', 'Inadimplência', `${money(r.vencido)} vencidos`), hidden: r.status !== 'Ativa' },
@@ -160,8 +164,12 @@ export default function ConsoleAssinantes() {
       }} />}
       {excluindo && <Confirm label="Excluir definitivamente" text={<>Excluir <strong>{excluindo.empresa}</strong>, a base de dados dela e todas as faturas? Esta ação não pode ser desfeita. Para manter o histórico de churn, prefira <strong>Cancelar assinatura</strong>.</>}
         onClose={() => setExcluindo(null)} onConfirm={async () => { const e = await excluirEmpresa(excluindo.id); toast(e ?? 'Empresa excluída.', e ? 'error' : 'success'); }} />}
-      {sel && <Detalhe r={sel} onClose={() => setDetalhe(null)} onEditar={() => { setDetalhe(null); setEditando(base(sel)); }} onSenha={() => gerarSenha(sel)} />}
+      {sel && <Detalhe r={sel} onClose={() => setDetalhe(null)} onEditar={() => { setDetalhe(null); setEditando(base(sel)); }} onSenha={() => gerarSenha(sel)}
+        onCobrar={() => { setDetalhe(null); setCobrando(sel); }} onParar={() => { setDetalhe(null); setParando(sel); }} />}
       {credencial && <Credencial c={credencial} onClose={() => setCredencial(null)} />}
+      {cobrando && <AtivarCobranca r={cobrando} onClose={() => setCobrando(null)} />}
+      {parando && <Confirm label="Desativar cobrança" text={<>Encerrar a assinatura de <strong>{parando.empresa}</strong> no Asaas? As cobranças futuras são canceladas; as vencidas continuam em aberto.</>}
+        onClose={() => setParando(null)} onConfirm={async () => { const e = await asaas.desativar(parando.id); toast(e ?? 'Cobrança automática desativada.', e ? 'error' : 'success'); }} />}
     </>
   );
 }
@@ -223,13 +231,15 @@ function CamposAssinatura({ f, set }: { f: Assinante; set: <K extends keyof Assi
 
 /* ---------------- Nova empresa ---------------- */
 function NovaEmpresa({ onClose, onCriada }: { onClose: () => void; onCriada: (c: { empresa: string; email: string; senha: string }) => void }) {
-  const { dados, criarEmpresa } = usePlataforma();
+  const { dados, criarEmpresa, asaas } = usePlataforma();
   const { toast } = useStore();
   const hoje = today();
   const cfg = cfgDe(dados);
   const [inicioTipo, setInicioTipo] = useState<'Trial' | 'Ativa'>('Trial');
   const [baseTipo, setBaseTipo] = useState<'vazia' | 'exemplo'>('vazia');
   const [salvando, setSalvando] = useState(false);
+  const [cobrar, setCobrar] = useState(false);
+  const [forma, setForma] = useState<FormaPagamento>('UNDEFINED');
   const [f, setF] = useState<Assinante>({
     id: uid(), empresa: '', cnpj: '', segmento: '', cidade: '', responsavel: '', email: '', telefone: '', origem: 'Indicação',
     planoId: dados.planos.find((p) => p.destaque)?.id ?? dados.planos[0]?.id ?? '', ciclo: 'Mensal', status: 'Trial', inicio: hoje,
@@ -241,6 +251,7 @@ function NovaEmpresa({ onClose, onCriada }: { onClose: () => void; onCriada: (c:
   const salvar = async () => {
     if (!f.empresa.trim() || !f.responsavel.trim() || !/^\S+@\S+\.\S+$/.test(f.email)) return toast('Informe empresa, responsável e um e-mail válido.', 'error');
     if (!plano) return toast('Escolha um plano.', 'error');
+    if (cobrar && !documentoValido(f.cnpj)) return toast('Para a cobrança automática, informe um CPF ou CNPJ válido.', 'error');
     setSalvando(true);
     const trial = inicioTipo === 'Trial';
     const a: Assinante = {
@@ -251,8 +262,12 @@ function NovaEmpresa({ onClose, onCriada }: { onClose: () => void; onCriada: (c:
     const vazia = criarBaseVazia(a);
     const db = baseTipo === 'vazia' ? vazia : { ...createSeed(), usuarios: vazia.usuarios, permissoes: vazia.permissoes, empresa: vazia.empresa };
     const r = await criarEmpresa(a, db);
+    if (r.erro) { setSalvando(false); return toast(r.erro, 'error'); }
+    if (cobrar) {
+      const e = await asaas.ativar(a.id, forma);
+      toast(e ? `Empresa criada, mas a cobrança automática não foi ativada: ${e}` : 'Empresa criada e assinatura mensal criada no Asaas.', e ? 'error' : 'success');
+    }
     setSalvando(false);
-    if (r.erro) return toast(r.erro, 'error');
     onCriada({ empresa: a.empresa, email: a.email, senha: r.senha! });
   };
 
@@ -276,6 +291,12 @@ function NovaEmpresa({ onClose, onCriada }: { onClose: () => void; onCriada: (c:
             <div className="seg">
               <button type="button" className={inicioTipo === 'Trial' ? 'active' : ''} onClick={() => setInicioTipo('Trial')}>Teste grátis ({cfg.diasTrial} dias)</button>
               <button type="button" className={inicioTipo === 'Ativa' ? 'active' : ''} onClick={() => setInicioTipo('Ativa')}>Assinatura paga</button>
+            </div>
+          </Field>
+          <Field label="Cobrança" full hint={asaas.disponivel ? `1º vencimento: ${date(proximoVencimento({ status: inicioTipo, trialFim: inicioTipo === 'Trial' ? addDays(hoje, cfg.diasTrial) : undefined, diaVencimento: f.diaVencimento }))}${inicioTipo === 'Trial' ? ' (após o teste grátis)' : ''}` : 'Disponível na versão publicada no Cloudflare com o Asaas configurado.'}>
+            <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+              <label className="check"><input type="checkbox" disabled={!asaas.disponivel} checked={cobrar} onChange={(e) => setCobrar(e.target.checked)} /> Cobrar automaticamente pelo Asaas</label>
+              {cobrar && <select className="select" style={{ maxWidth: 300 }} value={forma} onChange={(e) => setForma(e.target.value as FormaPagamento)}>{FORMAS_PAGAMENTO.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}</select>}
             </div>
           </Field>
           <Field label="Base inicial">
@@ -433,8 +454,8 @@ function Cancelar({ r, onClose, onConfirm }: { r: LinhaAssinante; onClose: () =>
 }
 
 /* ---------------- Detalhe da conta ---------------- */
-function Detalhe({ r, onClose, onEditar, onSenha }: { r: LinhaAssinante; onClose: () => void; onEditar: () => void; onSenha: () => void }) {
-  const { dados } = usePlataforma();
+function Detalhe({ r, onClose, onEditar, onSenha, onCobrar, onParar }: { r: LinhaAssinante; onClose: () => void; onEditar: () => void; onSenha: () => void; onCobrar: () => void; onParar: () => void }) {
+  const { dados, asaas } = usePlataforma();
   const plano = planoDe(dados, r.planoId);
   const lib = modulosLiberados(r, plano);
   const fats = dados.faturas.filter((f) => f.assinanteId === r.id).sort((a, b) => b.competencia.localeCompare(a.competencia));
@@ -485,7 +506,7 @@ function Detalhe({ r, onClose, onEditar, onSenha }: { r: LinhaAssinante; onClose
                   <tr key={f.id}>
                     <td>{monthLabel(f.competencia)}</td>
                     <td className="num">{money(f.valor)}</td>
-                    <td className="right">{f.status === 'Paga' ? <Badge tone="green">Paga</Badge> : f.status === 'Cancelada' ? <Badge tone="gray">Cancelada</Badge> : vencida(f) ? <Badge tone="red">Vencida</Badge> : <Badge tone="blue">Em aberto</Badge>}</td>
+                    <td className="right">{f.link && <a className="btn btn-ghost btn-icon btn-sm" href={f.link} target="_blank" rel="noreferrer" title="Abrir fatura no Asaas"><ExternalLink size={13} /></a>}{f.status === 'Paga' ? <Badge tone="green">Paga</Badge> : f.status === 'Cancelada' ? <Badge tone="gray">Cancelada</Badge> : vencida(f) ? <Badge tone="red">Vencida</Badge> : <Badge tone="blue">Em aberto</Badge>}</td>
                   </tr>
                 ))}
               </tbody>
@@ -503,6 +524,23 @@ function Detalhe({ r, onClose, onEditar, onSenha }: { r: LinhaAssinante; onClose
               ))}
             </ul>
           </div>
+          <div className="demo-box" style={{ display: 'grid', gap: 6 }}>
+            <div className="row between"><strong className="row"><CreditCard size={14} /> Cobrança automática (Asaas)</strong>
+              {r.cobranca?.ativa ? <Badge tone={r.cobranca.erro ? 'red' : 'green'}>{r.cobranca.erro ? 'Com erro' : 'Ativa'}</Badge> : <Badge tone="gray">Manual</Badge>}</div>
+            {r.cobranca?.ativa ? (
+              <>
+                <div className="small">{money(r.cobranca.valor ?? r.valor)}/mês · {nomeForma(r.cobranca.forma)} · 1º vencimento {date(r.cobranca.proximoVencimento)}</div>
+                <div className="small muted">Assinatura {r.cobranca.assinaturaId} · cliente {r.cobranca.clienteId}</div>
+                {r.cobranca.erro && <div className="small text-danger">{r.cobranca.erro}</div>}
+                <div><button className="btn btn-sm" onClick={onParar}>Desativar cobrança automática</button></div>
+              </>
+            ) : (
+              <>
+                <div className="small">Faturas emitidas e baixadas manualmente no console.</div>
+                {asaas.disponivel && r.status !== 'Cancelada' && <div><button className="btn btn-sm btn-primary" onClick={onCobrar}>Ativar cobrança automática</button></div>}
+              </>
+            )}
+          </div>
           {r.observacoes && <div className="small"><strong>Observações:</strong> {r.observacoes}</div>}
         </div>
       </div>
@@ -510,3 +548,42 @@ function Detalhe({ r, onClose, onEditar, onSenha }: { r: LinhaAssinante; onClose
   );
 }
 
+
+/* ---------------- Ativar cobrança automática ---------------- */
+function AtivarCobranca({ r, onClose }: { r: LinhaAssinante; onClose: () => void }) {
+  const { asaas } = usePlataforma();
+  const { toast } = useStore();
+  const [forma, setForma] = useState<FormaPagamento>('UNDEFINED');
+  const [enviando, setEnviando] = useState(false);
+  const venc = proximoVencimento(r);
+  const docOk = documentoValido(r.cnpj);
+  return (
+    <Modal title={<span className="row"><CreditCard size={18} /> Cobrança automática · {r.empresa}</span>} onClose={onClose} footer={<>
+      <button className="btn" onClick={onClose}>Cancelar</button>
+      <button className="btn btn-primary" disabled={!docOk || enviando} onClick={async () => {
+        setEnviando(true);
+        const e = await asaas.ativar(r.id, forma);
+        setEnviando(false);
+        if (e) return toast(e, 'error');
+        toast('Assinatura mensal criada no Asaas. As faturas e baixas agora são automáticas.');
+        onClose();
+      }}>{enviando ? 'Criando no Asaas…' : 'Criar assinatura no Asaas'}</button>
+    </>}>
+      <div style={{ display: 'grid', gap: 12 }}>
+        <Field label="Forma de pagamento">
+          <select className="select" value={forma} onChange={(e) => setForma(e.target.value as FormaPagamento)}>{FORMAS_PAGAMENTO.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}</select>
+        </Field>
+        <dl className="dl">
+          <dt>Valor mensal</dt><dd className="strong">{money(r.valor)}</dd>
+          <dt>Primeiro vencimento</dt><dd>{date(venc)}{r.status === 'Trial' ? ' (após o teste grátis)' : ''} · depois todo dia {r.diaVencimento}</dd>
+          <dt>Cliente no Asaas</dt><dd>{r.empresa} · {r.cnpj || 'sem CPF/CNPJ'} · {r.email}</dd>
+        </dl>
+        {!docOk && <div className="small text-danger">CPF/CNPJ ausente ou inválido ({r.cnpj || 'vazio'}). O Asaas exige um documento válido: edite o cadastro da empresa antes de ativar.</div>}
+        <div className="small muted">
+          O Asaas envia a fatura ao cliente (e-mail/SMS conforme sua conta), recebe por {nomeForma(forma)} e avisa o Pivot Hub pelo webhook: a fatura é baixada,
+          testes pagos viram assinatura e contas inadimplentes voltam a ficar ativas sozinhas. Mudanças de plano atualizam o valor no Asaas automaticamente.
+        </div>
+      </div>
+    </Modal>
+  );
+}

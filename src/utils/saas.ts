@@ -145,7 +145,7 @@ export function insightsSaas(p: Plataforma, ls: LinhaAssinante[], serie: PontoMr
   }
 
   const mesAtual = hoje.slice(0, 7);
-  const semFatura = ls.filter((a) => PAGANTE.includes(a.status) && !p.faturas.some((f) => f.assinanteId === a.id && f.competencia === mesAtual));
+  const semFatura = ls.filter((a) => PAGANTE.includes(a.status) && !a.cobranca?.ativa && !p.faturas.some((f) => f.assinanteId === a.id && f.competencia === mesAtual));
   if (semFatura.length) {
     const v = semFatura.reduce((s, a) => s + a.mrr, 0);
     out.push({ tone: 'warn', valor: v, titulo: `${semFatura.length} fatura(s) do mês ainda não emitidas`,

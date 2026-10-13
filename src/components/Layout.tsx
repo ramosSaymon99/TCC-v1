@@ -8,7 +8,7 @@ import { BuscaGlobal } from './BuscaGlobal';
 import { useStore } from '../store/Store';
 import type { Modulo } from '../types';
 import { Avatar, Logo } from './ui';
-import { addDays, date, diffDays, today } from '../utils/format';
+import { addDays, date, diffDays, money, today } from '../utils/format';
 import { ABERTAS } from '../utils/metrics';
 
 type NavItem = { to: string; label: string; icon: ReactNode; mod: Modulo };
@@ -167,10 +167,21 @@ function AvisoAssinatura() {
       </div>
     );
   }
-  if (assinatura.status === 'Inadimplente' && dono) {
+  const f = assinatura.faturaAberta;
+  const pagar = f?.link && <a className="btn btn-sm btn-primary" href={f.link} target="_blank" rel="noreferrer" style={{ marginLeft: 'auto' }}>Pagar agora</a>;
+  if (dono && (assinatura.status === 'Inadimplente' || f?.vencida)) {
     return (
-      <div className="insight risk" style={{ marginBottom: 16 }}>
-        <div className="d"><strong>Há fatura da assinatura em atraso.</strong> Regularize para evitar a suspensão do acesso da equipe.</div>
+      <div className="insight risk row" style={{ marginBottom: 16 }}>
+        <div className="d"><strong>Mensalidade em atraso{f ? ` (${money(f.valor)}, venceu em ${date(f.vencimento)})` : ''}.</strong> Regularize para evitar a suspensão do acesso da equipe. A baixa é automática após o pagamento.</div>
+        {pagar}
+      </div>
+    );
+  }
+  if (dono && f?.link && diffDays(f.vencimento, today()) <= 5) {
+    return (
+      <div className="insight opp row" style={{ marginBottom: 16 }}>
+        <div className="d"><strong>Sua mensalidade de {money(f.valor)} vence em {date(f.vencimento)}.</strong> Pague por Pix, boleto ou cartão pelo link seguro do Asaas.</div>
+        {pagar}
       </div>
     );
   }

@@ -290,6 +290,22 @@ export interface Plano {
 
 export interface EventoAssinatura { data: string; tipo: string; detalhe: string }
 
+/** Formas de pagamento do Asaas (UNDEFINED = o cliente escolhe Pix, boleto ou cartão na fatura). */
+export type FormaPagamento = 'UNDEFINED' | 'PIX' | 'BOLETO' | 'CREDIT_CARD';
+
+/** Cobrança recorrente automática no gateway (Asaas). */
+export interface CobrancaAutomatica {
+  provedor: 'asaas';
+  ativa: boolean;
+  forma: FormaPagamento;
+  clienteId?: string;        // cus_...
+  assinaturaId?: string;     // sub_...
+  valor?: number;            // valor enviado ao Asaas (para detectar mudança de plano)
+  proximoVencimento?: string;
+  atualizadoEm?: string;
+  erro?: string;
+}
+
 /** Uso simulado das empresas de demonstração (as reais têm o uso medido no banco). */
 export interface UsoSimulado { usuarios: number; diasSemAcesso: number; modulosEmUso: number; registros: number }
 
@@ -320,6 +336,7 @@ export interface Assinante {
   observacoes?: string;
   provisionado: boolean;      // tem base de dados própria (login funciona)
   usoSimulado?: UsoSimulado;
+  cobranca?: CobrancaAutomatica;
   historico: EventoAssinatura[];
 }
 
@@ -333,6 +350,10 @@ export interface Fatura {
   planoId: string;
   status: StatusFatura;
   pagoEm?: string;
+  asaasId?: string;           // pay_... (fatura gerada e baixada pelo Asaas)
+  link?: string;              // página de pagamento do Asaas
+  forma?: string;
+  valorLiquido?: number;      // valor após a taxa do gateway
 }
 
 export interface ConfigPlataforma {
@@ -341,6 +362,7 @@ export interface ConfigPlataforma {
   diasTrial: number;
   diasTolerancia: number;          // dias de atraso antes de marcar como inadimplente
   investimentoAquisicaoMes: number; // marketing + comissões por mês (para CAC)
+  reguaAutomatica?: boolean;        // rotina diária marca inadimplência/suspende sozinha
 }
 
 export interface Plataforma {
@@ -361,6 +383,9 @@ export interface Assinatura {
   maxUsuarios: number;
   valorMensal: number;
   trialFim?: string;
+  /** Próxima mensalidade em aberto com link de pagamento (cobrança automática). */
+  faturaAberta?: { valor: number; vencimento: string; link?: string; vencida: boolean };
+  forma?: FormaPagamento;
   /** Planos à venda (para a tela de upgrade). */
   ofertas?: { id: string; nome: string; precoMensal: number; maxUsuarios: number; modulos: Modulo[] }[];
 }

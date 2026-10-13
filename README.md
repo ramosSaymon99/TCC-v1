@@ -40,6 +40,27 @@ O Pivot Hub é multiempresa: cada empresa assinante tem uma base isolada e o pla
 
 Na empresa assinante: módulos fora do plano aparecem com cadeado e mostram o plano que os libera (com a diferença de preço); o limite de usuários é aplicado ao criar ou reativar usuários; avisos de teste grátis e de fatura em atraso; "Minha assinatura" em Configurações. As regras também são validadas no Worker (plano, limite de usuários, e-mail único na plataforma, bloqueio de contas suspensas, canceladas ou com teste vencido).
 
+## Cobrança automática (Asaas)
+
+Cada empresa assinante pode ser cobrada automaticamente: o Worker cria o cliente e uma **assinatura mensal** no Asaas (Pix, boleto, cartão ou "cliente escolhe"), o Asaas gera e envia as faturas e avisa o Pivot Hub pelo **webhook** `/api/asaas/webhook`.
+
+O que acontece sozinho:
+
+- Pagamento confirmado → fatura baixada; teste grátis vira assinatura; conta inadimplente ou suspensa volta a ficar ativa.
+- Troca de plano, usuários extras ou desconto → valor da assinatura atualizado no Asaas (inclusive cobranças pendentes).
+- Cancelamento da empresa → assinatura encerrada no Asaas.
+- Todo dia às 7h (Cron Trigger) → conferência dos pagamentos no Asaas (caso algum webhook se perca) e, se ativada em *Regras comerciais*, a régua de inadimplência/suspensão.
+- A empresa cliente vê o aviso de vencimento com o botão **Pagar agora** (link seguro do Asaas).
+
+### Como ativar
+
+1. No Asaas (comece pelo **sandbox**: sandbox.asaas.com): *Integrações → Chaves de API* → gerar chave.
+2. No Cloudflare: *Workers & Pages → techgest → Settings → Variables and Secrets → Add* → tipo **Secret**, nome `ASAAS_API_KEY`, valor = chave. **Nunca** coloque a chave no código ou no repositório.
+3. No Pivot Hub: *Plataforma SaaS → Faturamento SaaS* → **Configurar webhook** (o token é gerado e guardado no banco).
+4. Em *Empresas assinantes* → menu da empresa → **Ativar cobrança automática** (exige CPF/CNPJ válido).
+
+O ambiente é deduzido do prefixo da chave (`$aact_hmlg_` = sandbox, `$aact_prod_` = produção) ou definido pela variável `ASAAS_AMBIENTE`. Para ir à produção: troque o secret pela chave de produção e clique em **Reconfigurar webhook**.
+
 ## Tecnologias
 
 React 18 + TypeScript + Vite, React Router, Recharts e Lucide Icons. Back-end em Cloudflare Workers com banco Cloudflare D1.

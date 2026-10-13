@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlarmClock, CheckCircle2, Download, FileText, Gavel, Receipt, Wallet } from 'lucide-react';
-import { usePlataforma } from '../../store/PlataformaStore';
+import { AlarmClock, CheckCircle2, Copy, CreditCard, Download, ExternalLink, FileText, Gavel, Receipt, RefreshCw, Wallet, Webhook } from 'lucide-react';
+import { usePlataforma, type AsaasStatus } from '../../store/PlataformaStore';
 import { useStore } from '../../store/Store';
 import type { Assinante, Fatura } from '../../types';
 import { Badge, Confirm, Empty, Kpi, PageHeader, Pager, RowMenu, SearchInput, Th, useSortPage } from '../../components/ui';
-import { date, diffDays, downloadCSV, lastMonths, MESES_LONGOS, money, monthLabel, normalize, pad, pct, today } from '../../utils/format';
+import { date, dateTime, diffDays, downloadCSV, lastMonths, MESES_LONGOS, money, monthLabel, normalize, pad, pct, today } from '../../utils/format';
 import { cfgDe, mrrDe, PAGANTE, planoDe, vencida } from '../../store/plataforma';
 
 type Row = Fatura & { empresa: string; plano: string; situacao: string; atraso: number };
@@ -40,7 +40,8 @@ export default function ConsoleFaturas() {
   const vencidas = rows.filter((r) => r.situacao === 'Vencida');
   const soma = (xs: Row[]) => xs.reduce((t, r) => t + r.valor, 0);
 
-  const pendentes = dados.assinantes.filter((a) => PAGANTE.includes(a.status) && !dados.faturas.some((f) => f.assinanteId === a.id && f.competencia === mesAtual));
+  // empresas com cobrança automática recebem as faturas do Asaas
+  const pendentes = dados.assinantes.filter((a) => PAGANTE.includes(a.status) && !a.cobranca?.ativa && !dados.faturas.some((f) => f.assinanteId === a.id && f.competencia === mesAtual));
   const paraInadimplencia = dados.assinantes.filter((a) => a.status === 'Ativa' && dados.faturas.some((f) => f.assinanteId === a.id && vencida(f, hoje) && diffDays(hoje, f.vencimento) > cfg.diasTolerancia));
   const paraSuspensao = dados.assinantes.filter((a) => a.status === 'Inadimplente' && dados.faturas.some((f) => f.assinanteId === a.id && vencida(f, hoje) && diffDays(hoje, f.vencimento) > cfg.diasTolerancia * 3));
 
@@ -133,7 +134,7 @@ export default function ConsoleFaturas() {
               <tbody>
                 {s.view.map((r) => (
                   <tr key={r.id}>
-                    <td className="strong">{r.empresa}<div className="sub">{r.plano}</div></td>
+                    <td className="strong">{r.empresa}<div className="sub">{r.plano}{r.asaasId && <> · <span className="text-success">Asaas{r.forma ? ` · ${r.forma === 'CREDIT_CARD' ? 'cartão' : r.forma === 'PIX' ? 'Pix' : r.forma === 'BOLETO' ? 'boleto' : 'a escolher'}` : ''}</span></>}</div></td>
                     <td>{monthLabel(r.competencia)}</td>
                     <td className="num strong">{money(r.valor)}</td>
                     <td className="nowrap">{date(r.vencimento)}{r.atraso > 0 && <div className="sub text-danger">{r.atraso} dia(s) de atraso</div>}</td>
@@ -143,10 +144,13 @@ export default function ConsoleFaturas() {
                     </td>
                     <td className="right">
                       <RowMenu actions={[
-                        { label: 'Registrar pagamento', onClick: () => pagar(r), hidden: r.status !== 'Em aberto' },
-                        { label: 'Cancelar fatura', onClick: () => { salvar('faturas', { ...strip(r), status: 'Cancelada', pagoEm: undefined }); toast('Fatura cancelada.'); }, hidden: r.status === 'Cancelada' },
-                        { label: 'Reabrir', onClick: () => { salvar('faturas', { ...strip(r), status: 'Em aberto', pagoEm: undefined }); toast('Fatura reaberta.'); }, hidden: r.status === 'Em aberto' },
-                        { label: 'Excluir', danger: true, onClick: () => setExcluindo(r) },
+                        { label: <span className="row"><ExternalLink size={14} /> Abrir fatura do Asaas</span>, onClick: () => window.open(r.link, '_blank', 'noopener'), hidden: !r.link },
+                        { label: <span className="row"><Copy size={14} /> Copiar link de pagamento</span>, onClick: () => { navigator.clipboard?.writeText(r.link ?? '').then(() => toast('Link copiado: envie ao cliente.')).catch(() => toast('Copie pelo botão Abrir.', 'error')); }, hidden: !r.link || r.status !== 'Em aberto' },
+                        // faturas do Asaas são baixadas pelo webhook: alteração manual criaria divergência
+                        { label: 'Registrar pagamento', onClick: () => pagar(r), hidden: r.status !== 'Em aberto' || !!r.asaasId },
+                        { label: 'Cancelar fatura', onClick: () => { salvar('faturas', { ...strip(r), status: 'Cancelada', pagoEm: undefined }); toast('Fatura cancelada.'); }, hidden: r.status === 'Cancelada' || !!r.asaasId },
+                        { label: 'Reabrir', onClick: () => { salvar('faturas', { ...strip(r), status: 'Em aberto', pagoEm: undefined }); toast('Fatura reaberta.'); }, hidden: r.status === 'Em aberto' || !!r.asaasId },
+                        { label: 'Excluir', danger: true, onClick: () => setExcluindo(r), hidden: !!r.asaasId },
                       ]} />
                     </td>
                   </tr>
@@ -158,6 +162,8 @@ export default function ConsoleFaturas() {
           <Pager {...s} noun="faturas" />
         </div>
 
+        <div style={{ display: 'grid', gap: 16, alignContent: 'start' }}>
+        <PainelAsaas />
         <div className="card">
           <div className="card-head"><div><h3>Adimplência por competência</h3><div className="card-sub">Quanto do faturado já entrou no caixa e quanto foi pago no prazo</div></div></div>
           <div className="table-wrap">
@@ -176,8 +182,9 @@ export default function ConsoleFaturas() {
             </table>
           </div>
           <div className="card-pad small muted">
-            Régua atual: atraso acima de <strong>{cfg.diasTolerancia} dias</strong> → inadimplente; acima de <strong>{cfg.diasTolerancia * 3} dias</strong> → suspensão do acesso. Ao registrar o pagamento, a conta volta a ficar ativa automaticamente.
+            Régua atual: atraso acima de <strong>{cfg.diasTolerancia} dias</strong> → inadimplente; acima de <strong>{cfg.diasTolerancia * 3} dias</strong> → suspensão do acesso{cfg.reguaAutomatica ? ' (aplicada automaticamente todo dia às 7h)' : ''}. Ao registrar o pagamento, a conta volta a ficar ativa automaticamente.
           </div>
+        </div>
         </div>
       </div>
 
@@ -188,5 +195,72 @@ export default function ConsoleFaturas() {
       </>} onClose={() => setRegua(false)} onConfirm={aplicarRegua} />}
       {excluindo && <Confirm text={<>Excluir a fatura de <strong>{excluindo.empresa}</strong> ({monthLabel(excluindo.competencia)})? Para manter o histórico de receita, prefira cancelar.</>} onClose={() => setExcluindo(null)} onConfirm={() => { excluir('faturas', excluindo.id); toast('Fatura excluída.'); }} />}
     </>
+  );
+}
+
+/** Situação da integração com o Asaas e ações de manutenção. */
+function PainelAsaas() {
+  const { asaas, dados } = usePlataforma();
+  const { toast } = useStore();
+  const [st, setSt] = useState<AsaasStatus | null>(null);
+  const [ocupado, setOcupado] = useState('');
+  const carregar = useCallback(() => { asaas.status().then(setSt); }, [asaas]);
+  useEffect(() => { if (asaas.disponivel) carregar(); }, [asaas.disponivel]); // eslint-disable-line react-hooks/exhaustive-deps
+  const ativas = dados.assinantes.filter((a) => a.cobranca?.ativa).length;
+  const comErro = dados.assinantes.filter((a) => a.cobranca?.ativa && a.cobranca.erro);
+
+  if (!asaas.disponivel) {
+    return (
+      <div className="card card-pad small">
+        <strong className="row"><CreditCard size={15} /> Cobrança automática (Asaas)</strong>
+        <p className="muted" style={{ marginBottom: 0 }}>Disponível na versão publicada no Cloudflare. No modo local as faturas são controladas manualmente.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="card">
+      <div className="card-head">
+        <h3 className="row"><CreditCard size={16} color="var(--primary)" /> Cobrança automática (Asaas)</h3>
+        {st && (st.configurado ? <Badge tone={st.erro ? 'red' : st.ambiente === 'produção' ? 'green' : 'orange'}>{st.erro ? 'Erro' : st.ambiente === 'produção' ? 'Produção' : 'Sandbox (teste)'}</Badge> : <Badge tone="gray">Não configurado</Badge>)}
+      </div>
+      <div className="card-pad" style={{ display: 'grid', gap: 10 }}>
+        {!st && <div className="small muted">Verificando a integração…</div>}
+        {st && !st.configurado && (
+          <div className="small">
+            Para ativar, cadastre a chave da API do Asaas como <strong>secret</strong> no Worker (nunca no código):
+            <ol style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+              <li>No Asaas: <em>Integrações → Chaves de API</em> → gerar chave (comece pelo sandbox).</li>
+              <li>No Cloudflare: <em>Workers → techgest → Settings → Variables and Secrets → Add</em>, tipo <strong>Secret</strong>, nome <code>ASAAS_API_KEY</code>.</li>
+              <li>Volte aqui e clique em <strong>Configurar webhook</strong>.</li>
+            </ol>
+          </div>
+        )}
+        {st?.erro && <div className="small text-danger">{st.erro}</div>}
+        {st?.configurado && !st.erro && (
+          <>
+            <div className="row between small"><span>Saldo na conta Asaas</span><strong>{money(st.saldo ?? 0)}</strong></div>
+            <div className="row between small"><span>Empresas com cobrança automática</span><strong>{ativas}</strong></div>
+            <div className="row between small"><span>Webhook de pagamentos</span>{st.webhook ? <Badge tone="green">Configurado</Badge> : <Badge tone="orange">Pendente</Badge>}</div>
+            <div className="small muted">
+              {st.ultimoEvento ? <>Último evento: {st.ultimoEvento.evento} · {st.ultimoEvento.resultado} · {dateTime(st.ultimoEvento.recebidoEm)}</> : 'Nenhum evento recebido ainda.'}
+              {st.rotina?.em && <><br />Última conferência automática: {dateTime(st.rotina.em)}</>}
+            </div>
+            {comErro.length > 0 && <div className="small text-danger">{comErro.length} empresa(s) com erro de sincronização: {comErro.map((a) => a.empresa).join(', ')}.</div>}
+          </>
+        )}
+        {st?.configurado && (
+          <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+            <button className="btn btn-sm" disabled={!!ocupado} onClick={async () => {
+              setOcupado('webhook'); const e = await asaas.configurarWebhook(); setOcupado('');
+              toast(e ?? 'Webhook configurado no Asaas: pagamentos passam a dar baixa sozinhos.', e ? 'error' : 'success'); carregar();
+            }}><Webhook size={14} /> {ocupado === 'webhook' ? 'Configurando…' : st.webhook ? 'Reconfigurar webhook' : 'Configurar webhook'}</button>
+            <button className="btn btn-sm" disabled={!!ocupado || !ativas} onClick={async () => {
+              setOcupado('sync'); const r = await asaas.sincronizar(); setOcupado('');
+              toast(r.erro ?? `Conferência concluída: ${r.faturas} cobrança(s) de ${r.assinantes} empresa(s).`, r.erro ? 'error' : 'success'); carregar();
+            }}><RefreshCw size={14} /> {ocupado === 'sync' ? 'Conferindo…' : 'Conferir pagamentos agora'}</button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

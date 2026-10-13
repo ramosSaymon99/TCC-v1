@@ -10,7 +10,10 @@
  *   secrets(key, value)                      → chave que assina as sessões
  * O tenant "principal" é a empresa dona da plataforma (acesso ao console SaaS).
  * O tenant "_plataforma" guarda planos, assinantes, faturas e configurações comerciais.
+ * Cobrança automática das assinaturas: ver worker/asaas.js.
  */
+import { aposSalvarAssinante, rotasAdminAsaas, rotinaDiaria, valorMensalDe, webhookAsaas } from './asaas.js';
+
 
 const COLS = [
   'clientes', 'orcamentos', 'oportunidades', 'ordens', 'equipamentos', 'compromissos', 'tarefas', 'lancamentos', 'usuarios',
@@ -175,12 +178,7 @@ async function assinaturaDe(env, tenant) {
   const plano = a ? await getItem(env, PLAT, 'planos', a.planoId) : null;
   const cfg = (await getItem(env, PLAT, 'config', 'geral')) ?? { precoModuloAvulso: 39 };
   const modulos = [...new Set([...ESSENCIAIS, ...(plano?.modulos ?? []), ...(a?.modulosExtras ?? [])])];
-  let valor = 0;
-  if (a && plano) {
-    const base = plano.precoMensal * (a.ciclo === 'Anual' ? 1 - plano.descontoAnual : 1);
-    const extras = a.usuariosExtras * plano.precoUsuarioExtra + a.modulosExtras.filter((m) => !plano.modulos.includes(m)).length * cfg.precoModuloAvulso;
-    valor = Math.round((base + extras) * (1 - (a.descontoPct || 0)) * 100) / 100;
-  }
+  const valor = valorMensalDe(a, plano, cfg);
   return {
     tenant, principal: false, empresa: a?.empresa ?? '—', plano: plano?.nome ?? '—', status: a?.status ?? 'Cancelada', modulos,
     maxUsuarios: (plano?.maxUsuarios ?? 1) + (a?.usuariosExtras ?? 0), valorMensal: valor, trialFim: a?.trialFim,
@@ -214,6 +212,8 @@ async function api(req, env, url) {
   await garantirEsquema(env);
   const path = url.pathname.replace(/^\/api/, '');
   const method = req.method;
+  // Webhook do Asaas: autenticado pelo token próprio (lê o corpo por conta própria)
+  if (path === '/asaas/webhook' && method === 'POST') return webhookAsaas(req, env, json);
   const body = ['POST', 'PUT'].includes(method) ? await req.json().catch(() => null) : null;
 
   // Públicas
@@ -258,7 +258,7 @@ async function api(req, env, url) {
 
   if (path.startsWith('/admin/')) {
     if (tenant !== PRINCIPAL || !dono) return erro('Acesso restrito ao administrador da plataforma.', 403);
-    return admin(req, env, path.slice(6), method, body);
+    return admin(req, env, path.slice(6), method, body, user);
   }
 
   if (path === '/db' && method === 'GET') {
@@ -269,6 +269,12 @@ async function api(req, env, url) {
     db.empresa = (await getConfig(env, tenant, 'empresa')) ?? {};
     const { _bloqueio, ...pub } = assinatura;
     if (!pub.principal) {
+      // próxima mensalidade em aberto (com link de pagamento do Asaas, quando houver)
+      const hoje = hojeISO();
+      const abertas = (await listar(env, PLAT, 'faturas')).filter((f) => f.assinanteId === tenant && f.status === 'Em aberto').sort((a, b) => a.vencimento.localeCompare(b.vencimento));
+      if (abertas[0]) pub.faturaAberta = { valor: abertas[0].valor, vencimento: abertas[0].vencimento, link: abertas[0].link, vencida: abertas[0].vencimento < hoje };
+      const reg = await getItem(env, PLAT, 'assinantes', tenant);
+      if (reg?.cobranca?.ativa) pub.forma = reg.cobranca.forma;
       pub.ofertas = (await listar(env, PLAT, 'planos')).filter((p) => p.ativo).sort((a, b) => a.ordem - b.ordem)
         .map(({ id, nome, precoMensal, maxUsuarios, modulos }) => ({ id, nome, precoMensal, maxUsuarios, modulos }));
     }
@@ -350,7 +356,9 @@ async function api(req, env, url) {
 }
 
 /* ---------------- Console da plataforma (somente proprietários da empresa principal) ---------------- */
-async function admin(req, env, path, method, body) {
+async function admin(req, env, path, method, body, user) {
+  if (path.startsWith('/asaas/')) return rotasAdminAsaas(req, env, path.slice(6), method, body, user, json, erro);
+
   if (path === '/dados' && method === 'GET') {
     const out = {};
     for (const col of PLAT_COLS) out[col] = await listar(env, PLAT, col);
@@ -388,7 +396,18 @@ async function admin(req, env, path, method, body) {
     const id = decodeURIComponent(idRaw);
     if (method === 'PUT') {
       if (!body || String(body.id) !== id) return erro('Registro inválido.');
-      await upsertStmt(env, PLAT, col, body).run();
+      const antes = col === 'assinantes' ? await getItem(env, PLAT, col, id) : null;
+      // os identificadores da cobrança automática são mantidos pelo servidor
+      let registro = body;
+      if (col === 'assinantes' && antes) {
+        // eventos gravados pelo servidor (webhook, rotina) não se perdem se a tela estiver desatualizada
+        const chave = (h) => `${h.data}|${h.tipo}|${h.detalhe}`;
+        const hist = [...(antes.historico ?? []), ...(body.historico ?? [])].filter((h, i, arr) => arr.findIndex((x) => chave(x) === chave(h)) === i)
+          .sort((x, y) => x.data.localeCompare(y.data));
+        registro = { ...body, historico: hist, ...(antes.cobranca ? { cobranca: antes.cobranca } : {}) };
+      }
+      await upsertStmt(env, PLAT, col, registro).run();
+      if (col === 'assinantes') return json({ ok: true, ...(await aposSalvarAssinante(env, antes, registro)) });
       return json({ ok: true });
     }
     if (method === 'DELETE') {
@@ -448,5 +467,9 @@ export default {
       }
     }
     return env.ASSETS.fetch(req);
+  },
+  /** Rotina diária (Cron Trigger): reconcilia pagamentos do Asaas e, se ativada, aplica a régua de inadimplência. */
+  async scheduled(_event, env, ctx) {
+    ctx.waitUntil((async () => { await garantirEsquema(env); await rotinaDiaria(env); })());
   },
 };

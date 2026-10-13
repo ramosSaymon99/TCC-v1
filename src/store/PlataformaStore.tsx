@@ -1,11 +1,21 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { Assinante, Database, Plataforma, UsoTenant } from '../types';
+import type { Assinante, Database, FormaPagamento, Plataforma, UsoTenant } from '../types';
 import { call, useStore } from './Store';
 import { createPlataformaSeed, usoDaBase } from './plataforma';
 import { deleteTenantLocal, loadPlataformaLocal, loadTenantLocal, savePlataformaLocal, saveTenantLocal } from './local';
 
 type ColPlat = keyof Plataforma;
 type ItemPlat<K extends ColPlat> = Plataforma[K][number];
+
+export interface AsaasStatus {
+  configurado: boolean;
+  ambiente: 'sandbox' | 'produção' | null;
+  webhook: boolean;
+  saldo?: number;
+  erro?: string;
+  ultimoEvento?: { evento: string; resultado: string; recebidoEm: string } | null;
+  rotina?: { em: string } | null;
+}
 
 interface PlataformaValue {
   dados: Plataforma;
@@ -18,6 +28,15 @@ interface PlataformaValue {
   criarEmpresa: (a: Assinante, db: Database) => Promise<{ senha?: string; erro?: string }>;
   redefinirSenha: (id: string) => Promise<{ senha?: string; email?: string; erro?: string }>;
   excluirEmpresa: (id: string) => Promise<string | null>;
+  /** Integração Asaas (somente na versão publicada; no modo local devolve null/erro). */
+  asaas: {
+    disponivel: boolean;
+    status: () => Promise<AsaasStatus | null>;
+    configurarWebhook: () => Promise<string | null>;
+    sincronizar: () => Promise<{ erro?: string; faturas?: number; assinantes?: number }>;
+    ativar: (id: string, forma: FormaPagamento) => Promise<string | null>;
+    desativar: (id: string) => Promise<string | null>;
+  };
 }
 
 const Ctx = createContext<PlataformaValue | null>(null);
@@ -57,6 +76,15 @@ export function PlataformaProvider({ children }: { children: ReactNode }) {
   }, [remoto, toast]);
 
   useEffect(() => { if (modo !== 'checking' && adminPlataforma) recarregar(); }, [modo, adminPlataforma, recarregar]);
+  // pagamentos chegam pelo webhook a qualquer momento: atualiza ao voltar para a aba
+  useEffect(() => {
+    if (!remoto || !adminPlataforma) return;
+    const onFocus = () => { if (document.visibilityState === 'visible') recarregar(); };
+    document.addEventListener('visibilitychange', onFocus);
+    return () => document.removeEventListener('visibilitychange', onFocus);
+  }, [remoto, adminPlataforma, recarregar]);
+
+  const trocar = (registro: Assinante) => setDados((cur) => ({ ...cur, assinantes: cur.assinantes.map((a) => (a.id === registro.id ? registro : a)) }));
 
   // modo local: persiste a cada alteração
   useEffect(() => { if (!remoto && !carregando) savePlataformaLocal(dados); }, [dados, remoto, carregando]);
@@ -70,7 +98,12 @@ export function PlataformaProvider({ children }: { children: ReactNode }) {
         return { ...cur, [col]: list.some((x) => x.id === id) ? list.map((x) => (x.id === id ? item : x)) : [item, ...list] };
       });
       if (remoto) {
-        call(`/admin/itens/${col}/${encodeURIComponent((item as { id: string }).id)}`, { method: 'PUT', body: JSON.stringify(item) })
+        call<{ registro?: Assinante; aviso?: string }>(`/admin/itens/${col}/${encodeURIComponent((item as { id: string }).id)}`, { method: 'PUT', body: JSON.stringify(item) })
+          .then((r) => {
+            // o servidor pode ter ajustado a empresa (ex.: valor atualizado no Asaas)
+            if (col === 'assinantes' && r.registro) trocar(r.registro);
+            if (r.aviso) toast(r.aviso, 'error');
+          })
           .catch((e: Error) => { toast(e.message, 'error'); recarregar(); });
       }
     },
@@ -110,6 +143,25 @@ export function PlataformaProvider({ children }: { children: ReactNode }) {
       } else deleteTenantLocal(id);
       setDados((cur) => ({ ...cur, assinantes: cur.assinantes.filter((a) => a.id !== id), faturas: cur.faturas.filter((f) => f.assinanteId !== id) }));
       return null;
+    },
+    asaas: {
+      disponivel: remoto,
+      status: async () => (remoto ? call<AsaasStatus>('/admin/asaas/status').catch(() => null) : null),
+      configurarWebhook: async () => {
+        try { await call('/admin/asaas/webhook', { method: 'POST' }); return null; } catch (e) { return (e as Error).message; }
+      },
+      sincronizar: async () => {
+        try { const r = await call<{ faturas: number; assinantes: number }>('/admin/asaas/sincronizar', { method: 'POST' }); await recarregar(); return r; }
+        catch (e) { return { erro: (e as Error).message }; }
+      },
+      ativar: async (id, forma) => {
+        try { await call(`/admin/asaas/ativar/${encodeURIComponent(id)}`, { method: 'POST', body: JSON.stringify({ forma }) }); await recarregar(); return null; }
+        catch (e) { return (e as Error).message; }
+      },
+      desativar: async (id) => {
+        try { await call(`/admin/asaas/desativar/${encodeURIComponent(id)}`, { method: 'POST' }); await recarregar(); return null; }
+        catch (e) { return (e as Error).message; }
+      },
     },
   }), [dados, uso, carregando, remoto, toast, recarregar]);
 

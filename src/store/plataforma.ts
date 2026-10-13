@@ -277,3 +277,27 @@ export function createPlataformaSeed(): Plataforma {
 
 /** Meses (yyyy-mm) para as séries do console. */
 export const mesesConsole = (n: number) => lastMonths(n);
+
+/** Próximo vencimento no dia contratado (mesma regra do Worker); no teste grátis, após o fim do teste. */
+export function proximoVencimento(a: Pick<Assinante, 'status' | 'trialFim' | 'diaVencimento'>, hoje = today()) {
+  const base = a.status === 'Trial' && a.trialFim && a.trialFim > hoje ? a.trialFim : hoje;
+  const [y, m, d] = base.split('-').map(Number);
+  const dia = Math.min(28, Math.max(1, a.diaVencimento || 10));
+  if (dia > d) return `${y}-${pad(m)}-${pad(dia)}`;
+  const prox = new Date(y, m, dia);
+  return `${prox.getFullYear()}-${pad(prox.getMonth() + 1)}-${pad(dia)}`;
+}
+
+/** CPF/CNPJ com dígitos verificadores válidos (mesma regra do Worker; o Asaas recusa documentos inválidos). */
+export function documentoValido(valor: string) {
+  const d = valor.replace(/\D/g, '');
+  if (!/^(\d{11}|\d{14})$/.test(d) || /^(\d)\1+$/.test(d)) return false;
+  const soma = (n: number, pesos: number[]) => pesos.reduce((t, p, i) => t + Number(d[i]) * p, 0) % n;
+  if (d.length === 11) {
+    const v = (len: number) => { const s = soma(11, Array.from({ length: len }, (_, i) => len + 1 - i)) * 10 % 11; return s === 10 ? 0 : s; };
+    return v(9) === Number(d[9]) && v(10) === Number(d[10]);
+  }
+  const dv = (pesos: number[]) => { const s = soma(11, pesos); return s < 2 ? 0 : 11 - s; };
+  const p1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  return dv(p1) === Number(d[12]) && dv([6, ...p1]) === Number(d[13]);
+}

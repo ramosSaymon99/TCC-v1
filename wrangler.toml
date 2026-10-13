@@ -6,6 +6,10 @@ compatibility_date = "2025-09-01"
 workers_dev = true
 preview_urls = true
 
+# Rotina diária às 07:00 (Brasília): reconcilia pagamentos do Asaas e aplica a régua de inadimplência
+[triggers]
+crons = ["0 10 * * *"]
+
 # Gera o index.html (app inteiro em um arquivo) antes de cada deploy, inclusive no Workers Builds
 [build]
 command = "npm run build:single"
