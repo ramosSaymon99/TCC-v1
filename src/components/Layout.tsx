@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Bell, BarChart3, Boxes, Building2, CalendarDays, ClipboardList, DollarSign, FileText, Filter, GraduationCap, Home, Layers, LayoutDashboard,
+  Bell, BarChart3, Boxes, Building2, CalendarDays, ChevronDown, ClipboardList, DollarSign, FileText, Filter, GraduationCap, Home, Layers, LayoutDashboard,
   Lock, LogOut, Menu, Megaphone, Monitor, Receipt, Repeat, Settings, Tag, Target, UserCog, Users, Wrench,
 } from 'lucide-react';
 import { BuscaGlobal } from './BuscaGlobal';
@@ -40,6 +40,23 @@ const NAV: { secao?: string; itens: NavItem[] }[] = [
   ] },
 ];
 
+const FECHADAS_KEY = 'techgest:nav-fechadas:v1';
+const lerFechadas = (): string[] | null => {
+  try { const v = localStorage.getItem(FECHADAS_KEY); return v ? JSON.parse(v) as string[] : null; } catch { return null; }
+};
+
+/** Cabeçalho de seção recolhível; recolhida, mostra o total de alertas dos itens para nada ficar escondido. */
+function Secao({ titulo, aberta, alerta, perigo, onToggle }: { titulo: string; aberta: boolean; alerta?: number; perigo?: boolean; onToggle: () => void }) {
+  return (
+    <button type="button" className={`nav-section nav-toggle ${aberta ? 'aberta' : ''}`} aria-expanded={aberta}
+      onClick={(e) => { e.stopPropagation(); onToggle(); }} title={aberta ? 'Recolher' : 'Expandir'}>
+      <span>{titulo}</span>
+      {!aberta && !!alerta && <span className="count" style={perigo ? { background: 'var(--danger)' } : undefined}>{alerta}</span>}
+      <ChevronDown size={14} className="chev" />
+    </button>
+  );
+}
+
 const NAV_PLATAFORMA = [
   { to: '/console', label: 'Visão da plataforma', icon: <LayoutDashboard size={18} /> },
   { to: '/console/assinantes', label: 'Empresas assinantes', icon: <Building2 size={18} /> },
@@ -55,6 +72,19 @@ export default function Layout() {
   const [notif, setNotif] = useState(false);
   const nav = useNavigate();
   const loc = useLocation();
+  // Seções recolhidas (lembradas no navegador). Primeiro acesso: só a seção da página atual fica aberta.
+  const [fechadas, setFechadas] = useState<string[] | null>(lerFechadas);
+  const ativa = (to: string) => (to === '/' ? false : loc.pathname === to || loc.pathname.startsWith(`${to}/`));
+  const secaoAtual = [...NAV.filter((g) => g.secao).map((g) => ({ s: g.secao!, tos: g.itens.map((i) => i.to) })), { s: 'Plataforma SaaS', tos: NAV_PLATAFORMA.map((i) => i.to) }]
+    .find((g) => g.tos.some(ativa))?.s;
+  const todas = [...NAV.filter((g) => g.secao).map((g) => g.secao!), 'Plataforma SaaS'];
+  const fechadasEf = fechadas ?? todas.filter((s) => s !== secaoAtual);
+  const aberta = (s: string) => !fechadasEf.includes(s);
+  const alternar = (s: string) => {
+    const prox = aberta(s) ? [...fechadasEf, s] : fechadasEf.filter((x) => x !== s);
+    setFechadas(prox);
+    try { localStorage.setItem(FECHADAS_KEY, JSON.stringify(prox)); } catch { /* armazenamento indisponível */ }
+  };
 
   const hoje = today();
   const atrasadas = db.ordens.filter((o) => (ABERTAS as readonly string[]).includes(o.status) && o.prazo < hoje).length;
@@ -83,10 +113,14 @@ export default function Layout() {
           {NAV.map((g) => {
             const itens = g.itens.filter((n) => visivel(n.mod));
             if (!itens.length) return null;
+            const alertaOrdens = itens.some((n) => n.mod === 'ordens') ? abertas : 0;
+            const alertaEstoque = itens.some((n) => n.mod === 'estoque') ? baixos : 0;
+            const mostrar = !g.secao || aberta(g.secao);
             return (
               <div key={g.secao ?? 'inicio'} style={{ display: 'contents' }}>
-                {g.secao && <div className="nav-section">{g.secao}</div>}
-                {itens.map((n) => (
+                {g.secao && <Secao titulo={g.secao} aberta={mostrar} alerta={alertaOrdens + alertaEstoque} perigo={alertaEstoque > 0} onToggle={() => alternar(g.secao!)} />}
+                {/* recolhida: continua mostrando a página aberta, para não perder a referência */}
+                {itens.filter((n) => mostrar || ativa(n.to)).map((n) => (
                   <NavLink key={n.to} to={n.to} end={n.to === '/'} className={liberado(n.mod) ? undefined : 'locked'} title={liberado(n.mod) ? undefined : 'Fora do seu plano'}>
                     {n.icon}{n.label}{!liberado(n.mod) && <Lock size={13} className="lock" />}
                     {n.mod === 'ordens' && abertas > 0 && <span className="count">{abertas}</span>}
@@ -98,8 +132,8 @@ export default function Layout() {
           })}
           {adminPlataforma && (
             <>
-              <div className="nav-section">Plataforma SaaS</div>
-              {NAV_PLATAFORMA.map((n) => <NavLink key={n.to} to={n.to} end={n.to === '/console'}>{n.icon}{n.label}</NavLink>)}
+              <Secao titulo="Plataforma SaaS" aberta={aberta('Plataforma SaaS')} onToggle={() => alternar('Plataforma SaaS')} />
+              {NAV_PLATAFORMA.filter((n) => aberta('Plataforma SaaS') || ativa(n.to)).map((n) => <NavLink key={n.to} to={n.to} end={n.to === '/console'}>{n.icon}{n.label}</NavLink>)}
             </>
           )}
         </nav>

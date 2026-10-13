@@ -380,3 +380,11 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 /* Itens do menu fora do plano contratado */
 .nav a.locked { opacity: 0.55; }
 .nav a.locked .lock { margin-left: auto; }
+
+/* Seções do menu recolhíveis */
+.nav-toggle { display: flex; align-items: center; gap: 6px; width: 100%; background: none; border: 0; cursor: pointer; text-align: left; font-family: inherit; border-radius: 6px; margin-top: 4px; }
+.nav-toggle:hover { color: #9db8e6; background: rgba(255, 255, 255, 0.04); }
+.nav-toggle span:first-child { flex: 1; }
+.nav-toggle .count { background: rgba(255,255,255,.14); color: #fff; font-size: 10.5px; padding: 0 6px; border-radius: 99px; letter-spacing: 0; }
+.nav-toggle .chev { transition: transform 0.15s ease; transform: rotate(-90deg); opacity: 0.8; }
+.nav-toggle.aberta .chev { transform: none; }
