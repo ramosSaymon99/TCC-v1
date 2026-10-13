@@ -73,8 +73,9 @@ export function gerarInsights(db: Database): Insight[] {
   // 1. Projeção x meta
   const projecao = p.dia ? (atual.faturamento / p.dia) * p.diasMes : 0;
   const meta = db.empresa.metaMensal;
-  // Com menos de 7 dias de dados a projeção linear é instável: não gera alerta de meta
-  if (meta > 0 && p.dia >= 7) {
+  // Com menos de 7 dias de dados a projeção linear é instável; sem histórico de vendas (base nova) não há ritmo para projetar
+  const temHistorico = db.lancamentos.some((l) => l.tipo === 'Receita');
+  if (meta > 0 && p.dia >= 7 && temHistorico) {
     const gap = meta - projecao;
     if (gap > meta * 0.02) {
       const restantes = p.diasMes - p.dia;
@@ -82,7 +83,7 @@ export function gerarInsights(db: Database): Insight[] {
       out.push({
         kind: gap / meta > 0.1 ? 'risk' : 'warn', peso: 90,
         title: `Projeção do mês abaixo da meta em ${money(gap)}`,
-        detail: `Ritmo atual projeta ${money(projecao)} (${pct(projecao / meta)} da meta de ${money(meta)}). Faltam ${money(Math.max(0, faltaReal))}${restantes > 0 ? ` em ${restantes} dia(s) — cerca de ${Math.ceil(Math.max(0, faltaReal) / Math.max(1, atual.ticket || 1))} venda(s) no ticket médio atual` : ''}.`,
+        detail: `Ritmo atual projeta ${money(projecao)} (${pct(projecao / meta)} da meta de ${money(meta)}). Faltam ${money(Math.max(0, faltaReal))}${restantes > 0 ? ` em ${restantes} dia(s)${atual.ticket > 0 ? ` — cerca de ${Math.ceil(Math.max(0, faltaReal) / atual.ticket)} venda(s) no ticket médio atual` : ''}` : ''}.`,
         action: 'Priorizar propostas em negociação', to: '/funil',
       });
     } else {
