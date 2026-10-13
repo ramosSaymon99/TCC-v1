@@ -25,8 +25,8 @@
   .scr { position: absolute; left: 0; top: 0; width: 620px; height: 1342px; opacity: 0; will-change: transform, opacity; }
   .scr img { width: 100%; display: block; }
   #barra-sup { position: absolute; top: 0; left: 0; right: 0; height: 17px; background: transparent; z-index: 5; }
-  #foco { position: absolute; border: 5px solid var(--brand); border-radius: 26px; box-shadow: 0 0 0 2000px rgba(29,28,34,.42); opacity: 0; z-index: 10; }
-  #toque { position: absolute; width: 90px; height: 90px; margin: -45px 0 0 -45px; border-radius: 50%; background: rgba(224,112,138,.35); border: 5px solid #fff; opacity: 0; z-index: 12; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+  #foco { position: absolute; border: 5px solid var(--brand); border-radius: 26px; box-shadow: 0 0 0 2000px rgba(29,28,34,.42); opacity: 0; z-index: 100; }
+  #toque { position: absolute; width: 90px; height: 90px; margin: -45px 0 0 -45px; border-radius: 50%; background: rgba(224,112,138,.35); border: 5px solid #fff; opacity: 0; z-index: 101; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
 
   .balao { position: absolute; z-index: 30; background: #fff; border-radius: 30px; padding: 24px 28px; font-size: 32px; font-weight: 600; line-height: 1.25; box-shadow: 0 18px 48px rgba(43,42,51,.2); display: flex; gap: 18px; align-items: center; max-width: 520px; opacity: 0; }
   .balao .em { font-size: 46px; flex: none; }
@@ -71,7 +71,7 @@
     <div class="chamada" style="font-size:64px;margin-top:34px">Bem-vindos ao Ninho!</div>
     <div class="lista">
       <div class="item" id="f1"><span class="em">📲</span><div>Instale na tela inicial<small>iPhone: Compartilhar → Adicionar à Tela de Início<br>Android: menu ⋮ → Instalar app</small></div></div>
-      <div class="item" id="f2"><span class="em">🔔</span><div>Ative as notificações<small>Família → Configurar notificações</small></div></div>
+      <div class="item" id="f2"><span class="em">🔔</span><div>Ative as notificações<small>Casa → Família e ajustes → Notificações</small></div></div>
       <div class="item" id="f3"><span class="em">🔒</span><div>Dados só da sua família<small>Ninguém de fora vê os registros do bebê</small></div></div>
     </div>
     <div class="rodape">Família e dados deste vídeo são fictícios.</div>
@@ -90,84 +90,91 @@ const lerp = (a, b, x) => a + (b - a) * x;
 const janela = (t, a, b, d = .45) => Math.min(easeOut(prog(t, a, a + d)), 1 - easeOut(prog(t, b - d, b)));
 
 const S = 620 / 390; // escala da captura (px CSS do app → px do vídeo)
-const DUR = 86;
+const Y0 = 475; // topo da tela do celular no vídeo
 
 // ---------- roteiro ----------
-// cada cena: tempo, cabeçalho e as telas do celular com transições
-const CENAS = [
-  { a: 4.2, b: 12.5, n: 1, t: 'Crie sua conta', s: 'Nome, e-mail e senha. Leva menos de 1 minuto.' },
-  { a: 12.5, b: 21.5, n: 2, t: 'Cadastre o bebê', s: 'Ele é o centro de tudo: dados, última consulta e rotina.' },
-  { a: 21.5, b: 30, n: 3, t: 'Convide a família', s: 'Cada cuidador entra com o próprio login.' },
-  { a: 30, b: 39.5, n: 4, t: 'Registre em 1 toque', s: 'Mamada, soneca, fralda, remédio, banho…' },
-  { a: 39.5, b: 46, n: 5, t: 'Saiba onde agir', s: 'O app destaca o que precisa de atenção hoje.' },
-  { a: 46, b: 55.5, n: 6, t: 'Acompanhe a evolução', s: 'Indicadores do dia, da semana e do mês.' },
-  { a: 55.5, b: 63, n: 7, t: 'Mural da casa', s: 'Materiais, estoque, compras e recados.' },
-  { a: 63, b: 71.5, n: 8, t: 'Saúde e pediatra', s: 'Peso, vacinas, consultas e relatório em PDF.' },
-  { a: 71.5, b: 79.5, n: 9, t: 'Família conectada', s: 'Quem cuidou de quê e avisos no celular.' },
+// Tempos relativos à entrada de cada tela. foco: [a, b, [x, y, w, h]] em px do app (390×844);
+// toque: [t, x, y]; balão: [a, b, lado, y (px do app), emoji, texto, apoio]
+const ROTEIRO = [
+  { t: 'Crie sua conta', s: 'Nome, e-mail e senha. Leva menos de 1 minuto.', telas: [
+    { f: '01-cadastro', d: 5, tipo: 'zoom', focos: [[0.9, 3.6, [32, 494, 326, 32]]], toques: [[4.4, 195, 603]], baloes: [[0.9, 4.8, 'd', 700, '💌', 'Recebeu um convite?', 'toque no link: você já entra na família certa']] },
+  ] },
+  { t: 'Cadastre o bebê', s: 'Já nasceu ou ainda está na barriga: o Ninho acompanha as duas fases.', telas: [
+    { f: '02-bebe', d: 4.6, tipo: 'lado', focos: [[0.7, 2.5, [34, 318, 204, 98]], [2.6, 4.4, [34, 705, 330, 30]]], baloes: [[0.8, 2.6, 'd', 470, '🤰', 'Também na gestação', 'semanas, mala e pré-natal'], [2.7, 4.5, 'e', 600, '⚖️', 'Peso e altura opcionais', 'da última consulta']] },
+    { f: '03-rotina', d: 4.4, tipo: 'rola', focos: [[0.7, 4.2, [37, 343, 316, 230]]], baloes: [[0.9, 4.3, 'd', 650, '🕒', 'Rotina pronta para a idade', 'ajustada depois pelos registros']] },
+  ] },
+  { t: 'O app guia você', s: 'Primeiros passos mostram o que fazer e quanto falta.', telas: [
+    { f: '04-primeiros-passos', d: 4.6, tipo: 'lado', focos: [[0.7, 3.5, [16, 70, 358, 557]]], toques: [[4.0, 321, 195]], baloes: [[0.9, 4.4, 'd', 700, '👋', '5 passos para começar', 'registro, família, avisos, app e foto']] },
+  ] },
+  { t: 'Registre em 1 toque', s: 'Mamada, soneca, fralda, remédio, banho, papinha…', telas: [
+    { f: '05-registro', d: 4.4, tipo: 'sobe', focos: [[0.7, 4.2, [16, 442, 328, 42]]], baloes: [[0.8, 4.3, 'e', 330, '⏱️', 'Cronometre agora', 'ou registre o que já aconteceu'], [2.2, 4.3, 'd', 640, '📶', 'Funciona sem internet', 'sincroniza quando a conexão voltar']] },
+    { f: '06-comemoracao', d: 4.4, tipo: 'fade', focos: [[0.6, 4.2, [16, 456, 358, 150]]], baloes: [[0.7, 4.3, 'e', 280, '🎉', 'O app explica o que vem a seguir', 'e oferece ativar as notificações']] },
+  ] },
+  { t: 'Convide a família', s: 'Cada cuidador entra com o próprio login. Tudo em Casa → Família e ajustes.', telas: [
+    { f: '07-convite', d: 9, tipo: 'lado', focos: [[0.7, 3.2, [16, 490, 370, 115]], [3.3, 5.6, [16, 622, 358, 205]]], baloes: [[0.8, 3.2, 'd', 380, '🔐', '3 níveis de acesso', 'Administrador, Cuidador ou Acompanha'], [3.4, 5.6, 'd', 380, '💬', 'Envie pelo WhatsApp', 'o link já abre o convite']], pessoas: [5.6, 8.7] },
+  ] },
+  { t: 'O que vem agora', s: 'Previsão da próxima soneca e mamada e quem cuida à noite.', telas: [
+    { f: '08-hoje', d: 6, tipo: 'lado', focos: [[0.7, 2.8, [16, 140, 184, 26]], [2.9, 5.8, [16, 366, 358, 240]]], baloes: [[0.8, 2.9, 'd', 300, '🌙', 'Plantão desta noite', 'avisos só para quem está de plantão'], [3.0, 5.8, 'e', 700, '🔮', 'Previsões pelo ritmo do bebê', 'ficam melhores a cada registro']] },
+  ] },
+  { t: 'Saiba onde agir', s: 'Atalhos para repetir registros e alertas com o próximo passo.', telas: [
+    { f: '09-hoje-registro', d: 4.4, tipo: 'rola', focos: [[0.6, 4.2, [16, 250, 340, 58]]], baloes: [[0.7, 4.3, 'd', 520, '🔁', 'Repita em 1 toque', 'o último registro de cada tipo']] },
+    { f: '10-onde-agir', d: 4.6, tipo: 'rola', focos: [[0.6, 4.4, [33, 128, 324, 288]]], baloes: [[0.8, 4.4, 'e', 640, '🧠', 'Cada alerta diz o que fazer', 'estoque, sono, mamadas e consultas']] },
+  ] },
+  { t: 'Rotina com check', s: 'Marque o que foi feito e receba uma rotina sugerida pelos registros.', telas: [
+    { f: '10b-rotina', d: 4.8, tipo: 'rola', focos: [[0.6, 3.0, [33, 128, 316, 145]], [3.1, 4.7, [30, 295, 232, 26]]], toques: [[2.4, 215, 218]], baloes: [[0.7, 3.0, 'd', 520, '✅', 'Toque para marcar', 'feito ou pulado'], [3.2, 4.8, 'e', 520, '✨', 'A rotina real mudou?', 'o Ninho sugere novos horários']] },
+    { f: '19-sugestao', d: 5, tipo: 'sobe', focos: [[0.6, 2.7, [16, 400, 358, 325]], [2.8, 4.8, [16, 741, 358, 26]]], baloes: [[0.8, 4.8, 'd', 190, '📊', 'Baseada em 14 dias de registros', 'você revisa antes de aplicar']] },
+  ] },
+  { t: 'Remédio com segurança', s: 'O Ninho avisa se alguém tentar dar a dose antes da hora.', telas: [
+    { f: '11-dose-dupla', d: 5, tipo: 'sobe', focos: [[0.7, 4.8, [16, 557, 358, 44]]], baloes: [[0.8, 4.8, 'e', 330, '⚠️', 'Alerta de dose dupla', 'mostra quem deu e quando libera'], [2.2, 4.8, 'd', 720, '🔔', 'Lembrete da próxima dose', 'no celular de quem estiver cuidando']] },
+  ] },
+  { t: 'Dia a dia', s: 'Fotos só para a família, com curtidas, marcos e cartão de mêsversário.', telas: [
+    { f: '12-dia-a-dia', d: 4.4, tipo: 'lado', focos: [[0.6, 2.5, [16, 134, 180, 42]], [2.6, 4.3, [17, 193, 356, 208]]], baloes: [[0.7, 2.6, 'e', 480, '🎂', 'Cartão de mêsversário', 'com foto, peso e conquistas'], [2.7, 4.3, 'd', 560, '⭐', 'Momentos marcantes', 'vindos dos marcos em Saúde']] },
+    { f: '12b-dia-a-dia-post', d: 4, tipo: 'rola', focos: [[0.6, 3.8, [17, 628, 356, 122]]], baloes: [[0.7, 3.9, 'e', 320, '❤️', 'Curtidas da família', 'só quem cuida vê as fotos']] },
+  ] },
+  { t: 'Acompanhe a evolução', s: 'Dia, semana e mês, comparados ao período anterior.', telas: [
+    { f: '13-evolucao', d: 4.4, tipo: 'lado', focos: [[0.6, 4.2, [17, 310, 356, 146]]], baloes: [[0.8, 4.3, 'd', 620, '📈', 'Comparado à semana anterior', 'e à referência para a idade']] },
+    { f: '14-evolucao-2', d: 4.4, tipo: 'rola', focos: [[0.6, 4.2, [17, 314, 356, 325]]], baloes: [[0.8, 4.3, 'e', 720, '📝', 'Leitura do período', 'em linguagem simples']] },
+  ] },
+  { t: 'Saúde e pediatra', s: 'Peso, vacinas, consultas, marcos e relatório em PDF.', telas: [
+    { f: '15-saude', d: 4.4, tipo: 'lado', focos: [[0.6, 2.4, [16, 151, 226, 42]], [2.5, 4.2, [17, 210, 356, 256]]], baloes: [[0.7, 2.5, 'd', 380, '📄', 'Relatório para o pediatra', 'pronto em PDF'], [2.6, 4.3, 'e', 640, '💉', 'Peso, consultas e vacinas', 'tudo num lugar só']] },
+    { f: '16-saude-marcos', d: 4, tipo: 'fade', focos: [[0.5, 3.8, [17, 538, 356, 240]]], baloes: [[0.6, 3.9, 'd', 330, '⭐', 'Marcos e testes do RN', 'com a idade esperada']] },
+  ] },
+  { t: 'Casa: mural e plantão', s: 'Compras, recados, leite guardado e a divisão das noites.', telas: [
+    { f: '17-casa-leite', d: 4.4, tipo: 'lado', focos: [[0.6, 4.2, [17, 437, 356, 280]]], baloes: [[0.8, 4.3, 'e', 320, '🍼', 'Leite materno guardado', 'com validade e “usar primeiro”']] },
+    { f: '18-casa-plantao', d: 4.8, tipo: 'rola', focos: [[0.6, 2.6, [17, 70, 356, 250]], [2.7, 4.6, [17, 345, 356, 350]]], baloes: [[0.7, 2.6, 'd', 470, '🌙', 'Plantão da noite', 'quem acorda em cada dia'], [2.8, 4.7, 'e', 240, '🤝', 'Participação de cada cuidador', 'nos últimos 7 dias']] },
+  ] },
 ];
 
-// telas: [arquivo, entra, sai, tipo de entrada]
-const TELAS = [
-  ['01-boas-vindas', 4.2, 7.6, 'zoom'],
-  ['02-cadastro', 7.6, 12.5, 'fade'],
-  ['03-bebe', 12.5, 17, 'lado'],
-  ['04-rotina', 17, 21.5, 'rola'],
-  ['12-convite', 21.5, 30, 'lado'],
-  ['05-hoje', 30, 34.2, 'lado'],
-  ['07-registro', 34.2, 39.5, 'sobe'],
-  ['06-hoje-rolado', 39.5, 46, 'rola'],
-  ['08-indicadores', 46, 49.4, 'lado'],
-  ['08-indicadores-2', 49.4, 52.6, 'rola'],
-  ['08-indicadores-3', 52.6, 55.5, 'rola'],
-  ['09-mural', 55.5, 59.4, 'lado'],
-  ['09-mural-2', 59.4, 63, 'rola'],
-  ['10-saude', 63, 67.6, 'lado'],
-  ['10-saude-2', 67.6, 71.5, 'rola'],
-  ['11-familia-2', 71.5, 75.6, 'lado'],
-  ['13-notificacoes', 75.6, 79.5, 'sobe'],
-];
-
-// destaques (coordenadas da tela do app, 390×844) e toques
-const FOCOS = [
-  { a: 9.6, b: 12.2, r: [30, 578, 330, 50] },
-  { a: 13.6, b: 15.4, r: [16, 540, 358, 176] },
-  { a: 15.4, b: 16.8, r: [16, 720, 358, 120] },
-  { a: 18.2, b: 21.2, r: [22, 318, 300, 214] },
-  { a: 23, b: 25.6, r: [24, 488, 342, 128] },
-  { a: 25.8, b: 29.6, r: [40, 640, 310, 180] },
-  { a: 31, b: 33.8, r: [8, 248, 374, 166] },
-  { a: 35.6, b: 39.2, r: [10, 498, 200, 54] },
-  { a: 40.6, b: 45.6, r: [12, 76, 366, 300] },
-  { a: 47, b: 49.2, r: [16, 186, 356, 52] },
-  { a: 64.2, b: 66.6, r: [12, 124, 238, 54] },
-];
-const TOQUES = [{ t: 11.2, x: 195, y: 602 }, { t: 33.4, x: 58, y: 292 }, { t: 28.6, x: 232, y: 792 }];
-
-// balões: [a, b, lado, y, emoji, texto, apoio]
-const BALOES = [
-  [5.4, 12.3, 'd', 760, '💌', 'Recebeu um convite?', 'Toque no link: você já entra na família certa'],
-  [13.6, 21.3, 'e', 900, '⚖️', 'Peso e altura', 'da última consulta'],
-  [17.6, 21.3, 'd', 1420, '🕒', 'Rotina sugerida pela idade', 'ajuste aos horários reais'],
-  [23, 25.9, 'd', 900, '🔐', '3 níveis de acesso', 'Administrador, Cuidador ou só Acompanha'],
-  [31, 39.3, 'd', 820, '⏱️', 'Cronometre ou registre depois', ''],
-  [35.6, 39.3, 'e', 1500, '📶', 'Funciona sem internet', 'sincroniza quando a conexão voltar'],
-  [41, 45.8, 'e', 1440, '🧠', 'Alertas inteligentes', 'sono, mamadas, estoque e consultas'],
-  [47, 55.3, 'd', 760, '👥', 'Filtre por cuidador', 'veja o turno de cada um'],
-  [50, 55.3, 'e', 1480, '📈', 'Comparado à semana anterior', ''],
-  [56.4, 62.8, 'd', 1000, '🧷', 'Estoque com alerta', 'avisa antes de acabar a fralda'],
-  [59.8, 62.8, 'e', 1500, '📌', 'Recados fixados', 'para toda a família ver'],
-  [64.2, 71.3, 'd', 880, '📄', 'Relatório em PDF', 'pronto para levar ao pediatra'],
-  [68, 71.3, 'e', 1480, '💉', 'Vacinas e curva de crescimento', ''],
-  [72.4, 79.3, 'e', 1450, '🤝', 'Participação de cada cuidador', ''],
-  [76.2, 79.3, 'd', 820, '🔔', 'Notificações no celular', 'até na tela de bloqueio'],
-];
-// pessoas que entram na família (cena 3)
+// pessoas que entram na família
 const PESSOAS = [
-  [26.0, '👩', 'Ana', 'Mãe · Administradora', '#fde3ea'],
-  [26.6, '👨', 'Rafael', 'Pai · Administrador', '#dde9fb'],
-  [27.2, '👵', 'Lúcia', 'Avó · Cuidadora', '#fdf0d8'],
-  [27.8, '🧑‍🍼', 'Marta', 'Babá · Cuidadora', '#e1f4ea'],
+  [0, '👩', 'Ana', 'Mãe · Administradora', '#fde3ea'],
+  [0.6, '👨', 'Rafael', 'Pai · Administrador', '#dde9fb'],
+  [1.2, '👵', 'Lúcia', 'Avó · Cuidadora', '#fdf0d8'],
+  [1.8, '🧑‍🍼', 'Marta', 'Babá · Cuidadora', '#e1f4ea'],
 ];
+
+// ---------- roteiro → linha do tempo absoluta ----------
+const INICIO = 4.2;
+const CENAS = [], TELAS = [], FOCOS = [], TOQUES = [], BALOES = [];
+let PESSOAS_A = 0, PESSOAS_B = 0;
+{
+  let t0 = INICIO;
+  ROTEIRO.forEach((c, n) => {
+    const a = t0;
+    for (const tl of c.telas) {
+      TELAS.push([tl.f, t0, t0 + tl.d, tl.tipo]);
+      for (const [fa, fb, r] of tl.focos || []) FOCOS.push({ a: t0 + fa, b: t0 + fb, r });
+      for (const [tt, x, y] of tl.toques || []) TOQUES.push({ t: t0 + tt, x, y });
+      for (const [ba, bb, ...resto] of tl.baloes || []) BALOES.push([t0 + ba, t0 + bb, ...resto]);
+      if (tl.pessoas) { PESSOAS_A = t0 + tl.pessoas[0]; PESSOAS_B = t0 + tl.pessoas[1]; }
+      t0 += tl.d;
+    }
+    CENAS.push({ a, b: t0, n: n + 1, t: c.t, s: c.s });
+  });
+}
+const FIM = TELAS[TELAS.length - 1][2]; // fim da última tela
+const DUR = Math.ceil(FIM + 7.5);
+document.getElementById('passo-txt').textContent = `de ${ROTEIRO.length}`;
 
 // ---------- montagem do DOM ----------
 const $ = (id) => document.getElementById(id);
@@ -190,19 +197,19 @@ function render(t) {
   const abIn = easeOut(prog(t, 0, 1));
   $('abertura').style.opacity = Math.min(ab, abIn);
   $('abertura').style.transform = `scale(${lerp(.92, 1, back(prog(t, 0, 1.2)))})`;
-  const fim = easeOut(prog(t, 79.8, 80.6));
+  const fim = easeOut(prog(t, FIM + .3, FIM + 1.1));
   $('final').style.opacity = fim;
   $('final').style.transform = `translateY(${(1 - fim) * 40}px)`;
-  ['f1', 'f2', 'f3'].forEach((id, i) => { const p = back(prog(t, 80.6 + i * .5, 81.2 + i * .5)); $(id).style.opacity = clamp(p * 1.4); $(id).style.transform = `translateX(${(1 - p) * -60}px)`; });
+  ['f1', 'f2', 'f3'].forEach((id, i) => { const p = back(prog(t, FIM + 1.1 + i * .5, FIM + 1.7 + i * .5)); $(id).style.opacity = clamp(p * 1.4); $(id).style.transform = `translateX(${(1 - p) * -60}px)`; });
 
   // celular
   const foneIn = easeOut(prog(t, 3.6, 4.6));
-  const foneOut = easeOut(prog(t, 79.3, 80.1));
+  const foneOut = easeOut(prog(t, FIM - .2, FIM + .6));
   $('fone').style.opacity = Math.min(foneIn, 1 - foneOut);
   $('fone').style.transform = `translateY(${(1 - foneIn) * 200 + foneOut * 120}px) scale(${lerp(.94, 1, foneIn)})`;
 
   // cabeçalho
-  const cena = CENAS.find((c) => t >= c.a && t < c.b) || (t >= 79.5 ? CENAS[CENAS.length - 1] : CENAS[0]);
+  const cena = CENAS.find((c) => t >= c.a && t < c.b) || (t >= FIM ? CENAS[CENAS.length - 1] : CENAS[0]);
   if ($('titulo').textContent !== cena.t) { $('titulo').textContent = cena.t; $('sub').textContent = cena.s; $('num').textContent = cena.n; }
   const ci = janela(t, cena.a, cena.b, .4);
   const vis = Math.min(ci, foneIn, 1 - foneOut);
@@ -259,7 +266,7 @@ function render(t) {
     const v = janela(t, a, b, .4);
     const p = back(prog(t, a, a + .55));
     el.style.opacity = v;
-    el.style.top = `${y}px`;
+    el.style.top = `${Y0 + y * S - 60}px`;
     if (lado === 'd') { el.style.right = '36px'; el.style.left = 'auto'; } else { el.style.left = '36px'; el.style.right = 'auto'; }
     const dx = (1 - p) * (lado === 'd' ? 80 : -80);
     el.style.transform = `translateX(${dx}px) translateY(${Math.sin(t * 1.6 + i) * 5}px) scale(${lerp(.9, 1, clamp(p))})`;
@@ -268,8 +275,8 @@ function render(t) {
   // pessoas entrando na família
   PESSOAS.forEach(([a], i) => {
     const el = pessoas[i];
-    const v = janela(t, a, 29.8, .4);
-    const p = back(prog(t, a, a + .55));
+    const v = janela(t, PESSOAS_A + a, PESSOAS_B, .4);
+    const p = back(prog(t, PESSOAS_A + a, PESSOAS_A + a + .55));
     el.style.opacity = v;
     el.style.left = i % 2 ? 'auto' : '30px';
     el.style.right = i % 2 ? '30px' : 'auto';

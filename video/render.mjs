@@ -12,7 +12,8 @@ if (modo === 'teste') {
 } else {
   const fps = 30, dur = await p.evaluate(() => DUR);
   const { mkdirSync } = await import('fs'); mkdirSync(dir + 'quadros', { recursive: true });
-  for (let i = 0; i < dur * fps; i++) {
+  const ini = +(args[0] ?? 0), fim = Math.min(+(args[1] ?? Infinity), Math.round(dur * fps));
+  for (let i = ini; i < fim; i++) {
     await p.evaluate((t) => render(t), i / fps);
     await p.screenshot({ path: `${dir}quadros/${String(i).padStart(5, '0')}.jpg`, type: 'jpeg', quality: 92 });
     if (i % 300 === 0) console.log(i);

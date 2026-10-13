@@ -116,10 +116,10 @@ export function Onboarding({ onDone, onCancel, userName }: { onDone: (babyId: st
                 <span>Sou mãe, pai ou responsável legal por {f.name.split(' ')[0] || 'esta criança'} (ou tenho autorização de um deles) e autorizo o registro dos dados dela no Ninho, compartilhados só com os cuidadores que eu convidar.</span>
               </label>
               {erro && <div className="chip bad" style={{ whiteSpace: 'normal' }}>{erro}</div>}
-              <div className="row">
+              <div className="row" style={{ flexWrap: 'wrap' }}>
                 <button className="btn" onClick={() => setPasso(1)}>Voltar</button>
                 {!gestante && <button className="btn ghost" onClick={() => criar(true)} disabled={busy || !responsavel}>Sem rotina</button>}
-                <button className="btn primary grow" onClick={() => criar()} disabled={busy || !responsavel}>{busy ? 'Criando…' : 'Concluir cadastro'}</button>
+                <button className="btn primary grow" style={{ flexBasis: 180 }} onClick={() => criar()} disabled={busy || !responsavel}>{busy ? 'Criando…' : 'Concluir cadastro'}</button>
               </div>
             </>
           )}
