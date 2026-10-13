@@ -315,9 +315,6 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .login-hero::after { content: ''; position: absolute; right: -140px; bottom: -140px; width: 420px; height: 420px; border-radius: 50%; background: rgba(30, 111, 232, 0.25); filter: blur(10px); }
 .login-hero h2 { font-size: 34px; line-height: 1.15; letter-spacing: -0.02em; max-width: 440px; margin-top: 60px; }
 .login-hero p { color: #b3c7ea; max-width: 420px; }
-.hero-services { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; position: relative; z-index: 1; }
-.hero-services div { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 14px; font-size: 12.5px; color: #dce7f8; }
-.hero-services svg { color: #7fb2ff; margin-bottom: 6px; }
 .login-form { display: flex; align-items: center; justify-content: center; padding: 40px 24px; }
 .login-form form { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 16px; }
 .login-form h1 { font-size: 24px; letter-spacing: -0.02em; }

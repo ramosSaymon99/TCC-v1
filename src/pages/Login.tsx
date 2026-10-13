@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Code2, GraduationCap, Wrench, LogIn } from 'lucide-react';
+import { LogIn } from 'lucide-react';
 import { useStore } from '../store/Store';
 import { Logo } from '../components/ui';
 
 export default function Login() {
-  const { login, db, modo } = useStore();
+  const { login } = useStore();
   const [enviando, setEnviando] = useState(false);
   const nav = useNavigate();
-  const [email, setEmail] = useState('saymon@pivothub.com');
+  const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState<string | null>(null);
 
@@ -35,11 +35,6 @@ export default function Login() {
           <h2>Mais organização para o seu negócio.</h2>
           <p>Clientes, orçamentos, ordens de serviço, agenda e financeiro em um só lugar — com indicadores que mostram onde agir.</p>
         </div>
-        <div className="hero-services">
-          <div><GraduationCap size={22} /><br />Treinamentos de Informática</div>
-          <div><Wrench size={22} /><br />Implantação e Manutenção de Computadores</div>
-          <div><Code2 size={22} /><br />Criação de Sites e Soluções Digitais</div>
-        </div>
       </section>
 
       <section className="login-form">
@@ -50,7 +45,7 @@ export default function Login() {
           </div>
           <div className="field">
             <label htmlFor="email">E-mail</label>
-            <input id="email" className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input id="email" className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@empresa.com.br" autoComplete="username" required autoFocus />
           </div>
           <div className="field">
             <label htmlFor="senha">Senha</label>
@@ -58,18 +53,6 @@ export default function Login() {
           </div>
           {erro && <div className="error-text">{erro}</div>}
           <button className="btn btn-primary" style={{ height: 42 }} disabled={enviando}><LogIn size={16} /> {enviando ? 'Entrando…' : 'Entrar'}</button>
-          <div className="demo-box">
-            {modo === 'remote'
-              ? <><strong>Dados salvos no banco (Cloudflare D1).</strong> Senha inicial dos usuários: <code>123456</code> — altere em Configurações após o primeiro acesso. Entrar como:</>
-              : <><strong>Modo local</strong> — dados salvos neste navegador. Senha <code>123456</code>. Entrar como:</>}
-            <div style={{ display: 'flex', flexDirection: 'column', marginTop: 6 }}>
-              {db.usuarios.filter((u) => u.status === 'Ativo').map((u) => (
-                <button type="button" key={u.id} style={{ textAlign: 'left' }} onClick={() => { setEmail(u.email); setSenha('123456'); setErro(null); }}>
-                  {u.nome} · {u.perfil}
-                </button>
-              ))}
-            </div>
-          </div>
         </form>
       </section>
     </div>
