@@ -40,7 +40,7 @@ function Guard({ mod, children }: { mod: Modulo; children: ReactNode }) {
 export default function App() {
   const { user, toasts, modo } = useStore();
   if (modo === 'checking') {
-    return <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', color: 'var(--muted)' }}>Carregando TechGest…</div>;
+    return <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', color: 'var(--muted)' }}>Carregando Pivot Hub…</div>;
   }
   return (
     <>

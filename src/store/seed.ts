@@ -27,7 +27,7 @@ export const CATEGORIAS_DESPESA = ['Peças e acessórios', 'Transporte', 'Market
 /** Receitas aceitam também a categoria de mensalidades de contratos. */
 export const CATEGORIAS_RECEITA = [...CATEGORIAS, 'Recorrência'];
 /** Versão do formato dos dados; ao subir, `migrar` completa bases antigas com os módulos novos. */
-export const VERSAO_DADOS = 3;
+export const VERSAO_DADOS = 4;
 
 /** Catálogo padrão: nome, categoria, preço de tabela, custo direto, horas. */
 const SERV_DEFS: [string, CategoriaServico, number, number, number][] = [
@@ -302,10 +302,10 @@ export function createSeed(): Database {
     return x.toISOString();
   };
   const usuarios: Usuario[] = [
-    { id: 'u1', nome: 'Saymon Ramos', email: 'saymon@techgest.com', perfil: 'Proprietário', status: 'Ativo', ultimoAcesso: hora(0, 8, 32) },
-    { id: 'u2', nome: 'Ana Souza', email: 'ana@techgest.com', perfil: 'Operador', status: 'Ativo', ultimoAcesso: hora(-1, 18, 45) },
-    { id: 'u3', nome: 'Carlos Silva', email: 'carlos@techgest.com', perfil: 'Financeiro', status: 'Ativo', ultimoAcesso: hora(-1, 14, 20) },
-    { id: 'u4', nome: 'Lucas Martins', email: 'lucas@techgest.com', perfil: 'Técnico', status: 'Ativo', ultimoAcesso: hora(-3, 9, 5) },
+    { id: 'u1', nome: 'Saymon Ramos', email: 'saymon@pivothub.com', perfil: 'Proprietário', status: 'Ativo', ultimoAcesso: hora(0, 8, 32) },
+    { id: 'u2', nome: 'Ana Souza', email: 'ana@pivothub.com', perfil: 'Operador', status: 'Ativo', ultimoAcesso: hora(-1, 18, 45) },
+    { id: 'u3', nome: 'Carlos Silva', email: 'carlos@pivothub.com', perfil: 'Financeiro', status: 'Ativo', ultimoAcesso: hora(-1, 14, 20) },
+    { id: 'u4', nome: 'Lucas Martins', email: 'lucas@pivothub.com', perfil: 'Técnico', status: 'Ativo', ultimoAcesso: hora(-3, 9, 5) },
   ];
 
   // ---------- Catálogo de serviços ----------
@@ -378,10 +378,10 @@ export function createSeed(): Database {
     'Isabela Moura', 'José Carlos', 'Karen Lopes', 'Leandro Costa', 'Mariana Freitas', 'Nelson Prado', 'Olívia Santos'];
   const alunos = (n: number, naoPagos = 0) => nomesAlunos.slice(0, n).map((nome, i) => ({ nome, pago: i < n - naoPagos }));
   const turmas: Turma[] = [
-    { id: 'tu1', curso: 'Excel Básico', inicio: d(6), fim: d(27), horario: 'Ter e Qui · 19h–21h', local: 'Sala TechGest', vagas: 12, precoAluno: 380, custoTurma: 1800, status: 'Inscrições abertas', alunos: alunos(4, 1) },
+    { id: 'tu1', curso: 'Excel Básico', inicio: d(6), fim: d(27), horario: 'Ter e Qui · 19h–21h', local: 'Sala Pivot Hub', vagas: 12, precoAluno: 380, custoTurma: 1800, status: 'Inscrições abertas', alunos: alunos(4, 1) },
     { id: 'tu2', curso: 'Informática para Iniciantes', inicio: d(-10), fim: d(20), horario: 'Seg e Qua · 14h–16h', local: 'Escola Saber', vagas: 15, precoAluno: 300, custoTurma: 1600, status: 'Em andamento', alunos: alunos(13, 2) },
-    { id: 'tu3', curso: 'Pacote Office Completo', inicio: d(20), fim: d(55), horario: 'Sáb · 8h–12h', local: 'Sala TechGest', vagas: 10, precoAluno: 650, custoTurma: 2000, status: 'Inscrições abertas', alunos: alunos(7, 3) },
-    { id: 'tu4', curso: 'Excel Avançado', inicio: d(-60), fim: d(-30), horario: 'Ter e Qui · 19h–21h', local: 'Sala TechGest', vagas: 10, precoAluno: 520, custoTurma: 1800, status: 'Concluída', alunos: alunos(9) },
+    { id: 'tu3', curso: 'Pacote Office Completo', inicio: d(20), fim: d(55), horario: 'Sáb · 8h–12h', local: 'Sala Pivot Hub', vagas: 10, precoAluno: 650, custoTurma: 2000, status: 'Inscrições abertas', alunos: alunos(7, 3) },
+    { id: 'tu4', curso: 'Excel Avançado', inicio: d(-60), fim: d(-30), horario: 'Ter e Qui · 19h–21h', local: 'Sala Pivot Hub', vagas: 10, precoAluno: 520, custoTurma: 1800, status: 'Concluída', alunos: alunos(9) },
   ];
 
   // ---------- Social media ----------
@@ -398,7 +398,7 @@ export function createSeed(): Database {
     servicos, pecas, movimentos, contratos, turmas, posts, seguidores,
     permissoes: PERMISSOES_PADRAO,
     empresa: {
-      nome: 'TechGest', cnpj: '45.123.456/0001-78', telefone: '(27) 99999-0000', email: 'contato@techgest.com',
+      nome: 'Pivot Hub', cnpj: '45.123.456/0001-78', telefone: '(27) 99999-0000', email: 'contato@pivothub.com',
       endereco: 'Cariacica/ES', metaMensal: 12000, diasAlertaOrcamento: 5, versaoDados: VERSAO_DADOS, metaPostsSemana: 3,
     },
   };
@@ -434,6 +434,12 @@ export function migrar(db: Database): Database | null {
   });
   out.permissoes = permissoes;
   out.empresa = { ...out.empresa, versaoDados: VERSAO_DADOS, metaPostsSemana: out.empresa.metaPostsSemana ?? 3 };
+  // v4: marca renomeada de TechGest para Pivot Hub
+  const marca = (t: string) => t.replace(/@techgest\.com/gi, '@pivothub.com').replace(/TechGest/g, 'Pivot Hub');
+  out.usuarios = out.usuarios.map((u) => ({ ...u, email: marca(u.email) }));
+  out.turmas = out.turmas.map((t) => ({ ...t, local: marca(t.local) }));
+  out.posts = out.posts.map((p) => ({ ...p, titulo: marca(p.titulo) }));
+  out.empresa = { ...out.empresa, nome: marca(out.empresa.nome), email: marca(out.empresa.email) };
   return out;
 }
 
@@ -458,7 +464,7 @@ const PAUTAS: Record<PilarConteudo, [string, CategoriaServico | undefined][]> = 
     ['Um dia de manutenção preventiva na Clínica Vida', 'Manutenção'], ['Montando o laboratório do Instituto Educar', 'Implantação'],
     ['Como planejamos um site do zero', 'Desenvolvimento Web'],
   ],
-  'Institucional': [['Conheça a TechGest', undefined], ['Nossos serviços em 1 minuto', undefined], ['Atendemos toda a Grande Vitória', undefined]],
+  'Institucional': [['Conheça a Pivot Hub', undefined], ['Nossos serviços em 1 minuto', undefined], ['Atendemos toda a Grande Vitória', undefined]],
 };
 
 function gerarSocial(rnd: () => number, hoje: string): { posts: Post[]; seguidores: Seguidores[] } {

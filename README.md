@@ -1,4 +1,4 @@
-# TechGest · Gestão Comercial
+# Pivot Hub · Gestão Comercial
 
 Sistema web de gestão comercial para pequenos negócios de tecnologia (treinamentos de informática, manutenção de computadores e criação de sites), desenvolvido como TCC.
 
@@ -44,7 +44,7 @@ O banco `techgest-db` já está criado; o `wrangler.toml` aponta para ele e roda
 
 1. Cloudflare → **Workers & Pages** → **Create application** → **Import a repository**.
 2. Conecte o GitHub e escolha o repositório `TCC-v1`.
-3. Nome do projeto: `techgest` (precisa ser igual ao `name` do `wrangler.toml`).
+3. Nome do projeto: `techgest` (precisa ser igual ao `name` do `wrangler.toml`; o nome técnico do Worker e do banco foi mantido após a troca de marca para não quebrar o deploy já configurado).
 4. Branch de produção: a branch com este código. Build command: deixe em branco. Deploy command: `npx wrangler deploy`.
 5. **Save and Deploy**. A cada push na branch, o Cloudflare publica de novo.
 
@@ -76,6 +76,6 @@ npm run build    # gera a versão de produção em dist/
 npm run preview  # serve o build localmente
 ```
 
-Usuários de demonstração (senha `123456`): `saymon@techgest.com` (Proprietário), `ana@techgest.com` (Operador), `carlos@techgest.com` (Financeiro), `lucas@techgest.com` (Técnico).
+Usuários de demonstração (senha `123456`): `saymon@pivothub.com` (Proprietário), `ana@pivothub.com` (Operador), `carlos@pivothub.com` (Financeiro), `lucas@pivothub.com` (Técnico).
 
 > Observação: no modo local (sem Worker) a autenticação é apenas de demonstração, feita no navegador.

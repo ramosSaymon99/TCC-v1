@@ -43,7 +43,7 @@ export default function Treinamentos() {
   return (
     <>
       <PageHeader title="Turmas de Treinamento" subtitle="Cursos de informática: vagas, ocupação, ponto de equilíbrio e pagamentos dos alunos.">
-        <button className="btn btn-primary" onClick={() => setAberta({ id: uid(), curso: '', inicio: addDays(hoje, 14), fim: addDays(hoje, 35), horario: '', local: 'Sala TechGest', vagas: 10, precoAluno: 0, custoTurma: 0, status: 'Inscrições abertas', alunos: [] })}>
+        <button className="btn btn-primary" onClick={() => setAberta({ id: uid(), curso: '', inicio: addDays(hoje, 14), fim: addDays(hoje, 35), horario: '', local: 'Sala Pivot Hub', vagas: 10, precoAluno: 0, custoTurma: 0, status: 'Inscrições abertas', alunos: [] })}>
           <Plus size={16} /> Nova turma
         </button>
       </PageHeader>
