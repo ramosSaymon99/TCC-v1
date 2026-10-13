@@ -8,4 +8,5 @@ cloudflare-dist
 .dev.vars
 .estado-local
 video/quadros
+video/quadros-60
 video/demo.mjs

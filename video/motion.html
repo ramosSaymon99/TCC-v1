@@ -145,6 +145,53 @@ const ROTEIRO = [
   ] },
 ];
 
+// Versão essencial (~60 s): um destaque por tela e cortes no tempo da música (120 bpm, 0,5 s por batida)
+const ROTEIRO_60 = [
+  { t: 'Crie sua conta', s: 'Nome, e-mail e senha. Menos de 1 minuto.', telas: [
+    { f: '01-cadastro', d: 3.5, tipo: 'zoom', focos: [[0.5, 3.3, [32, 494, 326, 32]]], toques: [[3.1, 195, 603]], baloes: [[0.6, 3.4, 'd', 700, '💌', 'Recebeu um convite?', 'toque no link e entre na família']] },
+  ] },
+  { t: 'Cadastre o bebê', s: 'Ele é o centro de tudo. A rotina já vem pronta.', telas: [
+    { f: '02-bebe', d: 3.5, tipo: 'lado', focos: [[0.5, 3.4, [34, 318, 204, 98]]], baloes: [[0.6, 3.4, 'd', 470, '🤰', 'Também na gestação', 'semanas, mala e pré-natal']] },
+    { f: '03-rotina', d: 3.5, tipo: 'rola', focos: [[0.5, 3.4, [37, 343, 316, 230]]], baloes: [[0.6, 3.4, 'd', 650, '🕒', 'Rotina pronta para a idade', 'ajustada pelos registros']] },
+  ] },
+  { t: 'Registre em 1 toque', s: 'Mamada, soneca, fralda, remédio, banho…', telas: [
+    { f: '05-registro', d: 3.5, tipo: 'sobe', focos: [[0.5, 3.4, [16, 442, 328, 42]]], baloes: [[0.6, 3.4, 'e', 330, '⏱️', 'Cronometre ou registre depois', 'funciona até sem internet']] },
+  ] },
+  { t: 'Convide a família', s: 'Cada cuidador com seu login e nível de acesso.', telas: [
+    { f: '07-convite', d: 6, tipo: 'lado', focos: [[0.5, 2.5, [16, 622, 358, 205]]], baloes: [[0.6, 2.5, 'd', 380, '💬', 'Convite pelo WhatsApp', 'o link já abre o app']], pessoas: [2.5, 5.9] },
+  ] },
+  { t: 'O que vem agora', s: 'Próxima soneca, próxima mamada e quem cuida à noite.', telas: [
+    { f: '08-hoje', d: 4.5, tipo: 'lado', focos: [[0.5, 4.4, [16, 366, 358, 240]]], baloes: [[0.6, 4.4, 'e', 700, '🔮', 'Previsões pelo ritmo do bebê', 'melhores a cada registro']] },
+  ] },
+  { t: 'Saiba onde agir', s: 'Alertas que já dizem o que fazer.', telas: [
+    { f: '10-onde-agir', d: 3.5, tipo: 'rola', focos: [[0.5, 3.4, [33, 128, 324, 288]]], baloes: [[0.6, 3.4, 'e', 640, '🧠', 'Estoque, sono e mamadas', 'com o próximo passo']] },
+  ] },
+  { t: 'Rotina com check', s: 'Marque o que foi feito e receba sugestões de horário.', telas: [
+    { f: '10b-rotina', d: 3.5, tipo: 'rola', focos: [[0.5, 3.4, [33, 128, 316, 145]]], toques: [[2.2, 215, 218]], baloes: [[0.6, 3.4, 'd', 520, '✅', 'Feito ou pulado', 'em 1 toque']] },
+  ] },
+  { t: 'Remédio com segurança', s: 'O app avisa se alguém tentar repetir a dose.', telas: [
+    { f: '11-dose-dupla', d: 3.5, tipo: 'sobe', focos: [[0.5, 3.4, [16, 557, 358, 44]]], baloes: [[0.6, 3.4, 'e', 330, '⚠️', 'Alerta de dose dupla', 'mostra quando libera']] },
+  ] },
+  { t: 'Dia a dia', s: 'Fotos só para a família, com curtidas.', telas: [
+    { f: '12b-dia-a-dia-post', d: 3.5, tipo: 'lado', focos: [[0.5, 3.4, [17, 628, 356, 122]]], baloes: [[0.6, 3.4, 'e', 320, '❤️', 'Curtidas da família', 'e cartão de mêsversário']] },
+  ] },
+  { t: 'Evolução', s: 'Sono e mamadas comparados à semana anterior.', telas: [
+    { f: '13-evolucao', d: 3.5, tipo: 'lado', focos: [[0.5, 3.4, [17, 310, 356, 146]]], baloes: [[0.6, 3.4, 'd', 620, '📈', 'Dentro do esperado?', 'referência para a idade']] },
+  ] },
+  { t: 'Saúde e pediatra', s: 'Peso, vacinas, consultas e relatório em PDF.', telas: [
+    { f: '15-saude', d: 3.5, tipo: 'lado', focos: [[0.5, 3.4, [16, 151, 226, 42]]], baloes: [[0.6, 3.4, 'd', 380, '📄', 'Relatório para o pediatra', 'pronto em PDF']] },
+  ] },
+  { t: 'Casa e plantão', s: 'Mural, leite guardado e a divisão das noites.', telas: [
+    { f: '18-casa-plantao', d: 3.5, tipo: 'lado', focos: [[0.5, 3.4, [17, 70, 356, 250]]], baloes: [[0.6, 3.4, 'd', 470, '🌙', 'Quem acorda em cada noite', 'avisos só para o plantão']] },
+  ] },
+];
+
+// versão: motion.html (completa) ou motion.html?v=essencial
+const ESSENCIAL = new URLSearchParams(location.search).get('v') === 'essencial';
+const ROTEIRO_ATIVO = ESSENCIAL ? ROTEIRO_60 : ROTEIRO;
+const BATIDA = 0.5; // 120 bpm
+const TRANS = ESSENCIAL ? 0.4 : 0.55; // duração das transições de tela
+
 // pessoas que entram na família
 const PESSOAS = [
   [0, '👩', 'Ana', 'Mãe · Administradora', '#fde3ea'],
@@ -154,12 +201,13 @@ const PESSOAS = [
 ];
 
 // ---------- roteiro → linha do tempo absoluta ----------
-const INICIO = 4.2;
+const INICIO = ESSENCIAL ? 3 : 4.2;
+const PASSO_PESSOA = ESSENCIAL ? 0.5 : 0.6;
 const CENAS = [], TELAS = [], FOCOS = [], TOQUES = [], BALOES = [];
 let PESSOAS_A = 0, PESSOAS_B = 0;
 {
   let t0 = INICIO;
-  ROTEIRO.forEach((c, n) => {
+  ROTEIRO_ATIVO.forEach((c, n) => {
     const a = t0;
     for (const tl of c.telas) {
       TELAS.push([tl.f, t0, t0 + tl.d, tl.tipo]);
@@ -173,8 +221,9 @@ let PESSOAS_A = 0, PESSOAS_B = 0;
   });
 }
 const FIM = TELAS[TELAS.length - 1][2]; // fim da última tela
-const DUR = Math.ceil(FIM + 7.5);
-document.getElementById('passo-txt').textContent = `de ${ROTEIRO.length}`;
+const DUR = ESSENCIAL ? 60 : Math.ceil(FIM + 7.5);
+document.getElementById('passo-txt').textContent = `de ${ROTEIRO_ATIVO.length}`;
+if (ESSENCIAL) document.querySelector('#abertura .chamada').textContent = 'O essencial em 1 minuto';
 
 // ---------- montagem do DOM ----------
 const $ = (id) => document.getElementById(id);
@@ -193,7 +242,7 @@ function render(t) {
   $('progresso').firstChild.style.width = `${clamp(t / DUR) * 100}%`;
 
   // abertura e final
-  const ab = 1 - easeOut(prog(t, 3.4, 4.2));
+  const ab = 1 - easeOut(prog(t, INICIO - .8, INICIO));
   const abIn = easeOut(prog(t, 0, 1));
   $('abertura').style.opacity = Math.min(ab, abIn);
   $('abertura').style.transform = `scale(${lerp(.92, 1, back(prog(t, 0, 1.2)))})`;
@@ -203,7 +252,7 @@ function render(t) {
   ['f1', 'f2', 'f3'].forEach((id, i) => { const p = back(prog(t, FIM + 1.1 + i * .5, FIM + 1.7 + i * .5)); $(id).style.opacity = clamp(p * 1.4); $(id).style.transform = `translateX(${(1 - p) * -60}px)`; });
 
   // celular
-  const foneIn = easeOut(prog(t, 3.6, 4.6));
+  const foneIn = easeOut(prog(t, INICIO - .6, INICIO + .4));
   const foneOut = easeOut(prog(t, FIM - .2, FIM + .6));
   $('fone').style.opacity = Math.min(foneIn, 1 - foneOut);
   $('fone').style.transform = `translateY(${(1 - foneIn) * 200 + foneOut * 120}px) scale(${lerp(.94, 1, foneIn)})`;
@@ -216,11 +265,22 @@ function render(t) {
   $('cab').style.opacity = vis;
   $('cab').style.transform = `translateY(${(1 - ci) * 30}px)`;
 
+  // pulso no tempo da música (versão essencial): batida a cada 0,5 s, mais forte no início de cada compasso
+  if (ESSENCIAL) {
+    const tb = t - INICIO;
+    const fr = tb >= 0 && t < FIM ? (tb % BATIDA) / BATIDA : 1;
+    const forte = Math.floor(tb / BATIDA) % 4 === 0 ? 1 : .45;
+    const bump = Math.exp(-fr * 7) * forte;
+    $('passo').style.transform = `scale(${1 + bump * .07})`;
+    $('progresso').firstChild.style.filter = `brightness(${1 + bump * .35})`;
+    $('b1').style.opacity = .55 + bump * .2; $('b2').style.opacity = .55 + bump * .2;
+  }
+
   // telas
   TELAS.forEach(([, a, b, tipo], i) => {
     const el = imgs[i];
-    const ent = easeInOut(prog(t, a, a + .55));
-    const ativo = t >= a - .01 && t < b + .55;
+    const ent = easeInOut(prog(t, a, a + TRANS));
+    const ativo = t >= a - .01 && t < b + TRANS;
     if (!ativo) { el.style.opacity = 0; return; }
     let tr = '', op = 1;
     if (tipo === 'zoom') { tr = `scale(${lerp(1.06, 1, ent)})`; op = ent; }
@@ -229,7 +289,7 @@ function render(t) {
     else if (tipo === 'rola') tr = `translateY(${(1 - ent) * 100}%)`;
     else if (tipo === 'sobe') { tr = `translateY(${(1 - ent) * 60}%)`; op = ent; }
     // leve "zoom de câmera" enquanto a tela está parada
-    const k = prog(t, a + .55, b);
+    const k = prog(t, a + TRANS, b);
     tr += ` scale(${1 + k * .015})`;
     el.style.transform = tr;
     el.style.opacity = op;
@@ -275,8 +335,9 @@ function render(t) {
   // pessoas entrando na família
   PESSOAS.forEach(([a], i) => {
     const el = pessoas[i];
-    const v = janela(t, PESSOAS_A + a, PESSOAS_B, .4);
-    const p = back(prog(t, PESSOAS_A + a, PESSOAS_A + a + .55));
+    const a2 = PESSOAS_A + a * PASSO_PESSOA / .6;
+    const v = janela(t, a2, PESSOAS_B, .4);
+    const p = back(prog(t, a2, a2 + .55));
     el.style.opacity = v;
     el.style.left = i % 2 ? 'auto' : '30px';
     el.style.right = i % 2 ? '30px' : 'auto';
