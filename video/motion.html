@@ -145,7 +145,7 @@ const ROTEIRO = [
   ] },
 ];
 
-// Versão essencial (~60 s): um destaque por tela e cortes no tempo da música (120 bpm, 0,5 s por batida)
+// Versão essencial (~60 s): um destaque por tela e cortes no tempo da música (60 bpm, cortes em meia batida)
 const ROTEIRO_60 = [
   { t: 'Crie sua conta', s: 'Nome, e-mail e senha. Menos de 1 minuto.', telas: [
     { f: '01-cadastro', d: 3.5, tipo: 'zoom', focos: [[0.5, 3.3, [32, 494, 326, 32]]], toques: [[3.1, 195, 603]], baloes: [[0.6, 3.4, 'd', 700, '💌', 'Recebeu um convite?', 'toque no link e entre na família']] },
@@ -189,7 +189,7 @@ const ROTEIRO_60 = [
 // versão: motion.html (completa) ou motion.html?v=essencial
 const ESSENCIAL = new URLSearchParams(location.search).get('v') === 'essencial';
 const ROTEIRO_ATIVO = ESSENCIAL ? ROTEIRO_60 : ROTEIRO;
-const BATIDA = 0.5; // 120 bpm
+const BATIDA = 1; // 60 bpm (trilha lo-fi)
 const TRANS = ESSENCIAL ? 0.4 : 0.55; // duração das transições de tela
 
 // pessoas que entram na família
@@ -265,12 +265,12 @@ function render(t) {
   $('cab').style.opacity = vis;
   $('cab').style.transform = `translateY(${(1 - ci) * 30}px)`;
 
-  // pulso no tempo da música (versão essencial): batida a cada 0,5 s, mais forte no início de cada compasso
+  // pulso suave no tempo da música (versão essencial): uma batida por segundo, mais forte no início de cada compasso
   if (ESSENCIAL) {
     const tb = t - INICIO;
     const fr = tb >= 0 && t < FIM ? (tb % BATIDA) / BATIDA : 1;
     const forte = Math.floor(tb / BATIDA) % 4 === 0 ? 1 : .45;
-    const bump = Math.exp(-fr * 7) * forte;
+    const bump = Math.exp(-fr * 5) * forte * .6;
     $('passo').style.transform = `scale(${1 + bump * .07})`;
     $('progresso').firstChild.style.filter = `brightness(${1 + bump * .35})`;
     $('b1').style.opacity = .55 + bump * .2; $('b2').style.opacity = .55 + bump * .2;
