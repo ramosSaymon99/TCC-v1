@@ -244,8 +244,6 @@ export default function App() {
   const setAba = useCallback((a: Aba) => {
     history.replaceState(null, '', `#${a}`);
     setAbaState(a);
-    // No celular quem rola é a área .main (a janela fica parada); no computador, a janela
-    document.querySelector('.main')?.scrollTo({ top: 0 });
     window.scrollTo({ top: 0 });
   }, []);
 

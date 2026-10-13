@@ -104,18 +104,7 @@ p { margin: 0; }
   .main { padding-bottom: 40px; }
   .hide-desk { display: none !important; }
 }
-@media (max-width: 899px) {
-  .hide-mob { display: none !important; }
-  /* Celular: a janela não rola. Só a área .main rola e a barra de abas fica no fluxo, no rodapé.
-     Evita o bug do iOS em que a barra "fixed" e o cabeçalho se deslocam para o meio da tela
-     quando a barra do navegador recolhe ou o teclado fecha. */
-  .app { flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
-  .main {
-    flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;
-    padding-bottom: 24px;
-  }
-  .bnav { position: relative; flex-shrink: 0; }
-}
+@media (max-width: 899px) { .hide-mob { display: none !important; } }
 
 /* ---------- Componentes ---------- */
 .page { padding-top: 16px; display: flex; flex-direction: column; gap: 16px; }

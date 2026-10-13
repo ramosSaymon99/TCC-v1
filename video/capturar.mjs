@@ -31,9 +31,8 @@ p.on('pageerror', (e) => { erros.push(e.message); console.log('PAGEERROR', e.mes
 p.on('framenavigated', (f) => f === p.mainFrame() && console.log('NAVEGOU', f.url()));
 p.on('dialog', (d) => d.accept());
 const foto = async (n) => { await p.waitForTimeout(700); await p.screenshot({ path: OUT + n + '.png' }); console.log('📸', n); };
-// No celular quem rola é a área .main (a janela fica parada)
-const rolar = async (sel) => { await p.locator(sel).first().evaluate((el) => { const m = document.querySelector('.main'); m.scrollTo(0, el.getBoundingClientRect().top - m.getBoundingClientRect().top + m.scrollTop - 70); }); await p.waitForTimeout(300); };
-const aba = async (nome) => { await p.locator('.bnav button', { hasText: nome }).click(); await p.waitForTimeout(800); await p.evaluate(() => document.querySelector('.main').scrollTo(0, 0)); };
+const rolar = async (sel) => { await p.locator(sel).first().evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 70)); await p.waitForTimeout(300); };
+const aba = async (nome) => { await p.locator('.bnav button', { hasText: nome }).click(); await p.waitForTimeout(800); await p.evaluate(() => window.scrollTo(0, 0)); };
 const semToast = () => p.addStyleTag({ content: '.toast{visibility:hidden!important}' });
 
 // 1) Conta
@@ -130,7 +129,7 @@ await rolar('.card:has(h2:text-is("Rotina planejada"))');
 await foto('10b-rotina');
 
 // 7) Remédio: alerta de dose dupla
-await p.evaluate(() => document.querySelector('.main').scrollTo(0, 0));
+await p.evaluate(() => window.scrollTo(0, 0));
 await p.locator('.qbtn', { hasText: 'Remédio' }).click();
 await p.getByPlaceholder('ex.: Vitamina D').fill('Paracetamol (gotas)');
 await p.getByRole('button', { name: '6 h', exact: true }).click();
@@ -148,13 +147,13 @@ await aba('Dia a dia');
 await semToast();
 await foto('12-dia-a-dia');
 await p.locator('.post img').first().evaluate((i) => (i.complete ? 1 : new Promise((r) => { i.onload = r; })));
-await p.evaluate(() => document.querySelector('.main').scrollTo(0, document.querySelector('.main').scrollHeight));
+await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
 await foto('12b-dia-a-dia-post');
 
 // 9) Evolução
 await aba('Evolução');
 await foto('13-evolucao');
-await p.evaluate(() => document.querySelector('.main').scrollTo(0, 620));
+await p.evaluate(() => window.scrollTo(0, 620));
 await foto('14-evolucao-2');
 
 // 10) Saúde
