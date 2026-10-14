@@ -17,8 +17,8 @@ export function Logo({ size = 34 }: { size?: number }) {
 const STATUS_TONE: Record<string, string> = {
   'Ativo': 'green', 'Inativo': 'gray',
   'Orçamento': 'red', 'Em análise': 'orange', 'Proposta enviada': 'purple', 'Convertido': 'green', 'Recusado': 'gray',
-  'Aberta': 'gray', 'Em andamento': 'blue', 'Aguardando peças': 'orange', 'Finalizada': 'green', 'Cancelada': 'red',
-  'Em uso': 'green', 'Em manutenção': 'orange',
+  'Aberta': 'gray', 'Em andamento': 'blue', 'Aguardando material': 'orange', 'Finalizada': 'green', 'Cancelada': 'red',
+  'Em atendimento': 'orange',
   'Pago': 'green', 'Pendente': 'orange', 'Atrasado': 'red', 'Vencido': 'red', 'Vence em breve': 'orange',
   'Alta': 'red', 'Média': 'orange', 'Baixa': 'gray',
   'Proprietário': 'blue', 'Operador': 'purple', 'Financeiro': 'green', 'Técnico': 'orange',

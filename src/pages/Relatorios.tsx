@@ -146,15 +146,15 @@ const REPORTS: Record<string, Report[]> = {
           const xs = os.filter((o) => o.categoria === c);
           const fin = xs.filter((o) => o.status === 'Finalizada' && o.conclusao);
           const noPrazo = fin.filter((o) => o.conclusao! <= o.prazo).length;
-          const atras = xs.filter((o) => ['Aberta', 'Em andamento', 'Aguardando peças'].includes(o.status) && o.prazo < hoje).length;
+          const atras = xs.filter((o) => ['Aberta', 'Em andamento', 'Aguardando material'].includes(o.status) && o.prazo < hoje).length;
           const tm = fin.length ? sum(fin.map((o) => diffDays(o.conclusao!, o.abertura))) / fin.length : 0;
           return [c, xs.length, fin.length, fin.length ? pct(noPrazo / fin.length) : '—', fin.length ? `${tm.toFixed(1).replace('.', ',')} d` : '—', atras, money(sum(xs.map((o) => o.valor)))];
         });
-        const aguard = db.ordens.filter((o) => o.status === 'Aguardando peças');
+        const aguard = db.ordens.filter((o) => o.status === 'Aguardando material');
         return {
           columns: ['Serviço', 'Abertas no período', 'Finalizadas', 'No prazo', 'Tempo médio', 'Atrasadas', 'Valor'], rows,
           notes: [
-            aguard.length ? `${aguard.length} OS paradas aguardando peças (${money(sum(aguard.map((o) => o.valor)))}). Manter estoque mínimo dos itens mais usados reduz o ciclo.` : 'Nenhuma OS aguardando peças.',
+            aguard.length ? `${aguard.length} OS paradas aguardando material (${money(sum(aguard.map((o) => o.valor)))}). Manter estoque mínimo dos itens mais usados reduz o ciclo.` : 'Nenhuma OS aguardando material.',
           ],
         };
       },

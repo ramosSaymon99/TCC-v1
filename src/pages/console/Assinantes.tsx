@@ -10,6 +10,7 @@ import { addDays, date, dateTime, money, monthLabel, normalize, pct, today, uid 
 import { linhas, type LinhaAssinante } from '../../utils/saas';
 import { cfgDe, criarBaseVazia, documentoValido, ESSENCIAIS, modulosLiberados, MODULOS_DADOS, planoDe, proximoVencimento, valorMensal, vencida } from '../../store/plataforma';
 import { createSeed, MODULOS } from '../../store/seed';
+import { SEGMENTOS, segmentoPorId } from '../../store/segmentos';
 import { FORMAS_PAGAMENTO, nomeForma, nomeModulo, SaudeBadge, STATUS_ASSINATURA, StatusBadge } from './comum';
 
 const ORIGENS: OrigemAssinante[] = ['Indicação', 'Instagram', 'Google', 'Parceiro contábil', 'Evento', 'Site', 'Outros'];
@@ -236,12 +237,14 @@ function NovaEmpresa({ onClose, onCriada }: { onClose: () => void; onCriada: (c:
   const hoje = today();
   const cfg = cfgDe(dados);
   const [inicioTipo, setInicioTipo] = useState<'Trial' | 'Ativa'>('Trial');
-  const [baseTipo, setBaseTipo] = useState<'vazia' | 'exemplo'>('vazia');
+  const [baseTipo, setBaseTipo] = useState<'segmento' | 'vazia' | 'exemplo'>('segmento');
+  const [segId, setSegId] = useState('generico');
+  const seg = segmentoPorId(segId);
   const [salvando, setSalvando] = useState(false);
   const [cobrar, setCobrar] = useState(false);
   const [forma, setForma] = useState<FormaPagamento>('UNDEFINED');
   const [f, setF] = useState<Assinante>({
-    id: uid(), empresa: '', cnpj: '', segmento: '', cidade: '', responsavel: '', email: '', telefone: '', origem: 'Indicação',
+    id: uid(), empresa: '', cnpj: '', segmento: SEGMENTOS[0].nome, cidade: '', responsavel: '', email: '', telefone: '', origem: 'Indicação',
     planoId: dados.planos.find((p) => p.destaque)?.id ?? dados.planos[0]?.id ?? '', ciclo: 'Mensal', status: 'Trial', inicio: hoje,
     diaVencimento: 10, usuariosExtras: 0, modulosExtras: [], descontoPct: 0, provisionado: true, historico: [],
   });
@@ -259,8 +262,9 @@ function NovaEmpresa({ onClose, onCriada }: { onClose: () => void; onCriada: (c:
       fimFidelidade: f.ciclo === 'Anual' ? addDays(hoje, 365) : undefined,
       historico: [{ data: hoje, tipo: trial ? 'Teste grátis' : 'Contratação', detalhe: `${trial ? `Teste de ${cfg.diasTrial} dias` : 'Assinatura'} no plano ${plano.nome} · ${f.ciclo}` }],
     };
-    const vazia = criarBaseVazia(a);
-    const db = baseTipo === 'vazia' ? vazia : { ...createSeed(), usuarios: vazia.usuarios, permissoes: vazia.permissoes, empresa: vazia.empresa };
+    // a base nasce com as pré-definições do segmento (categorias, catálogo e estoque); a demonstração é a base de exemplo de tecnologia
+    const vazia = criarBaseVazia(a, baseTipo === 'exemplo' ? 'tecnologia' : segId, baseTipo === 'segmento');
+    const db = baseTipo === 'exemplo' ? { ...createSeed(), usuarios: vazia.usuarios, permissoes: vazia.permissoes, empresa: vazia.empresa } : vazia;
     const r = await criarEmpresa(a, db);
     if (r.erro) { setSalvando(false); return toast(r.erro, 'error'); }
     if (cobrar) {
@@ -280,7 +284,12 @@ function NovaEmpresa({ onClose, onCriada }: { onClose: () => void; onCriada: (c:
         <div className="form-grid">
           <Field label="Empresa" full><input className="input" value={f.empresa} onChange={(e) => set('empresa', e.target.value)} placeholder="Nome fantasia" autoFocus /></Field>
           <Field label="CNPJ / CPF"><input className="input" value={f.cnpj} onChange={(e) => set('cnpj', e.target.value)} /></Field>
-          <Field label="Segmento"><input className="input" value={f.segmento} onChange={(e) => set('segmento', e.target.value)} placeholder="Ex.: Oficina, clínica, escola" /></Field>
+          <Field label="Segmento" hint={seg.exemplos}>
+            <select className="select" value={segId} onChange={(e) => { setSegId(e.target.value); set('segmento', segmentoPorId(e.target.value).nome); }}>
+              {SEGMENTOS.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
+            </select>
+          </Field>
+          <Field label="Atividade (descrição)"><input className="input" value={f.segmento} onChange={(e) => set('segmento', e.target.value)} placeholder="Ex.: Oficina mecânica, clínica odontológica" /></Field>
           <Field label="Responsável (proprietário)"><input className="input" value={f.responsavel} onChange={(e) => set('responsavel', e.target.value)} /></Field>
           <Field label="E-mail de login do responsável"><input className="input" type="email" value={f.email} onChange={(e) => set('email', e.target.value)} /></Field>
           <Field label="Telefone"><input className="input" value={f.telefone} onChange={(e) => set('telefone', e.target.value)} /></Field>
@@ -301,13 +310,22 @@ function NovaEmpresa({ onClose, onCriada }: { onClose: () => void; onCriada: (c:
           </Field>
           <Field label="Base inicial">
             <div className="seg">
+              <button type="button" className={baseTipo === 'segmento' ? 'active' : ''} onClick={() => setBaseTipo('segmento')}>Pré-configurada</button>
               <button type="button" className={baseTipo === 'vazia' ? 'active' : ''} onClick={() => setBaseTipo('vazia')}>Vazia</button>
-              <button type="button" className={baseTipo === 'exemplo' ? 'active' : ''} onClick={() => setBaseTipo('exemplo')}>Com dados de exemplo</button>
+              <button type="button" className={baseTipo === 'exemplo' ? 'active' : ''} onClick={() => setBaseTipo('exemplo')}>Demonstração</button>
             </div>
           </Field>
         </div>
         <div style={{ display: 'grid', gap: 12 }}>
           <ResumoValor a={f} plano={plano} />
+          <div className="small" style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', display: 'grid', gap: 4 }}>
+            <div className="strong">{baseTipo === 'exemplo' ? 'Demonstração: base de exemplo (empresa de tecnologia)' : `Pré-definições: ${seg.nome}`}</div>
+            {baseTipo !== 'exemplo' && <>
+              <div>Telas: <strong>{seg.rotulos.ativos}</strong> · <strong>Estoque de {seg.rotulos.materiais}</strong> · <strong>{seg.rotulos.turmas}</strong> · responsável: <strong>{seg.rotulos.profissional}</strong></div>
+              <div>Categorias: {seg.categoriasServico.join(', ')}</div>
+              <div className="muted">{baseTipo === 'segmento' ? `${seg.servicos.length} serviços com preço sugerido e ${seg.materiais.length} itens de estoque (zerados) já cadastrados.` : 'Categorias e nomes do segmento, sem catálogo cadastrado.'} A empresa ajusta tudo em Configurações.</div>
+            </>}
+          </div>
           {plano && (
             <div className="small">
               <div className="strong" style={{ marginBottom: 6 }}>Módulos liberados</div>

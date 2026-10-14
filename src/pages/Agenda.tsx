@@ -1,18 +1,21 @@
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Clock, MapPin, Plus, Trash2 } from 'lucide-react';
 import { useClienteNome, useStore } from '../store/Store';
+import { comAtual } from '../store/segmentos';
 import type { Compromisso, Tarefa, TipoCompromisso } from '../types';
 import { Badge, Modal, PageHeader } from '../components/ui';
 import { ClienteSelect, Field, Options } from '../components/fields';
 import { addDays, DIAS_SEMANA, MESES_LONGOS, parseDate, pct, toISODate, today, uid } from '../utils/format';
 
-const TIPOS: TipoCompromisso[] = ['Treinamento', 'Manutenção', 'Reunião', 'Atendimento'];
 const CAPACIDADE_H = 8;
-const COR_TIPO: Record<TipoCompromisso, string> = { Treinamento: '#1e6fe8', Manutenção: '#16a34a', Reunião: '#f59e0b', Atendimento: '#e11d48' };
+// cores por posição do tipo na lista do segmento (os tipos vêm de Configurações)
+const CORES = ['#1e6fe8', '#16a34a', '#f59e0b', '#e11d48', '#7c3aed', '#0891b2'];
 const minutos = (h: string) => { const [a, b] = h.split(':').map(Number); return a * 60 + b; };
 
 export default function Agenda() {
-  const { db, upsert, remove, toast } = useStore();
+  const { db, upsert, remove, toast, negocio } = useStore();
+  const TIPOS = negocio.tiposCompromisso;
+  const corEv = (tipo: string) => `ev-${Math.max(0, TIPOS.indexOf(tipo)) % CORES.length}`;
   const nome = useClienteNome();
   const [view, setView] = useState<'dia' | 'semana' | 'mes'>('dia');
   const [dia, setDia] = useState(today());
@@ -81,7 +84,7 @@ export default function Agenda() {
                 {eventos.map((c) => (
                   <div key={c.id} className="agenda-slot">
                     <div className="hr">{c.inicio} - {c.fim}</div>
-                    <div className={`event ev-${c.tipo}`} style={{ cursor: 'pointer' }} onClick={() => setEditing(c)}>
+                    <div className={`event ${corEv(c.tipo)}`} style={{ cursor: 'pointer' }} onClick={() => setEditing(c)}>
                       <div>
                         <div className="t">{c.titulo}</div>
                         <div className="s">{c.clienteId ? nome(c.clienteId) : 'Sem cliente'}{c.local ? <> · <MapPin size={11} /> {c.local}</> : null}</div>
@@ -100,7 +103,7 @@ export default function Agenda() {
                   <div key={iso} className={`day ${iso === hoje ? 'today' : ''}`} onClick={() => { setDia(iso); setView('dia'); }} style={{ cursor: 'pointer' }}>
                     <h5>{DIAS_SEMANA[parseDate(iso).getDay()].slice(0, 3)} {parseDate(iso).getDate()}</h5>
                     {doDia(iso).map((c) => (
-                      <div key={c.id} className={`mini ev-${c.tipo}`}><strong>{c.inicio}</strong> {c.titulo}</div>
+                      <div key={c.id} className={`mini ${corEv(c.tipo)}`}><strong>{c.inicio}</strong> {c.titulo}</div>
                     ))}
                   </div>
                 ))}
@@ -118,7 +121,7 @@ export default function Agenda() {
                     return (
                       <div key={iso} className={`cell ${parseDate(iso).getMonth() !== d.getMonth() ? 'out' : ''} ${iso === hoje ? 'today' : ''}`} onClick={() => { setDia(iso); setView('dia'); }}>
                         <div className="n">{parseDate(iso).getDate()}</div>
-                        {ev.slice(0, 2).map((c) => <div key={c.id} className={`pill ev-${c.tipo}`}>{c.inicio} {c.titulo}</div>)}
+                        {ev.slice(0, 2).map((c) => <div key={c.id} className={`pill ${corEv(c.tipo)}`}>{c.inicio} {c.titulo}</div>)}
                         {ev.length > 2 && <div className="muted">+{ev.length - 2}</div>}
                       </div>
                     );
@@ -127,7 +130,7 @@ export default function Agenda() {
               );
             })()}
             <div className="legend" style={{ marginTop: 16 }}>
-              {TIPOS.map((t) => <span key={t}><i style={{ background: COR_TIPO[t] }} />{t}</span>)}
+              {TIPOS.map((t, i) => <span key={t}><i style={{ background: CORES[i % CORES.length] }} />{t}</span>)}
             </div>
           </div>
         </div>
@@ -183,6 +186,7 @@ export default function Agenda() {
 }
 
 function CompromissoForm({ c, onClose, onSave, onDelete }: { c: Compromisso; onClose: () => void; onSave: (c: Compromisso) => void; onDelete?: () => void }) {
+  const { negocio } = useStore();
   const [f, setF] = useState(c);
   const set = <K extends keyof Compromisso>(k: K, v: Compromisso[K]) => setF((x) => ({ ...x, [k]: v }));
   return (
@@ -193,7 +197,7 @@ function CompromissoForm({ c, onClose, onSave, onDelete }: { c: Compromisso; onC
     </>}>
       <form id="ag-form" className="form-grid" onSubmit={(e) => { e.preventDefault(); onSave(f); }}>
         <Field label="Título" full><input className="input" value={f.titulo} onChange={(e) => set('titulo', e.target.value)} required autoFocus /></Field>
-        <Field label="Tipo"><select className="select" value={f.tipo} onChange={(e) => set('tipo', e.target.value as TipoCompromisso)}><Options items={TIPOS} /></select></Field>
+        <Field label="Tipo"><select className="select" value={f.tipo} onChange={(e) => set('tipo', e.target.value as TipoCompromisso)}><Options items={comAtual(negocio.tiposCompromisso, f.tipo)} /></select></Field>
         <Field label="Data"><input className="input" type="date" value={f.data} onChange={(e) => set('data', e.target.value)} required /></Field>
         <Field label="Início"><input className="input" type="time" value={f.inicio} onChange={(e) => set('inicio', e.target.value)} required /></Field>
         <Field label="Fim"><input className="input" type="time" value={f.fim} onChange={(e) => set('fim', e.target.value)} required /></Field>

@@ -4,6 +4,7 @@ import type {
   OrigemLead, Post, RedeSocial, FormatoPost, PilarConteudo, Seguidores,
 } from '../types';
 import { addDays, lastMonths, pad, toISODate } from '../utils/format';
+import { inferirSegmento } from './segmentos';
 
 /** PRNG determinístico para que os dados de demonstração sejam sempre os mesmos. */
 function mulberry32(seed: number) {
@@ -27,7 +28,7 @@ export const CATEGORIAS_DESPESA = ['Peças e acessórios', 'Transporte', 'Market
 /** Receitas aceitam também a categoria de mensalidades de contratos. */
 export const CATEGORIAS_RECEITA = [...CATEGORIAS, 'Recorrência'];
 /** Versão do formato dos dados; ao subir, `migrar` completa bases antigas com os módulos novos. */
-export const VERSAO_DADOS = 4;
+export const VERSAO_DADOS = 5;
 
 /** Catálogo padrão: nome, categoria, preço de tabela, custo direto, horas. */
 const SERV_DEFS: [string, CategoriaServico, number, number, number][] = [
@@ -51,9 +52,9 @@ export const MODULOS: { id: Modulo; label: string }[] = [
   { id: 'funil', label: 'Funil Comercial' },
   { id: 'contratos', label: 'Contratos' },
   { id: 'ordens', label: 'Ordens de Serviço' },
-  { id: 'equipamentos', label: 'Equipamentos' },
-  { id: 'estoque', label: 'Estoque de Peças' },
-  { id: 'treinamentos', label: 'Treinamentos' },
+  { id: 'equipamentos', label: 'Ativos de clientes' },
+  { id: 'estoque', label: 'Estoque' },
+  { id: 'treinamentos', label: 'Cursos e Turmas' },
   { id: 'agenda', label: 'Agenda' },
   { id: 'servicos', label: 'Serviços e Preços' },
   { id: 'financeiro', label: 'Financeiro' },
@@ -223,7 +224,7 @@ export function createSeed(): Database {
     // cliente, serviço, cat, abertura(dias atrás), prazo(dias após abertura), status, valor
     [4, 'Criação de Site', 'Desenvolvimento Web', 15, 15, 'Finalizada', 3200],
     [3, 'Treinamento de Informática', 'Treinamento', 12, 15, 'Em andamento', 600],
-    [2, 'Manutenção de Notebook', 'Manutenção', 10, 11, 'Aguardando peças', 280],
+    [2, 'Manutenção de Notebook', 'Manutenção', 10, 11, 'Aguardando material', 280],
     [1, 'Desenvolvimento de Site', 'Desenvolvimento Web', 7, 11, 'Em andamento', 2500],
     [0, 'Formatação e Instalação', 'Manutenção', 5, 7, 'Em andamento', 250],
     [7, 'Implantação de Rede', 'Implantação', 30, 10, 'Finalizada', 1850],
@@ -234,7 +235,7 @@ export function createSeed(): Database {
     [6, 'Upgrade de PC', 'Manutenção', 4, 5, 'Aberta', 540],
     [8, 'Configuração de Backup', 'Implantação', 2, 6, 'Aberta', 980],
     [13, 'Manutenção de Notebook', 'Manutenção', 45, 5, 'Cancelada', 300],
-    [10, 'Diagnóstico de Infraestrutura', 'Consultoria', 8, 4, 'Aguardando peças', 450],
+    [10, 'Diagnóstico de Infraestrutura', 'Consultoria', 8, 4, 'Aguardando material', 450],
     [14, 'Formatação e Instalação', 'Manutenção', 1, 3, 'Aberta', 230],
   ];
   const tecnicos = ['Saymon Ramos', 'Lucas Martins'];
@@ -251,18 +252,18 @@ export function createSeed(): Database {
 
   // ---------- Equipamentos ----------
   const eqDefs: [string, string, Equipamento['tipo'], number, Equipamento['status'], number][] = [
-    ['Notebook Inspiron 15', 'Dell', 'Notebook', 0, 'Em uso', 400],
-    ['Desktop i5', 'Positivo', 'Computador', 1, 'Em uso', 700],
-    ['Impressora LaserJet', 'HP', 'Impressora', 2, 'Em uso', 900],
-    ['Notebook Aspire 5', 'Acer', 'Notebook', 3, 'Em manutenção', 300],
-    ['Servidor PowerEdge T40', 'Dell', 'Servidor', 4, 'Em uso', 500],
-    ['Notebook IdeaPad 3', 'Lenovo', 'Notebook', 2, 'Em manutenção', 600],
-    ['Roteador Archer C6', 'TP-Link', 'Rede', 7, 'Em uso', 200],
-    ['Desktop OptiPlex', 'Dell', 'Computador', 9, 'Em uso', 1100],
-    ['Multifuncional L3250', 'Epson', 'Impressora', 5, 'Em uso', 250],
+    ['Notebook Inspiron 15', 'Dell', 'Notebook', 0, 'Ativo', 400],
+    ['Desktop i5', 'Positivo', 'Computador', 1, 'Ativo', 700],
+    ['Impressora LaserJet', 'HP', 'Impressora', 2, 'Ativo', 900],
+    ['Notebook Aspire 5', 'Acer', 'Notebook', 3, 'Em atendimento', 300],
+    ['Servidor PowerEdge T40', 'Dell', 'Servidor', 4, 'Ativo', 500],
+    ['Notebook IdeaPad 3', 'Lenovo', 'Notebook', 2, 'Em atendimento', 600],
+    ['Roteador Archer C6', 'TP-Link', 'Rede', 7, 'Ativo', 200],
+    ['Desktop OptiPlex', 'Dell', 'Computador', 9, 'Ativo', 1100],
+    ['Multifuncional L3250', 'Epson', 'Impressora', 5, 'Ativo', 250],
     ['Notebook VivoBook', 'Asus', 'Notebook', 13, 'Inativo', 1500],
-    ['Switch 24 portas', 'Intelbras', 'Rede', 8, 'Em uso', 90],
-    ['Desktop Core i3', 'Multilaser', 'Computador', 6, 'Em manutenção', 800],
+    ['Switch 24 portas', 'Intelbras', 'Rede', 8, 'Ativo', 90],
+    ['Desktop Core i3', 'Multilaser', 'Computador', 6, 'Em atendimento', 800],
   ];
   const equipamentos: Equipamento[] = eqDefs.map(([nome, marca, tipo, ci, status, dias], i) => ({
     id: `e${i + 1}`, nome, marca, tipo, clienteId: clientes[ci].id, status,
@@ -399,7 +400,7 @@ export function createSeed(): Database {
     permissoes: PERMISSOES_PADRAO,
     empresa: {
       nome: 'Pivot Hub', cnpj: '45.123.456/0001-78', telefone: '(27) 99999-0000', email: 'contato@pivothub.com',
-      endereco: 'Cariacica/ES', metaMensal: 12000, diasAlertaOrcamento: 5, versaoDados: VERSAO_DADOS, metaPostsSemana: 3,
+      endereco: 'Cariacica/ES', metaMensal: 12000, diasAlertaOrcamento: 5, versaoDados: VERSAO_DADOS, metaPostsSemana: 3, segmento: 'tecnologia',
     },
   };
 }
@@ -412,34 +413,46 @@ const NOVOS_MODULOS: Modulo[] = ['servicos', 'estoque', 'contratos', 'treinament
  * preservando todos os dados existentes. Retorna null quando não há nada a migrar.
  */
 export function migrar(db: Database): Database | null {
-  if ((db.empresa?.versaoDados ?? 1) >= VERSAO_DADOS) return null;
-  const seed = createSeed();
+  const v = db.empresa?.versaoDados ?? 1;
+  if (v >= VERSAO_DADOS) return null;
   const out = { ...db } as Database;
-  for (const col of NOVAS_COLECOES) {
-    if (!Array.isArray(out[col]) || out[col].length === 0) {
-      (out as unknown as Record<string, unknown>)[col] = seed[col];
-      // contratos de demonstração vêm com o histórico de mensalidades já pagas
-      if (col === 'contratos') {
-        const ids = new Set(out.lancamentos.map((l) => l.id));
-        const recorrentes = seed.lancamentos.filter((l) => l.categoria === 'Recorrência').map((l) => ({ ...l, id: ids.has(l.id) ? `${l.id}-r` : l.id }));
-        out.lancamentos = [...out.lancamentos, ...recorrentes];
+  // v2/v3: coleções e módulos novos (somente bases antigas; bases novas nascem com as coleções vazias de propósito)
+  if (v < 3) {
+    const seed = createSeed();
+    for (const col of NOVAS_COLECOES) {
+      if (!Array.isArray(out[col]) || out[col].length === 0) {
+        (out as unknown as Record<string, unknown>)[col] = seed[col];
+        // contratos de demonstração vêm com o histórico de mensalidades já pagas
+        if (col === 'contratos') {
+          const ids = new Set(out.lancamentos.map((l) => l.id));
+          const recorrentes = seed.lancamentos.filter((l) => l.categoria === 'Recorrência').map((l) => ({ ...l, id: ids.has(l.id) ? `${l.id}-r` : l.id }));
+          out.lancamentos = [...out.lancamentos, ...recorrentes];
+        }
       }
     }
+    const permissoes = { ...out.permissoes };
+    (Object.keys(PERMISSOES_PADRAO) as Perfil[]).forEach((perfil) => {
+      const atuais = permissoes[perfil] ?? [];
+      const novos = PERMISSOES_PADRAO[perfil].filter((m) => NOVOS_MODULOS.includes(m) && !atuais.includes(m));
+      permissoes[perfil] = [...atuais, ...novos];
+    });
+    out.permissoes = permissoes;
   }
-  const permissoes = { ...out.permissoes };
-  (Object.keys(PERMISSOES_PADRAO) as Perfil[]).forEach((perfil) => {
-    const atuais = permissoes[perfil] ?? [];
-    const novos = PERMISSOES_PADRAO[perfil].filter((m) => NOVOS_MODULOS.includes(m) && !atuais.includes(m));
-    permissoes[perfil] = [...atuais, ...novos];
-  });
-  out.permissoes = permissoes;
-  out.empresa = { ...out.empresa, versaoDados: VERSAO_DADOS, metaPostsSemana: out.empresa.metaPostsSemana ?? 3 };
   // v4: marca renomeada de TechGest para Pivot Hub
-  const marca = (t: string) => t.replace(/@techgest\.com/gi, '@pivothub.com').replace(/TechGest/g, 'Pivot Hub');
-  out.usuarios = out.usuarios.map((u) => ({ ...u, email: marca(u.email) }));
-  out.turmas = out.turmas.map((t) => ({ ...t, local: marca(t.local) }));
-  out.posts = out.posts.map((p) => ({ ...p, titulo: marca(p.titulo) }));
-  out.empresa = { ...out.empresa, nome: marca(out.empresa.nome), email: marca(out.empresa.email) };
+  if (v < 4) {
+    const marca = (t: string) => t.replace(/@techgest\.com/gi, '@pivothub.com').replace(/TechGest/g, 'Pivot Hub');
+    out.usuarios = out.usuarios.map((u) => ({ ...u, email: marca(u.email) }));
+    out.turmas = out.turmas.map((t) => ({ ...t, local: marca(t.local) }));
+    out.posts = out.posts.map((p) => ({ ...p, titulo: marca(p.titulo) }));
+    out.empresa = { ...out.empresa, nome: marca(out.empresa.nome), email: marca(out.empresa.email) };
+  }
+  // v5: sistema neutro por segmento; bases antigas recebem o segmento deduzido do catálogo
+  if (v < 5) out.ordens = out.ordens.map((o) => ((o.status as string) === 'Aguardando peças' ? { ...o, status: 'Aguardando material' } : o));
+  if (v < 5) out.equipamentos = out.equipamentos.map((e) => ({ ...e, status: ({ 'Em uso': 'Ativo', 'Em manutenção': 'Em atendimento' } as Record<string, Equipamento['status']>)[e.status as string] ?? e.status }));
+  out.empresa = {
+    ...out.empresa, versaoDados: VERSAO_DADOS, metaPostsSemana: out.empresa.metaPostsSemana ?? 3,
+    segmento: out.empresa.segmento ?? inferirSegmento(out.servicos.map((x) => x.nome)),
+  };
   return out;
 }
 

@@ -5,7 +5,7 @@ import type { CategoriaServico, Servico } from '../types';
 import { Badge, Confirm, Empty, Kpi, Modal, PageHeader, Pager, SearchInput, Th, useSortPage } from '../components/ui';
 import { Field, Options, toNumber } from '../components/fields';
 import { addDays, money, normalize, pct, today, uid } from '../utils/format';
-import { CATEGORIAS } from '../store/seed';
+import { comAtual } from '../store/segmentos';
 
 type Classe = 'Carro-chefe' | 'Volume' | 'Nicho' | 'Revisar' | 'Sem vendas';
 type Row = Servico & {
@@ -23,7 +23,7 @@ const CLASSE_DICA: Record<Classe, string> = {
 const JANELA = 90;
 
 export default function Servicos() {
-  const { db, upsert, remove, toast } = useStore();
+  const { db, upsert, remove, toast, negocio } = useStore();
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('');
   const [editing, setEditing] = useState<Servico | null>(null);
@@ -84,7 +84,7 @@ export default function Servicos() {
   return (
     <>
       <PageHeader title="Serviços e Preços" subtitle={`Catálogo com preço de tabela, custo e rentabilidade. Desempenho calculado sobre os últimos ${JANELA} dias.`}>
-        <button className="btn btn-primary" onClick={() => setEditing({ id: uid(), nome: '', categoria: 'Manutenção', preco: 0, custo: 0, duracaoHoras: 1, ativo: true })}>
+        <button className="btn btn-primary" onClick={() => setEditing({ id: uid(), nome: '', categoria: negocio.categoriasServico[0] ?? 'Serviço', preco: 0, custo: 0, duracaoHoras: 1, ativo: true })}>
           <Plus size={16} /> Novo serviço
         </button>
       </PageHeader>
@@ -107,7 +107,7 @@ export default function Servicos() {
       <div className="card">
         <div className="toolbar">
           <SearchInput value={q} onChange={setQ} placeholder="Buscar serviço..." />
-          <select className="select" value={cat} onChange={(e) => setCat(e.target.value)}><option value="">Todas as categorias</option><Options items={CATEGORIAS} /></select>
+          <select className="select" value={cat} onChange={(e) => setCat(e.target.value)}><option value="">Todas as categorias</option><Options items={negocio.categoriasServico} /></select>
         </div>
         <div className="table-wrap">
           <table className="table">
@@ -164,6 +164,7 @@ export default function Servicos() {
 }
 
 function ServicoForm({ s, onClose, onSave }: { s: Servico; onClose: () => void; onSave: (s: Servico) => void }) {
+  const { negocio } = useStore();
   const [f, setF] = useState(s);
   const set = <K extends keyof Servico>(k: K, v: Servico[K]) => setF((x) => ({ ...x, [k]: v }));
   const margem = f.preco ? (f.preco - f.custo) / f.preco : 0;
@@ -174,10 +175,10 @@ function ServicoForm({ s, onClose, onSave }: { s: Servico; onClose: () => void; 
     </>}>
       <form id="serv-form" className="form-grid" onSubmit={(e) => { e.preventDefault(); onSave(f); }}>
         <Field label="Nome do serviço" full><input className="input" value={f.nome} onChange={(e) => set('nome', e.target.value)} required autoFocus /></Field>
-        <Field label="Categoria"><select className="select" value={f.categoria} onChange={(e) => set('categoria', e.target.value as CategoriaServico)}><Options items={CATEGORIAS} /></select></Field>
+        <Field label="Categoria"><select className="select" value={f.categoria} onChange={(e) => set('categoria', e.target.value as CategoriaServico)}><Options items={comAtual(negocio.categoriasServico, f.categoria)} /></select></Field>
         <Field label="Horas estimadas"><input className="input" type="number" min={0.5} step={0.5} value={f.duracaoHoras} onChange={(e) => set('duracaoHoras', Number(e.target.value))} /></Field>
         <Field label="Preço de tabela (R$)"><input className="input" inputMode="decimal" defaultValue={f.preco ? String(f.preco).replace('.', ',') : ''} onChange={(e) => set('preco', toNumber(e.target.value))} required /></Field>
-        <Field label="Custo direto (R$)" hint="Peças, material, deslocamento."><input className="input" inputMode="decimal" defaultValue={f.custo ? String(f.custo).replace('.', ',') : ''} onChange={(e) => set('custo', toNumber(e.target.value))} /></Field>
+        <Field label="Custo direto (R$)" hint="Materiais, insumos, deslocamento."><input className="input" inputMode="decimal" defaultValue={f.custo ? String(f.custo).replace('.', ',') : ''} onChange={(e) => set('custo', toNumber(e.target.value))} /></Field>
         <div className="full small muted">
           Margem: <strong className={margem < 0.5 ? 'text-warning' : 'text-success'}>{pct(margem)}</strong> ·
           Lucro por hora: <strong>{money(f.duracaoHoras ? (f.preco - f.custo) / f.duracaoHoras : 0)}</strong>

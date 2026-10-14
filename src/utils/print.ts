@@ -63,7 +63,8 @@ ${blocoCliente(c)}
 <div class="foot">Documento gerado pelo Pivot Hub em ${date(today())}.</div>`);
 }
 
-export function imprimirOS(o: OrdemServico, c: Cliente | undefined, e: Empresa, equipamento?: string, pecas: { nome: string; qtd: number }[] = []) {
+export function imprimirOS(o: OrdemServico, c: Cliente | undefined, e: Empresa, equipamento?: string, pecas: { nome: string; qtd: number }[] = [],
+  r: { ativo: string; profissional: string; materiais: string; material: string } = { ativo: 'Item', profissional: 'Responsável', materiais: 'Materiais', material: 'Material' }) {
   abrir(`OS ${o.numero}`, `
 ${cabecalho(e, 'Ordem de Serviço', o.numero, `Abertura ${date(o.abertura)} · Prazo ${date(o.prazo)}`)}
 ${blocoCliente(c)}
@@ -71,16 +72,16 @@ ${blocoCliente(c)}
 <div class="box grid">
   <div><b>Serviço</b>${esc(o.servico)}</div>
   <div><b>Categoria</b>${esc(o.categoria)}</div>
-  <div><b>Equipamento</b>${esc(equipamento ?? 'Não informado')}</div>
-  <div><b>Técnico responsável</b>${esc(o.tecnico ?? '—')}</div>
+  <div><b>${esc(r.ativo)}</b>${esc(equipamento ?? 'Não informado')}</div>
+  <div><b>${esc(r.profissional)} responsável</b>${esc(o.tecnico ?? '—')}</div>
   <div><b>Status</b>${esc(o.status)}</div>
   <div><b>Conclusão</b>${esc(o.conclusao ? date(o.conclusao) : '—')}</div>
   <div style="grid-column:1/-1"><b>Descrição / problema relatado</b>${esc(o.descricao || '—')}</div>
 </div>
-${pecas.length ? `<h2>Peças utilizadas</h2><table><thead><tr><th>Peça</th><th class="r">Qtd.</th></tr></thead><tbody>${pecas.map((p) => `<tr><td>${esc(p.nome)}</td><td class="r">${p.qtd}</td></tr>`).join('')}</tbody></table>` : ''}
+${pecas.length ? `<h2>${esc(r.materiais)} utilizados</h2><table><thead><tr><th>${esc(r.material)}</th><th class="r">Qtd.</th></tr></thead><tbody>${pecas.map((p) => `<tr><td>${esc(p.nome)}</td><td class="r">${p.qtd}</td></tr>`).join('')}</tbody></table>` : ''}
 <table style="margin-top:18px"><tbody><tr class="total"><td>Valor total do serviço</td><td class="r">${money(o.valor)}</td></tr></tbody></table>
 <h2>Termo de entrega</h2>
-<div class="box">Declaro ter recebido o equipamento/serviço acima em perfeito funcionamento. Garantia de 90 dias para o serviço executado, não cobrindo mau uso, quedas, líquidos ou intervenção de terceiros.</div>
-<div class="sign"><div>Técnico — ${esc(o.tecnico ?? e.nome)}</div><div>Cliente — ${esc(c?.nome ?? '')}</div></div>
+<div class="box">Declaro ter recebido o serviço acima conforme descrito. A garantia do serviço segue o Código de Defesa do Consumidor (90 dias), não cobrindo mau uso ou intervenção de terceiros.</div>
+<div class="sign"><div>${esc(r.profissional)} — ${esc(o.tecnico ?? e.nome)}</div><div>Cliente — ${esc(c?.nome ?? '')}</div></div>
 <div class="foot">Documento gerado pelo Pivot Hub em ${date(today())}.</div>`);
 }

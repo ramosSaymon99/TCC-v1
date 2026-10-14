@@ -1,20 +1,23 @@
 import { useMemo, useState } from 'react';
 import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Boxes, Download, Package, Pencil, Plus, ShoppingCart, Trash2, Wrench } from 'lucide-react';
 import { useClienteNome, useStore } from '../store/Store';
+import { comAtual } from '../store/segmentos';
 import type { Movimento, Peca } from '../types';
 import { Badge, Confirm, Empty, Kpi, Modal, PageHeader, Pager, RowMenu, SearchInput, Th, useSortPage } from '../components/ui';
 import { Field, Options, toNumber } from '../components/fields';
 import { addDays, date, downloadCSV, int, money, normalize, today, uid } from '../utils/format';
 import { ABERTAS } from '../utils/metrics';
 
-const CATS: Peca['categoria'][] = ['Armazenamento', 'Memória', 'Energia', 'Periféricos', 'Rede', 'Outros'];
 type Situacao = 'Zerado' | 'Abaixo do mínimo' | 'Sem giro' | 'OK';
 type Row = Peca & { consumo90: number; cobertura: number | null; valor: number; sugestao: number; situacao: Situacao; rank: number };
 const RANK: Record<Situacao, number> = { Zerado: 0, 'Abaixo do mínimo': 1, OK: 2, 'Sem giro': 3 };
 const SIT_TONE: Record<Situacao, string> = { Zerado: 'red', 'Abaixo do mínimo': 'orange', 'Sem giro': 'gray', OK: 'green' };
 
 export default function Estoque() {
-  const { db, upsert, remove, toast } = useStore();
+  const { db, upsert, remove, toast, negocio } = useStore();
+  const r = negocio.rotulos;
+  // entrada de estoque vira despesa na 1ª categoria de despesa ligada a materiais do segmento
+  const catDespesa = negocio.categoriasDespesa.find((c) => /peç|materia|insumo|produto/i.test(c)) ?? negocio.categoriasDespesa[0] ?? 'Outros';
   const nomeCliente = useClienteNome();
   const [tab, setTab] = useState<'pecas' | 'mov'>('pecas');
   const [q, setQ] = useState('');
@@ -47,7 +50,7 @@ export default function Estoque() {
   const criticos = rows.filter((r) => r.situacao === 'Zerado' || r.situacao === 'Abaixo do mínimo');
   const compra = criticos.filter((r) => r.sugestao > 0);
   const valorCompra = compra.reduce((a, r) => a + r.sugestao * r.custoUnit, 0);
-  const aguardando = db.ordens.filter((o) => o.status === 'Aguardando peças');
+  const aguardando = db.ordens.filter((o) => o.status === 'Aguardando material');
   const semGiro = rows.filter((r) => r.situacao === 'Sem giro');
 
   const movs = [...db.movimentos].sort((a, b) => b.data.localeCompare(a.data));
@@ -61,23 +64,23 @@ export default function Estoque() {
     upsert('movimentos', m);
     upsert('pecas', { ...p, quantidade: p.quantidade + delta, custoUnit: m.tipo === 'Entrada' && m.custoUnit ? m.custoUnit : p.custoUnit });
     if (m.tipo === 'Entrada' && lancarDespesa) {
-      upsert('lancamentos', { id: uid(), tipo: 'Despesa', descricao: `${p.nome} (${m.quantidade} un.)`, categoria: 'Peças e acessórios', valor: Math.round(m.quantidade * (m.custoUnit ?? p.custoUnit) * 100) / 100, data: m.data, status: 'Pago' });
+      upsert('lancamentos', { id: uid(), tipo: 'Despesa', descricao: `${p.nome} (${m.quantidade} un.)`, categoria: catDespesa, valor: Math.round(m.quantidade * (m.custoUnit ?? p.custoUnit) * 100) / 100, data: m.data, status: 'Pago' });
     }
     toast(m.tipo === 'Entrada' ? `Entrada de ${m.quantidade} un. registrada${lancarDespesa ? ' e despesa lançada' : ''}.` : `Saída de ${m.quantidade} un. registrada.`);
     setMov(null);
   };
 
   const listaCompras = () => downloadCSV(`lista-compras-${hoje}.csv`, [
-    ['Peça', 'SKU', 'Fornecedor', 'Estoque', 'Mínimo', 'Comprar', 'Custo unit.', 'Total'],
+    [r.material, 'SKU', 'Fornecedor', 'Estoque', 'Mínimo', 'Comprar', 'Custo unit.', 'Total'],
     ...compra.map((r) => [r.nome, r.sku, r.fornecedor ?? '', r.quantidade, r.minimo, r.sugestao, r.custoUnit.toFixed(2).replace('.', ','), (r.sugestao * r.custoUnit).toFixed(2).replace('.', ',')]),
   ]);
 
   return (
     <>
-      <PageHeader title="Estoque de Peças" subtitle="Controle de peças e acessórios usados nas manutenções, com alertas de reposição baseados no consumo real.">
+      <PageHeader title={`Estoque de ${r.materiais}`} subtitle={`Controle de ${r.materiais.toLowerCase()} usados nos atendimentos, com alertas de reposição baseados no consumo real.`}>
         <button className="btn" onClick={listaCompras} disabled={!compra.length}><ShoppingCart size={16} /> Lista de compras</button>
-        <button className="btn btn-primary" onClick={() => setEditing({ id: uid(), nome: '', categoria: 'Outros', sku: `PC-${String(db.pecas.length + 1).padStart(3, '0')}`, quantidade: 0, minimo: 1, custoUnit: 0, precoVenda: 0 })}>
-          <Plus size={16} /> Nova peça
+        <button className="btn btn-primary" onClick={() => setEditing({ id: uid(), nome: '', categoria: negocio.categoriasMaterial[0] ?? 'Outros', sku: `IT-${String(db.pecas.length + 1).padStart(3, '0')}`, quantidade: 0, minimo: 1, custoUnit: 0, precoVenda: 0 })}>
+          <Plus size={16} /> Novo item
         </button>
       </PageHeader>
 
@@ -86,7 +89,7 @@ export default function Estoque() {
         <Kpi icon={<AlertTriangle size={20} />} tone="red" label="Abaixo do mínimo" value={criticos.length}
           foot={criticos.length ? <span className="text-danger strong">{rows.filter((r) => r.situacao === 'Zerado').length} zerado(s)</span> : 'Estoque saudável'} />
         <Kpi icon={<ShoppingCart size={20} />} tone="orange" label="Compra sugerida" value={money(valorCompra)} foot={`${compra.length} item(ns) para repor ~45 dias de consumo`} />
-        <Kpi icon={<Wrench size={20} />} tone="purple" label="OS aguardando peças" value={aguardando.length}
+        <Kpi icon={<Wrench size={20} />} tone="purple" label="OS aguardando material" value={aguardando.length}
           foot={aguardando.length ? `${money(aguardando.reduce((a, o) => a + o.valor, 0))} travados` : 'Nenhuma OS parada'} />
       </div>
 
@@ -94,7 +97,7 @@ export default function Estoque() {
         <div className="insight warn" style={{ marginBottom: 16 }}>
           <div className="ico tone-orange"><AlertTriangle size={16} /></div>
           <div>
-            {aguardando.length > 0 && <div className="d">• {aguardando.map((o) => `${o.numero} (${nomeCliente(o.clienteId)})`).join(', ')} aguardando peças: {money(aguardando.reduce((a, o) => a + o.valor, 0))} de receita parada. Priorize a compra dos itens zerados.</div>}
+            {aguardando.length > 0 && <div className="d">• {aguardando.map((o) => `${o.numero} (${nomeCliente(o.clienteId)})`).join(', ')} aguardando material: {money(aguardando.reduce((a, o) => a + o.valor, 0))} de receita parada. Priorize a compra dos itens zerados.</div>}
             {semGiro.length > 0 && <div className="d">• {semGiro.length} item(ns) sem saída em 90 dias ({money(semGiro.reduce((a, r) => a + r.valor, 0))} parados): {semGiro.map((r) => r.nome).join(', ')}. Evite recompra.</div>}
           </div>
         </div>
@@ -102,21 +105,21 @@ export default function Estoque() {
 
       <div className="card">
         <div className="tabs">
-          <button className={`tab ${tab === 'pecas' ? 'active' : ''}`} onClick={() => setTab('pecas')}>Peças<span className="count">{rows.length}</span></button>
+          <button className={`tab ${tab === 'pecas' ? 'active' : ''}`} onClick={() => setTab('pecas')}>{r.materiais}<span className="count">{rows.length}</span></button>
           <button className={`tab ${tab === 'mov' ? 'active' : ''}`} onClick={() => setTab('mov')}>Movimentações<span className="count">{movs.length}</span></button>
         </div>
 
         {tab === 'pecas' ? (
           <>
             <div className="toolbar">
-              <SearchInput value={q} onChange={setQ} placeholder="Buscar por peça, SKU ou fornecedor..." />
+              <SearchInput value={q} onChange={setQ} placeholder="Buscar por item, SKU ou fornecedor..." />
               <select className="select" value={sit} onChange={(e) => setSit(e.target.value)}><option value="">Todas as situações</option><Options items={['Zerado', 'Abaixo do mínimo', 'Sem giro', 'OK'] as const} /></select>
             </div>
             <div className="table-wrap">
               <table className="table">
                 <thead>
                   <tr>
-                    <Th label="Peça" k="nome" s={s} />
+                    <Th label={r.material} k="nome" s={s} />
                     <Th label="Estoque" k="quantidade" s={s} className="num" />
                     <Th label="Mínimo" k="minimo" s={s} className="num hide-sm" />
                     <Th label="Consumo 90d" k="consumo90" s={s} className="num hide-sm" />
@@ -150,21 +153,21 @@ export default function Estoque() {
                   ))}
                 </tbody>
               </table>
-              {s.total === 0 && <Empty text="Nenhuma peça encontrada." />}
+              {s.total === 0 && <Empty text="Nenhum item encontrado." />}
             </div>
-            <Pager {...s} noun="peças" />
+            <Pager {...s} noun="itens" />
           </>
         ) : (
           <>
             <div className="toolbar" style={{ justifyContent: 'flex-end' }}>
               <button className="btn btn-sm" onClick={() => downloadCSV('movimentacoes-estoque.csv', [
-                ['Data', 'Peça', 'Tipo', 'Quantidade', 'OS', 'Observação'],
+                ['Data', r.material, 'Tipo', 'Quantidade', 'OS', 'Observação'],
                 ...movs.map((m) => [date(m.data), pecaNome(m.pecaId), m.tipo, m.quantidade, osNum(m.osId), m.obs ?? '']),
               ])}><Download size={14} /> Exportar</button>
             </div>
             <div className="table-wrap">
               <table className="table table-compact">
-                <thead><tr><Th label="Data" k="data" s={sm} /><th>Peça</th><Th label="Tipo" k="tipo" s={sm} /><Th label="Qtd." k="quantidade" s={sm} className="num" /><th>OS</th><th className="hide-sm">Observação</th></tr></thead>
+                <thead><tr><Th label="Data" k="data" s={sm} /><th>{r.material}</th><Th label="Tipo" k="tipo" s={sm} /><Th label="Qtd." k="quantidade" s={sm} className="num" /><th>OS</th><th className="hide-sm">Observação</th></tr></thead>
                 <tbody>
                   {sm.view.map((m) => (
                     <tr key={m.id}>
@@ -186,27 +189,29 @@ export default function Estoque() {
       </div>
 
       {editing && <PecaForm p={editing} onClose={() => setEditing(null)} onSave={(p) => {
-        if (!p.nome) return toast('Informe o nome da peça.', 'error');
-        upsert('pecas', p); toast('Peça salva.'); setEditing(null);
+        if (!p.nome) return toast('Informe o nome do item.', 'error');
+        upsert('pecas', p); toast('Item salvo.'); setEditing(null);
       }} />}
       {mov && <MovForm peca={mov.peca} tipo={mov.tipo} onClose={() => setMov(null)} onSave={registrar} />}
-      {deleting && <Confirm text={<>Excluir <strong>{deleting.nome}</strong> do estoque?</>} onClose={() => setDeleting(null)} onConfirm={() => { remove('pecas', deleting.id); toast('Peça excluída.'); }} />}
+      {deleting && <Confirm text={<>Excluir <strong>{deleting.nome}</strong> do estoque?</>} onClose={() => setDeleting(null)} onConfirm={() => { remove('pecas', deleting.id); toast('Item excluído.'); }} />}
     </>
   );
 }
 
 function PecaForm({ p, onClose, onSave }: { p: Peca; onClose: () => void; onSave: (p: Peca) => void }) {
+  const { negocio } = useStore();
+  const r = negocio.rotulos;
   const [f, setF] = useState(p);
   const set = <K extends keyof Peca>(k: K, v: Peca[K]) => setF((x) => ({ ...x, [k]: v }));
   return (
-    <Modal title={p.nome ? 'Editar peça' : 'Nova peça'} onClose={onClose} footer={<>
+    <Modal title={p.nome ? 'Editar item' : `Novo item – ${r.material.toLowerCase()}`} onClose={onClose} footer={<>
       <button className="btn" onClick={onClose}>Cancelar</button>
       <button className="btn btn-primary" form="peca-form">Salvar</button>
     </>}>
       <form id="peca-form" className="form-grid" onSubmit={(e) => { e.preventDefault(); onSave(f); }}>
         <Field label="Nome" full><input className="input" value={f.nome} onChange={(e) => set('nome', e.target.value)} required autoFocus /></Field>
         <Field label="SKU / código"><input className="input" value={f.sku} onChange={(e) => set('sku', e.target.value)} /></Field>
-        <Field label="Categoria"><select className="select" value={f.categoria} onChange={(e) => set('categoria', e.target.value as Peca['categoria'])}><Options items={CATS} /></select></Field>
+        <Field label="Categoria"><select className="select" value={f.categoria} onChange={(e) => set('categoria', e.target.value as Peca['categoria'])}><Options items={comAtual(negocio.categoriasMaterial, f.categoria)} /></select></Field>
         <Field label="Quantidade atual" hint="Para entradas e saídas, use as ações da lista."><input className="input" type="number" min={0} value={f.quantidade} onChange={(e) => set('quantidade', Number(e.target.value))} /></Field>
         <Field label="Estoque mínimo"><input className="input" type="number" min={0} value={f.minimo} onChange={(e) => set('minimo', Number(e.target.value))} /></Field>
         <Field label="Custo unitário (R$)"><input className="input" inputMode="decimal" defaultValue={f.custoUnit ? String(f.custoUnit).replace('.', ',') : ''} onChange={(e) => set('custoUnit', toNumber(e.target.value))} /></Field>

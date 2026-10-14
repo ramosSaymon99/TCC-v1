@@ -1,16 +1,16 @@
 import { useMemo, useState } from 'react';
 import { CalendarClock, Lightbulb, Plus, Receipt, Repeat, TrendingDown } from 'lucide-react';
 import { useClienteNome, useStore } from '../store/Store';
+import { comAtual } from '../store/segmentos';
 import type { Contrato, TipoContrato } from '../types';
 import { Badge, Confirm, Empty, Kpi, Modal, PageHeader, Pager, RowMenu, SearchInput, Th, useSortPage } from '../components/ui';
 import { ClienteSelect, Field, Options, toNumber } from '../components/fields';
 import { addDays, date, diffDays, MESES_LONGOS, money, normalize, pad, parseDate, pct, today, toISODate, uid } from '../utils/format';
 
-const TIPOS: TipoContrato[] = ['Suporte mensal', 'Hospedagem de site', 'Manutenção preventiva', 'Domínio e e-mail'];
 type Row = Contrato & { cliente: string; diasRenov: number; meses: number; acumulado: number; cobradoMes: boolean };
 
 export default function Contratos() {
-  const { db, upsert, remove, toast } = useStore();
+  const { db, upsert, remove, toast, negocio } = useStore();
   const nome = useClienteNome();
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('Ativo');
@@ -88,7 +88,7 @@ export default function Contratos() {
         <button className="btn" onClick={() => setGerar(true)} disabled={!pendentes.length}>
           <Receipt size={16} /> Gerar cobranças de {MESES_LONGOS[dHoje.getMonth()]}{pendentes.length ? ` (${pendentes.length})` : ''}
         </button>
-        <button className="btn btn-primary" onClick={() => setEditing({ id: uid(), clienteId: '', tipo: 'Suporte mensal', descricao: '', valorMensal: 0, inicio: hoje, renovacao: addDays(hoje, 365), diaVencimento: 10, status: 'Ativo' })}>
+        <button className="btn btn-primary" onClick={() => setEditing({ id: uid(), clienteId: '', tipo: negocio.tiposContrato[0] ?? 'Contrato mensal', descricao: '', valorMensal: 0, inicio: hoje, renovacao: addDays(hoje, 365), diaVencimento: 10, status: 'Ativo' })}>
           <Plus size={16} /> Novo contrato
         </button>
       </PageHeader>
@@ -181,6 +181,7 @@ export default function Contratos() {
 }
 
 function ContratoForm({ c, onClose, onSave }: { c: Contrato; onClose: () => void; onSave: (c: Contrato) => void }) {
+  const { negocio } = useStore();
   const [f, setF] = useState(c);
   const set = <K extends keyof Contrato>(k: K, v: Contrato[K]) => setF((x) => ({ ...x, [k]: v }));
   return (
@@ -190,7 +191,7 @@ function ContratoForm({ c, onClose, onSave }: { c: Contrato; onClose: () => void
     </>}>
       <form id="ct-form" className="form-grid" onSubmit={(e) => { e.preventDefault(); onSave(f); }}>
         <Field label="Cliente" full><ClienteSelect value={f.clienteId} onChange={(v) => set('clienteId', v)} /></Field>
-        <Field label="Tipo"><select className="select" value={f.tipo} onChange={(e) => set('tipo', e.target.value as TipoContrato)}><Options items={TIPOS} /></select></Field>
+        <Field label="Tipo"><select className="select" value={f.tipo} onChange={(e) => set('tipo', e.target.value as TipoContrato)}><Options items={comAtual(negocio.tiposContrato, f.tipo)} /></select></Field>
         <Field label="Mensalidade (R$)"><input className="input" inputMode="decimal" defaultValue={f.valorMensal ? String(f.valorMensal).replace('.', ',') : ''} onChange={(e) => set('valorMensal', toNumber(e.target.value))} required /></Field>
         <Field label="Escopo / descrição" full><input className="input" value={f.descricao} onChange={(e) => set('descricao', e.target.value)} placeholder="Ex.: suporte remoto até 8h/mês" /></Field>
         <Field label="Início"><input className="input" type="date" value={f.inicio} onChange={(e) => set('inicio', e.target.value)} /></Field>

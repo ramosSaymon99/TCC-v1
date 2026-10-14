@@ -3,6 +3,7 @@ import type {
 } from '../types';
 import { addDays, diffDays, lastMonths, pad, today } from '../utils/format';
 import { MODULOS, PERMISSOES_PADRAO, VERSAO_DADOS } from './seed';
+import { segmentoPorId } from './segmentos';
 
 /** Base da empresa dona da plataforma: acesso completo e acesso ao console. */
 export const TENANT_PRINCIPAL = 'principal';
@@ -145,16 +146,25 @@ export function senhaProvisoria() {
   return Array.from(buf, (n) => abc[n % abc.length]).join('');
 }
 
-/** Base inicial de uma empresa nova: só o responsável como proprietário e as permissões padrão. */
-export function criarBaseVazia(a: Pick<Assinante, 'empresa' | 'cnpj' | 'telefone' | 'email' | 'cidade' | 'responsavel'>): Database {
+/**
+ * Base inicial de uma empresa nova: o responsável como proprietário, permissões padrão e as pré-definições
+ * do segmento (catálogo de serviços com preços sugeridos e itens de estoque zerados para conferência).
+ */
+export function criarBaseVazia(a: Pick<Assinante, 'empresa' | 'cnpj' | 'telefone' | 'email' | 'cidade' | 'responsavel'>, segmento = 'generico', comCatalogo = true): Database {
+  const seg = segmentoPorId(segmento);
   return {
     clientes: [], orcamentos: [], oportunidades: [], ordens: [], equipamentos: [], compromissos: [], tarefas: [], lancamentos: [],
     usuarios: [{ id: 'u1', nome: a.responsavel, email: a.email.trim().toLowerCase(), perfil: 'Proprietário', status: 'Ativo', ultimoAcesso: '' }],
-    servicos: [], pecas: [], movimentos: [], contratos: [], turmas: [], posts: [], seguidores: [],
+    servicos: comCatalogo ? seg.servicos.map(([nome, categoria, preco, custo, duracaoHoras], i) => ({ id: `sv${i + 1}`, nome, categoria, preco, custo, duracaoHoras, ativo: true })) : [],
+    // itens chegam zerados e sem mínimo: a empresa define após contar o estoque (evita alerta falso no 1º dia)
+    pecas: comCatalogo ? seg.materiais.map(([nome, categoria, custoUnit, precoVenda], i) => ({
+      id: `mt${i + 1}`, nome, categoria, sku: `${seg.id.slice(0, 3).toUpperCase()}-${String(i + 1).padStart(3, '0')}`, quantidade: 0, minimo: 0, custoUnit, precoVenda,
+    })) : [],
+    movimentos: [], contratos: [], turmas: [], posts: [], seguidores: [],
     permissoes: PERMISSOES_PADRAO,
     empresa: {
       nome: a.empresa, cnpj: a.cnpj, telefone: a.telefone, email: a.email.trim().toLowerCase(), endereco: a.cidade,
-      metaMensal: 10000, diasAlertaOrcamento: 5, versaoDados: VERSAO_DADOS, metaPostsSemana: 3,
+      metaMensal: 10000, diasAlertaOrcamento: 5, versaoDados: VERSAO_DADOS, metaPostsSemana: 3, segmento: seg.id,
     },
   };
 }

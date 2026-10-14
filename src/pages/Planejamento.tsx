@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Calculator, Lightbulb, RotateCcw, Scale, Target } from 'lucide-react';
 import { useStore } from '../store/Store';
+import { ehCustoVariavel } from '../store/segmentos';
 import { PageHeader } from '../components/ui';
 import { Field, toNumber } from '../components/fields';
 import { addDays, lastMonths, money, monthKey, monthLabel, pct, today } from '../utils/format';
 import { periodos } from '../utils/metrics';
 
-const VARIAVEIS = ['Peças e acessórios'];
 
 export default function Planejamento() {
   const { db } = useStore();
@@ -18,8 +18,8 @@ export default function Planejamento() {
     const meses = lastMonths(4).slice(0, 3);
     const doPeriodo = db.lancamentos.filter((l) => meses.includes(monthKey(l.data)));
     const receita = doPeriodo.filter((l) => l.tipo === 'Receita').reduce((a, l) => a + l.valor, 0) / 3;
-    const variaveis = doPeriodo.filter((l) => l.tipo === 'Despesa' && VARIAVEIS.includes(l.categoria)).reduce((a, l) => a + l.valor, 0) / 3;
-    const fixos = doPeriodo.filter((l) => l.tipo === 'Despesa' && !VARIAVEIS.includes(l.categoria)).reduce((a, l) => a + l.valor, 0) / 3;
+    const variaveis = doPeriodo.filter((l) => l.tipo === 'Despesa' && ehCustoVariavel(l.categoria)).reduce((a, l) => a + l.valor, 0) / 3;
+    const fixos = doPeriodo.filter((l) => l.tipo === 'Despesa' && !ehCustoVariavel(l.categoria)).reduce((a, l) => a + l.valor, 0) / 3;
     const avulsas = db.lancamentos.filter((l) => l.tipo === 'Receita' && l.categoria !== 'Recorrência' && l.data >= addDays(hoje, -90));
     const ticket = avulsas.length ? avulsas.reduce((a, l) => a + l.valor, 0) / avulsas.length : 0;
     const decididos = db.orcamentos.filter((o) => o.status === 'Convertido' || o.status === 'Recusado');
@@ -93,7 +93,7 @@ export default function Planejamento() {
             <div className="grid g-2" style={{ gap: 10 }}>
               <Mini l="Receita média" v={money(base.receita)} />
               <Mini l="Custos fixos" v={money(base.fixos)} s="software, marketing, transporte, impostos" />
-              <Mini l="Custos variáveis" v={money(base.variaveis)} s="peças e acessórios" />
+              <Mini l="Custos variáveis" v={money(base.variaveis)} s="materiais, insumos e comissões" />
               <Mini l="Margem de contribuição" v={pct(mc, 1)} s="sobra de cada R$ 1 vendido" />
             </div>
             <div className="divider" />

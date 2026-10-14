@@ -30,7 +30,8 @@ export interface Orcamento {
   descricao?: string;
 }
 
-export type CategoriaServico = 'Treinamento' | 'Manutenção' | 'Desenvolvimento Web' | 'Implantação' | 'Consultoria';
+/** Categorias, tipos de ativo, de compromisso, de contrato e de material vêm do segmento da empresa (src/store/segmentos.ts). */
+export type CategoriaServico = string;
 
 export type EtapaFunil = 'Leads' | 'Em contato' | 'Proposta' | 'Negociação' | 'Fechados';
 
@@ -83,7 +84,7 @@ export interface Seguidores {
   seguidores: number;
 }
 
-export type StatusOS = 'Aberta' | 'Em andamento' | 'Aguardando peças' | 'Finalizada' | 'Cancelada';
+export type StatusOS = 'Aberta' | 'Em andamento' | 'Aguardando material' | 'Finalizada' | 'Cancelada';
 
 export interface OrdemServico {
   id: string;
@@ -102,13 +103,13 @@ export interface OrdemServico {
   avaliacao?: number; // nota 0–10 dada pelo cliente após a entrega (NPS)
 }
 
-export type StatusEquip = 'Em uso' | 'Em manutenção' | 'Inativo';
+export type StatusEquip = 'Ativo' | 'Em atendimento' | 'Inativo';
 
 export interface Equipamento {
   id: string;
   nome: string;
   marca: string;
-  tipo: 'Notebook' | 'Computador' | 'Impressora' | 'Servidor' | 'Rede' | 'Outro';
+  tipo: string;
   numeroSerie: string;
   clienteId: string;
   status: StatusEquip;
@@ -117,7 +118,7 @@ export interface Equipamento {
   observacoes?: string;
 }
 
-export type TipoCompromisso = 'Treinamento' | 'Manutenção' | 'Reunião' | 'Atendimento';
+export type TipoCompromisso = string;
 
 export interface Compromisso {
   id: string;
@@ -185,7 +186,7 @@ export interface Servico {
 export interface Peca {
   id: string;
   nome: string;
-  categoria: 'Armazenamento' | 'Memória' | 'Energia' | 'Periféricos' | 'Rede' | 'Outros';
+  categoria: string;
   sku: string;
   quantidade: number;
   minimo: number;
@@ -205,7 +206,7 @@ export interface Movimento {
   obs?: string;
 }
 
-export type TipoContrato = 'Suporte mensal' | 'Hospedagem de site' | 'Manutenção preventiva' | 'Domínio e e-mail';
+export type TipoContrato = string;
 
 export interface Contrato {
   id: string;
@@ -246,6 +247,10 @@ export interface Empresa {
   diasAlertaOrcamento: number;
   versaoDados?: number;
   metaPostsSemana?: number;
+  /** Segmento do negócio (define categorias, catálogo inicial e nomes de telas). */
+  segmento?: string;
+  /** Listas personalizadas pela empresa (substituem as do segmento). */
+  listas?: Partial<Record<'categoriasServico' | 'tiposAtivo' | 'categoriasMaterial' | 'tiposCompromisso' | 'tiposContrato' | 'categoriasDespesa', string[]>>;
 }
 
 export interface Database {
