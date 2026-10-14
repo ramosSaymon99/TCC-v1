@@ -385,3 +385,10 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .nav-toggle .count { background: rgba(255,255,255,.14); color: #fff; font-size: 10.5px; padding: 0 6px; border-radius: 99px; letter-spacing: 0; }
 .nav-toggle .chev { transition: transform 0.15s ease; transform: rotate(-90deg); opacity: 0.8; }
 .nav-toggle.aberta .chev { transform: none; }
+
+/* Assinatura do sistema: discreta, sem competir com o conteúdo */
+.assinatura-sistema { margin-top: 10px; padding-left: 10px; font-size: 10.5px; letter-spacing: 0.04em; color: rgba(159, 179, 214, 0.55); user-select: none; }
+.assinatura-sistema span { font-weight: 600; color: rgba(159, 179, 214, 0.75); }
+.login-form { position: relative; }
+.assinatura-login { position: absolute; bottom: 18px; right: 24px; margin: 0; padding: 0; color: #a3afc2; }
+.assinatura-login span { color: #8a97ad; }
