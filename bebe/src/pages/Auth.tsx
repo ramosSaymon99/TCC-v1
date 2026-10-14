@@ -162,6 +162,7 @@ export function Auth({ onOk, onDemo }: { onOk: (babyId?: string, aviso?: string)
           {getModo() === 'cloud' ? '🔒 Dados no Cloudflare D1, senha criptografada.' : '💾 Modo local: os dados ficam neste navegador.'}{' '}
           <button className="linkbtn" onClick={() => setPolitica(true)}>Privacidade</button>
         </p>
+        <span className="assinatura">powered by <b>Kaivo</b></span>
       </div>
       {politica && <PoliticaSheet onClose={() => setPolitica(false)} />}
     </div>

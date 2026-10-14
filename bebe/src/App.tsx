@@ -362,6 +362,7 @@ export default function App() {
               <div className="faint">{user.name}<br />{modo === 'cloud' ? '☁️ Sincronizado (D1)' : '💾 Modo local'}</div>
             </div>
             <button className="navitem" onClick={sair}><LogOut size={18} /> Sair</button>
+            <span className="assinatura" style={{ marginTop: 2 }}>powered by <b>Kaivo</b></span>
           </div>
         </aside>
         <div className="main">

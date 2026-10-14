@@ -177,6 +177,7 @@ export function Familia() {
       {membro && <MembroSheet m={membro} onClose={() => setMembro(null)} />}
       {excluir && <ExcluirContaSheet onClose={() => setExcluir(false)} />}
       {politica && <PoliticaSheet onClose={() => setPolitica(false)} />}
+      <span className="assinatura">Ninho · powered by <b>Kaivo</b></span>
     </div>
   );
 }

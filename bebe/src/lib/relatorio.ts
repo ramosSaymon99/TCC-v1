@@ -411,6 +411,8 @@ export async function gerarRelatorio(data: BabyData, op: OpcoesRelatorio): Promi
     doc.line(M, 288, W - M, 288);
     texto(`${nome} · Relatório Ninho · dados registrados pelos cuidadores; referências gerais (AAP, AASM, SBP, PNI) não substituem a avaliação clínica.`, M, 292);
     texto(`Página ${p} de ${total}`, W - M, 292, { align: 'right' });
+    fonte(6, 'normal', COR.tinta3);
+    texto('powered by Kaivo', W - M, 286, { align: 'right' });
   }
 
   const arquivo = `relatorio-${nome.split(' ')[0].toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, '')}-${ymd(agora)}.pdf`;
