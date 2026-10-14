@@ -19,7 +19,14 @@ function reportarErro(mensagem: string) {
     keepalive: true,
   }).catch(() => undefined);
 }
-window.addEventListener('error', (e) => reportarErro(`${e.message} @ ${(e.filename || '').split('/').pop()}:${e.lineno}`));
+window.addEventListener('error', (e) => {
+  // "Script error." sem arquivo/linha = erro de script de fora do app (extensão do Safari, bloqueador,
+  // tradutor, navegador interno do WhatsApp/Instagram). O navegador esconde os detalhes e não há o que
+  // corrigir no Ninho; o mesmo vale para scripts de extensões (safari-web-extension://, chrome-extension://…).
+  if (/^Script error\.?$/i.test(e.message || '') && !e.filename) return;
+  if (e.filename && !e.filename.startsWith(location.origin)) return;
+  reportarErro(`${e.message} @ ${(e.filename || '').split('/').pop()}:${e.lineno}`);
+});
 window.addEventListener('unhandledrejection', (e) => {
   const r = e.reason;
   if (r && typeof r === 'object' && 'status' in r) return; // erros de API já tratados na tela (ex.: sem internet, senha errada)

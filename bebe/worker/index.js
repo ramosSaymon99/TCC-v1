@@ -299,6 +299,8 @@ async function api(req, env, url, ctx) {
 
   // Erros do app (tela) para o painel do desenvolvedor: texto higienizado, com limite por IP
   if (path === '/erro' && method === 'POST') {
+    // "Script error. @ :0" = erro mascarado de script de fora do app (extensão, navegador interno); não é do Ninho
+    if (/^Script error\.? @ :0$/i.test(String(body.mensagem ?? '').trim())) return json({ ok: true });
     if (!(await bloqueado(env, [`erroapp:${ip}`], [40]))) {
       await registrarFalha(env, [`erroapp:${ip}`]);
       await registrarErro(env, { origem: 'app', rota: String(body.tela ?? '').slice(0, 40) || null, mensagem: body.mensagem, versao: body.versao, plataforma: plataformaDe(req.headers.get('user-agent') || '') });
