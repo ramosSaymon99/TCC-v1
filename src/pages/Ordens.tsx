@@ -15,6 +15,7 @@ const STATUS: StatusOS[] = ['Aberta', 'Em andamento', 'Aguardando material', 'Fi
 
 export default function Ordens() {
   const { db, upsert, remove, toast, negocio } = useStore();
+  const rt = negocio.rotulos;
   const nome = useClienteNome();
   const [params, setParams] = useSearchParams();
   const [q, setQ] = useState('');
@@ -57,28 +58,28 @@ export default function Ordens() {
 
   const novo = (): OrdemServico => {
     const n = db.ordens.reduce((m, x) => Math.max(m, Number(x.numero.replace(/\D/g, '')) || 0), 0) + 1;
-    return { id: uid(), numero: `OS-${String(n).padStart(3, '0')}`, clienteId: '', servico: '', categoria: negocio.categoriasServico[0] ?? 'Serviço', abertura: hoje, prazo: addDays(hoje, 5), status: 'Aberta', valor: 0 };
+    return { id: uid(), numero: `${rt.prefixo}-${String(n).padStart(3, '0')}`, clienteId: '', servico: '', categoria: negocio.categoriasServico[0] ?? 'Serviço', abertura: hoje, prazo: addDays(hoje, 5), status: 'Aberta', valor: 0 };
   };
 
   return (
     <>
-      <PageHeader title="Ordens de Serviço" subtitle="Gerencie os serviços em andamento e finalizados.">
+      <PageHeader title={rt.ordens} subtitle="Acompanhe o que está em andamento e o que já foi finalizado.">
         <button className="btn" onClick={() => downloadCSV('ordens-servico.csv', [
           ['Nº', 'Cliente', 'Serviço', 'Abertura', 'Prazo', 'Conclusão', 'Status', 'Valor'],
           ...filtered.map((o) => [o.numero, o.cliente, o.servico, date(o.abertura), date(o.prazo), date(o.conclusao), o.status, o.valor.toFixed(2).replace('.', ',')]),
         ])}><Download size={16} /> Exportar</button>
-        <button className="btn btn-primary" onClick={() => setEditing(novo())}><Plus size={16} /> Nova OS</button>
+        <button className="btn btn-primary" onClick={() => setEditing(novo())}><Plus size={16} /> {rt.novaOrdem}</button>
       </PageHeader>
 
       <div className="grid kpis" style={{ marginBottom: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
-        <Kpi icon={<Wrench size={20} />} tone="blue" label="OS em aberto" value={abertas.length} foot={`${money(abertas.reduce((a, o) => a + o.valor, 0))} a faturar`} />
+        <Kpi icon={<Wrench size={20} />} tone="blue" label={`${rt.ordens} em aberto`} value={abertas.length} foot={`${money(abertas.reduce((a, o) => a + o.valor, 0))} a faturar`} />
         <Kpi icon={<AlertTriangle size={20} />} tone="red" label="Com prazo vencido" value={atrasadas.length}
           foot={atrasadas.length ? <button className="btn btn-sm btn-ghost" style={{ padding: 0, height: 'auto', color: 'var(--danger)' }} onClick={() => setParams({ filtro: 'atrasadas' })}>Ver atrasadas →</button> : 'Nenhuma atrasada'} />
         <Kpi icon={<CheckCircle2 size={20} />} tone="green" label="Entregas no prazo (SLA)" value={pct(finalizadas.length ? noPrazo.length / finalizadas.length : 0)} foot={`${noPrazo.length} de ${finalizadas.length} finalizadas`} />
         <Kpi icon={<Timer size={20} />} tone="orange" label="Tempo médio de execução" value={`${tempoMedio.toFixed(1).replace('.', ',')} dias`}
           foot={aguardando.length ? <span className="row" style={{ gap: 4 }}><Gauge size={13} /> {aguardando.length} aguardando material</span> : 'Abertura → conclusão'} />
         <Kpi icon={<Smile size={20} />} tone="purple" label="Satisfação (NPS)" value={nps === null ? '—' : nps}
-          foot={`${avaliadas.length} avaliação(ões)${semAvaliacao ? ` · ${semAvaliacao} OS sem nota` : ''}`} />
+          foot={`${avaliadas.length} avaliação(ões)${semAvaliacao ? ` · ${semAvaliacao} sem nota` : ''}`} />
       </div>
 
       <div className="card">
@@ -122,7 +123,7 @@ export default function Ordens() {
                   <td className="right">
                     <RowMenu actions={[
                       { label: 'Abrir / editar', onClick: () => setEditing(o) },
-                      { label: <><Printer size={14} /> Imprimir OS / termo</>, onClick: () => imprimirOS(o, db.clientes.find((c) => c.id === o.clienteId), db.empresa,
+                      { label: <><Printer size={14} /> Imprimir {rt.sigla} / termo</>, onClick: () => imprimirOS(o, db.clientes.find((c) => c.id === o.clienteId), db.empresa,
                         db.equipamentos.find((e) => e.id === o.equipamentoId)?.nome,
                         db.movimentos.filter((m) => m.osId === o.id && m.tipo === 'Saída').map((m) => ({ nome: db.pecas.find((p) => p.id === m.pecaId)?.nome ?? negocio.rotulos.material, qtd: m.quantidade })), negocio.rotulos) },
                       ...STATUS.filter((st) => st !== o.status).map((st) => ({ label: `Mudar para: ${st}`, onClick: () => mudarStatus(o, st) })),
@@ -133,9 +134,9 @@ export default function Ordens() {
               ))}
             </tbody>
           </table>
-          {s.total === 0 && <Empty text="Nenhuma ordem de serviço encontrada." />}
+          {s.total === 0 && <Empty text={`Nada encontrado em ${rt.ordens}.`} />}
         </div>
-        <Pager {...s} noun="ordens de serviço" />
+        <Pager {...s} noun={rt.ordens.toLowerCase()} />
       </div>
 
       {editing && <OSForm o={editing} onClose={() => { setEditing(null); if (params.get('id')) setParams({}); }} onSave={(o) => {
@@ -158,7 +159,7 @@ function OSForm({ o, onClose, onSave }: { o: OrdemServico; onClose: () => void; 
   const equips = db.equipamentos.filter((e) => e.clienteId === f.clienteId);
   const tecnicos = db.usuarios.filter((u) => u.perfil === 'Técnico' || u.perfil === 'Proprietário').map((u) => u.nome);
   return (
-    <Modal title={`${o.servico ? 'Ordem de serviço' : 'Nova ordem de serviço'} · ${o.numero}`} onClose={onClose} footer={<>
+    <Modal title={`${o.servico ? r.ordem : r.novaOrdem} · ${o.numero}`} onClose={onClose} footer={<>
       <button className="btn" onClick={onClose}>Cancelar</button>
       <button className="btn btn-primary" form="os-form">Salvar</button>
     </>}>

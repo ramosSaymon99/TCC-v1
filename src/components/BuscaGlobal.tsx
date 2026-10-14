@@ -33,7 +33,7 @@ export function BuscaGlobal() {
       ...db.clientes.filter((c) => has(c.nome, c.email, c.telefone, c.documento))
         .map((c) => ({ tipo: 'Cliente', titulo: c.nome, sub: `${c.telefone} · ${c.email}`, to: `/clientes?id=${c.id}`, mod: 'clientes' as Modulo })),
       ...db.ordens.filter((o) => has(o.numero, o.servico, nome(o.clienteId)))
-        .map((o) => ({ tipo: 'OS', titulo: `${o.numero} · ${o.servico}`, sub: `${nome(o.clienteId)} · ${o.status}`, to: `/ordens?id=${o.id}`, mod: 'ordens' as Modulo })),
+        .map((o) => ({ tipo: negocio.rotulos.ordem, titulo: `${o.numero} · ${o.servico}`, sub: `${nome(o.clienteId)} · ${o.status}`, to: `/ordens?id=${o.id}`, mod: 'ordens' as Modulo })),
       ...db.orcamentos.filter((o) => has(o.numero, o.servico, nome(o.clienteId)))
         .map((o) => ({ tipo: 'Orçamento', titulo: `${o.numero} · ${o.servico}`, sub: `${nome(o.clienteId)} · ${money(o.valor)} · ${o.status}`, to: '/orcamentos', mod: 'orcamentos' as Modulo })),
       ...db.equipamentos.filter((e) => has(e.nome, e.marca, e.numeroSerie, nome(e.clienteId)))
@@ -58,7 +58,7 @@ export function BuscaGlobal() {
     <div className="busca" style={{ position: 'relative', flex: '0 1 420px' }}>
       <div className="search" style={{ minWidth: 0 }}>
         <Search size={16} />
-        <input ref={ref} className="input" placeholder="Buscar clientes, OS, orçamentos, itens…  (Ctrl+K)" value={q}
+        <input ref={ref} className="input" placeholder="Buscar clientes, orçamentos, pedidos, itens…  (Ctrl+K)" value={q}
           onChange={(e) => { setQ(e.target.value); setSel(0); setOpen(true); }}
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 150)}

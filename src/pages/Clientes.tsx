@@ -208,7 +208,7 @@ function ClientePanel({ c, tab, setTab, onClose, onEdit }: {
             {os.map((o) => (
               <li key={o.id}><div style={{ flex: 1 }}><div className="title">{o.numero} · {o.servico}</div><div className="desc">Abertura {date(o.abertura)} · {money(o.valor)}</div></div><Badge>{o.status}</Badge></li>
             ))}
-          </ul> : <Empty text="Nenhuma ordem de serviço." />
+          </ul> : <Empty text={`Nada em ${negocio.rotulos.ordens.toLowerCase()}.`} />
         )}
         {tab === 'orcamentos' && (
           orc.length ? <ul className="list" style={{ margin: '0 -20px' }}>

@@ -89,8 +89,8 @@ export default function Estoque() {
         <Kpi icon={<AlertTriangle size={20} />} tone="red" label="Abaixo do mínimo" value={criticos.length}
           foot={criticos.length ? <span className="text-danger strong">{rows.filter((r) => r.situacao === 'Zerado').length} zerado(s)</span> : 'Estoque saudável'} />
         <Kpi icon={<ShoppingCart size={20} />} tone="orange" label="Compra sugerida" value={money(valorCompra)} foot={`${compra.length} item(ns) para repor ~45 dias de consumo`} />
-        <Kpi icon={<Wrench size={20} />} tone="purple" label="OS aguardando material" value={aguardando.length}
-          foot={aguardando.length ? `${money(aguardando.reduce((a, o) => a + o.valor, 0))} travados` : 'Nenhuma OS parada'} />
+        <Kpi icon={<Wrench size={20} />} tone="purple" label={`${r.ordens} aguardando ${r.material.toLowerCase()}`} value={aguardando.length}
+          foot={aguardando.length ? `${money(aguardando.reduce((a, o) => a + o.valor, 0))} travados` : 'Nada parado'} />
       </div>
 
       {(aguardando.length > 0 || semGiro.length > 0) && (
@@ -144,7 +144,7 @@ export default function Estoque() {
                       <td className="right">
                         <RowMenu actions={[
                           { label: <><ArrowDownToLine size={14} /> Entrada (compra)</>, onClick: () => setMov({ peca: r, tipo: 'Entrada' }) },
-                          { label: <><ArrowUpFromLine size={14} /> Saída (uso em OS)</>, onClick: () => setMov({ peca: r, tipo: 'Saída' }), hidden: r.quantidade <= 0 },
+                          { label: <><ArrowUpFromLine size={14} /> Saída (uso em {negocio.rotulos.sigla})</>, onClick: () => setMov({ peca: r, tipo: 'Saída' }), hidden: r.quantidade <= 0 },
                           { label: <><Pencil size={14} /> Editar</>, onClick: () => setEditing(r) },
                           { label: <><Trash2 size={14} /> Excluir</>, danger: true, onClick: () => setDeleting(r) },
                         ]} />
@@ -161,13 +161,13 @@ export default function Estoque() {
           <>
             <div className="toolbar" style={{ justifyContent: 'flex-end' }}>
               <button className="btn btn-sm" onClick={() => downloadCSV('movimentacoes-estoque.csv', [
-                ['Data', r.material, 'Tipo', 'Quantidade', 'OS', 'Observação'],
+                ['Data', r.material, 'Tipo', 'Quantidade', r.ordem, 'Observação'],
                 ...movs.map((m) => [date(m.data), pecaNome(m.pecaId), m.tipo, m.quantidade, osNum(m.osId), m.obs ?? '']),
               ])}><Download size={14} /> Exportar</button>
             </div>
             <div className="table-wrap">
               <table className="table table-compact">
-                <thead><tr><Th label="Data" k="data" s={sm} /><th>{r.material}</th><Th label="Tipo" k="tipo" s={sm} /><Th label="Qtd." k="quantidade" s={sm} className="num" /><th>OS</th><th className="hide-sm">Observação</th></tr></thead>
+                <thead><tr><Th label="Data" k="data" s={sm} /><th>{r.material}</th><Th label="Tipo" k="tipo" s={sm} /><Th label="Qtd." k="quantidade" s={sm} className="num" /><th>{r.ordem}</th><th className="hide-sm">Observação</th></tr></thead>
                 <tbody>
                   {sm.view.map((m) => (
                     <tr key={m.id}>
@@ -225,7 +225,7 @@ function PecaForm({ p, onClose, onSave }: { p: Peca; onClose: () => void; onSave
 function MovForm({ peca, tipo, onClose, onSave }: {
   peca: Peca; tipo: Movimento['tipo']; onClose: () => void; onSave: (p: Peca, m: Movimento, lancar: boolean) => void;
 }) {
-  const { db } = useStore();
+  const { db, negocio } = useStore();
   const nome = useClienteNome();
   const [f, setF] = useState<Movimento>({ id: uid(), pecaId: peca.id, tipo, quantidade: 1, data: today(), custoUnit: peca.custoUnit });
   const [lancar, setLancar] = useState(true);
@@ -246,9 +246,9 @@ function MovForm({ peca, tipo, onClose, onSave }: {
             <label className="check full"><input type="checkbox" checked={lancar} onChange={(e) => setLancar(e.target.checked)} /> Lançar como despesa paga no financeiro</label>
           </>
         ) : (
-          <Field label="Ordem de serviço" full hint="Vincular a saída à OS permite saber o custo real de cada serviço.">
+          <Field label={negocio.rotulos.ordem} full hint="Vincular a saída permite saber o custo real de cada serviço ou pedido.">
             <select className="select" value={f.osId ?? ''} onChange={(e) => setF({ ...f, osId: e.target.value || undefined })}>
-              <option value="">Sem OS (uso interno)</option>
+              <option value="">Sem vínculo (uso interno)</option>
               {ordens.map((o) => <option key={o.id} value={o.id}>{o.numero} · {nome(o.clienteId)} · {o.servico}</option>)}
             </select>
           </Field>

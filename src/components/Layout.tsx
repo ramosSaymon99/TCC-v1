@@ -94,7 +94,7 @@ export default function Layout() {
   const baixos = db.pecas.filter((p) => p.quantidade < p.minimo).length;
   const renovar = db.contratos.filter((c) => c.status === 'Ativo' && c.renovacao <= addDays(hoje, 30)).length;
   const alerts = [
-    atrasadas && { text: `${atrasadas} OS com prazo vencido`, to: '/ordens?filtro=atrasadas' },
+    atrasadas && { text: `${atrasadas} ${negocio.rotulos.ordens.toLowerCase()} com prazo vencido`, to: '/ordens?filtro=atrasadas' },
     tarefasHoje && { text: `${tarefasHoje} tarefa(s) pendente(s) para hoje`, to: '/agenda' },
     baixos && { text: `${baixos} item(ns) abaixo do estoque mínimo`, to: '/estoque' },
     renovar && { text: `${renovar} contrato(s) para renovar em 30 dias`, to: '/contratos' },

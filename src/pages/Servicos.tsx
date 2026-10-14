@@ -83,7 +83,7 @@ export default function Servicos() {
 
   return (
     <>
-      <PageHeader title="Serviços e Preços" subtitle={`Catálogo com preço de tabela, custo e rentabilidade. Desempenho calculado sobre os últimos ${JANELA} dias.`}>
+      <PageHeader title={negocio.rotulos.catalogo} subtitle={`Catálogo com preço de tabela, custo e rentabilidade. Desempenho calculado sobre os últimos ${JANELA} dias.`}>
         <button className="btn btn-primary" onClick={() => setEditing({ id: uid(), nome: '', categoria: negocio.categoriasServico[0] ?? 'Serviço', preco: 0, custo: 0, duracaoHoras: 1, ativo: true })}>
           <Plus size={16} /> Novo serviço
         </button>
