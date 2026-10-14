@@ -1,18 +1,23 @@
 import { useMemo, useState } from 'react';
-import { HardDrive, Laptop, Monitor, Pencil, Plus, Printer, Router, Server, Trash2, X } from 'lucide-react';
+import { Boxes, HardDrive, Laptop, Monitor, Pencil, Plus, Printer, Router, Server, Trash2, X } from 'lucide-react';
 import { useClienteNome, useStore } from '../store/Store';
 import type { Equipamento } from '../types';
 import { Badge, Confirm, Empty, Modal, PageHeader, Pager, SearchInput, Th, useSortPage } from '../components/ui';
 import { ClienteSelect, Field, Options } from '../components/fields';
+import { comAtual } from '../store/segmentos';
 import { addDays, date, diffDays, money, normalize, today, uid } from '../utils/format';
 
-const TIPOS: Equipamento['tipo'][] = ['Notebook', 'Computador', 'Impressora', 'Servidor', 'Rede', 'Outro'];
-const ICONES: Record<Equipamento['tipo'], typeof Laptop> = { Notebook: Laptop, Computador: Monitor, Impressora: Printer, Servidor: Server, Rede: Router, Outro: HardDrive };
+// ícones específicos quando o tipo é conhecido; demais tipos usam um ícone genérico
+const ICONES: Record<string, typeof Laptop> = { Notebook: Laptop, Computador: Monitor, Impressora: Printer, Servidor: Server, Rede: Router, Outro: HardDrive };
+const icone = (tipo: string) => ICONES[tipo] ?? Boxes;
+const STATUS_ATIVO = ['Ativo', 'Em atendimento', 'Inativo'] as const;
 
 type Row = Equipamento & { cliente: string; fimGarantia: string; qtdOS: number };
 
 export default function Equipamentos() {
-  const { db, upsert, remove, toast } = useStore();
+  const { db, upsert, remove, toast, negocio } = useStore();
+  const r = negocio.rotulos;
+  const TIPOS = negocio.tiposAtivo;
   const nome = useClienteNome();
   const [q, setQ] = useState('');
   const [tipo, setTipo] = useState('');
@@ -37,20 +42,20 @@ export default function Equipamentos() {
     (!tipo || e.tipo === tipo) && (!status || e.status === status));
   const s = useSortPage<Row>(filtered, 8);
   const eq = rows.find((e) => e.id === sel) ?? null;
-  const garantiaVencendo = rows.filter((e) => e.fimGarantia >= hoje && e.fimGarantia <= addDays(hoje, 60) && e.status !== 'Inativo');
+  const garantiaVencendo = !r.usaGarantia ? [] : rows.filter((e) => e.fimGarantia >= hoje && e.fimGarantia <= addDays(hoje, 60) && e.status !== 'Inativo');
 
   return (
     <>
-      <PageHeader title="Equipamentos" subtitle="Cadastre e controle os equipamentos dos seus clientes.">
-        <button className="btn btn-primary" onClick={() => setEditing({ id: uid(), nome: '', marca: '', tipo: 'Notebook', numeroSerie: '', clienteId: '', status: 'Em uso', dataAquisicao: hoje, garantiaMeses: 12 })}>
-          <Plus size={16} /> Novo equipamento
+      <PageHeader title={r.ativos} subtitle={`Cadastro de ${r.ativos.toLowerCase()} vinculados aos clientes, com histórico de atendimentos.`}>
+        <button className="btn btn-primary" onClick={() => setEditing({ id: uid(), nome: '', marca: '', tipo: TIPOS[0] ?? 'Outro', numeroSerie: '', clienteId: '', status: 'Ativo', dataAquisicao: hoje, garantiaMeses: r.usaGarantia ? 12 : 0 })}>
+          <Plus size={16} /> Novo cadastro
         </button>
       </PageHeader>
 
       {garantiaVencendo.length > 0 && (
         <div className="insight opp" style={{ marginBottom: 16 }}>
           <div className="d">
-            <strong>{garantiaVencendo.length} equipamento(s) com garantia terminando nos próximos 60 dias</strong> ({garantiaVencendo.map((e) => `${e.nome} – ${e.cliente}`).join('; ')}).
+            <strong>{garantiaVencendo.length} {r.ativo.toLowerCase()}(s) com garantia terminando nos próximos 60 dias</strong> ({garantiaVencendo.map((e) => `${e.nome} – ${e.cliente}`).join('; ')}).
             Oportunidade de oferecer manutenção preventiva ou contrato de suporte.
           </div>
         </div>
@@ -59,35 +64,35 @@ export default function Equipamentos() {
       <div className={eq ? 'drawer-layout' : ''}>
         <div className="card">
           <div className="toolbar">
-            <SearchInput value={q} onChange={setQ} placeholder="Buscar por marca, modelo, cliente ou nº de série..." />
+            <SearchInput value={q} onChange={setQ} placeholder={`Buscar por nome, ${r.marca.toLowerCase()}, cliente ou ${r.serie.toLowerCase()}...`} />
             <select className="select" value={tipo} onChange={(e) => setTipo(e.target.value)}>
               <option value="">Todos os tipos</option><Options items={TIPOS} />
             </select>
             <select className="select" value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="">Todos os status</option><Options items={['Em uso', 'Em manutenção', 'Inativo'] as const} />
+              <option value="">Todos os status</option><Options items={STATUS_ATIVO} />
             </select>
           </div>
           <div className="table-wrap">
             <table className="table">
               <thead>
                 <tr>
-                  <Th label="Equipamento" k="nome" s={s} />
+                  <Th label={r.ativo} k="nome" s={s} />
                   <Th label="Cliente" k="cliente" s={s} />
                   {!eq && <Th label="Tipo" k="tipo" s={s} />}
-                  <Th label="Garantia até" k="fimGarantia" s={s} className="hide-sm" />
+                  {r.usaGarantia && <Th label="Garantia até" k="fimGarantia" s={s} className="hide-sm" />}
                   <Th label="Status" k="status" s={s} />
                   <th className="right">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {s.view.map((e) => {
-                  const Icon = ICONES[e.tipo];
+                  const Icon = icone(e.tipo);
                   return (
                     <tr key={e.id} className={`clickable ${sel === e.id ? 'selected' : ''}`} onClick={() => setSel(e.id)}>
                       <td><div className="row"><Icon size={16} color="var(--muted)" /><div><div className="strong">{e.nome}</div><div className="sub">{e.marca} · {e.numeroSerie}</div></div></div></td>
                       <td>{e.cliente}</td>
                       {!eq && <td>{e.tipo}</td>}
-                      <td className={`hide-sm ${e.fimGarantia < hoje ? 'muted' : ''}`}>{date(e.fimGarantia)}{e.fimGarantia < hoje && <div className="sub">expirada</div>}</td>
+                      {r.usaGarantia && <td className={`hide-sm ${e.fimGarantia < hoje ? 'muted' : ''}`}>{date(e.fimGarantia)}{e.fimGarantia < hoje && <div className="sub">expirada</div>}</td>}
                       <td><Badge>{e.status}</Badge></td>
                       <td className="right nowrap" onClick={(ev) => ev.stopPropagation()}>
                         <button className="btn btn-ghost btn-icon btn-sm" title="Editar" onClick={() => setEditing(e)}><Pencil size={15} /></button>
@@ -98,13 +103,13 @@ export default function Equipamentos() {
                 })}
               </tbody>
             </table>
-            {s.total === 0 && <Empty text="Nenhum equipamento encontrado." />}
+            {s.total === 0 && <Empty text="Nenhum cadastro encontrado." />}
           </div>
-          <Pager {...s} noun="equipamentos" />
+          <Pager {...s} noun={r.ativos.toLowerCase()} />
         </div>
 
         {eq && (() => {
-          const Icon = ICONES[eq.tipo];
+          const Icon = icone(eq.tipo);
           const hist = db.ordens.filter((o) => o.equipamentoId === eq.id).sort((a, b) => b.abertura.localeCompare(a.abertura));
           const emGarantia = eq.fimGarantia >= hoje;
           return (
@@ -118,18 +123,20 @@ export default function Equipamentos() {
                   <div className="kpi-icon tone-blue" style={{ width: 72, height: 72, borderRadius: 14 }}><Icon size={36} /></div>
                   <dl className="dl" style={{ flex: 1 }}>
                     <div><dt>Cliente</dt><dd>{eq.cliente}</dd></div>
-                    <div><dt>Tipo / Marca</dt><dd>{eq.tipo} · {eq.marca}</dd></div>
+                    <div><dt>Tipo / {r.marca}</dt><dd>{eq.tipo} · {eq.marca || '—'}</dd></div>
                   </dl>
                 </div>
                 <div className="divider" />
                 <dl className="dl" style={{ gridTemplateColumns: '1fr 1fr' }}>
                   <div><dt>Status</dt><dd><Badge>{eq.status}</Badge></dd></div>
-                  <div><dt>Nº de série</dt><dd>{eq.numeroSerie}</dd></div>
-                  <div><dt>Data de aquisição</dt><dd>{date(eq.dataAquisicao)}</dd></div>
-                  <div><dt>Garantia</dt><dd>{eq.garantiaMeses} meses</dd></div>
-                  <div style={{ gridColumn: '1/-1' }}><dt>Situação da garantia</dt>
-                    <dd className={emGarantia ? 'text-success' : 'muted'}>{emGarantia ? `Vigente — ${diffDays(eq.fimGarantia, hoje)} dias restantes` : `Expirada em ${date(eq.fimGarantia)}`}</dd>
-                  </div>
+                  <div><dt>{r.serie}</dt><dd>{eq.numeroSerie || '—'}</dd></div>
+                  <div><dt>{r.aquisicao}</dt><dd>{date(eq.dataAquisicao)}</dd></div>
+                  {r.usaGarantia && <>
+                    <div><dt>Garantia</dt><dd>{eq.garantiaMeses} meses</dd></div>
+                    <div style={{ gridColumn: '1/-1' }}><dt>Situação da garantia</dt>
+                      <dd className={emGarantia ? 'text-success' : 'muted'}>{emGarantia ? `Vigente — ${diffDays(eq.fimGarantia, hoje)} dias restantes` : `Expirada em ${date(eq.fimGarantia)}`}</dd>
+                    </div>
+                  </>}
                 </dl>
                 <div className="divider" />
                 <div className="strong small" style={{ marginBottom: 6 }}>Histórico de serviços ({hist.length})</div>
@@ -137,7 +144,7 @@ export default function Equipamentos() {
                   <div key={o.id} className="row between small" style={{ padding: '6px 0' }}>
                     <span>{o.numero} · {o.servico}<br /><span className="muted">{date(o.abertura)} · {money(o.valor)}</span></span><Badge>{o.status}</Badge>
                   </div>
-                )) : <div className="small muted">Nenhuma OS vinculada.</div>}
+                )) : <div className="small muted">Nenhum atendimento vinculado.</div>}
                 <div className="row" style={{ marginTop: 16 }}>
                   <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setEditing(eq)}><Pencil size={15} /> Editar</button>
                 </div>
@@ -148,31 +155,33 @@ export default function Equipamentos() {
       </div>
 
       {editing && <EquipForm e={editing} onClose={() => setEditing(null)} onSave={(e) => {
-        if (!e.nome || !e.clienteId) return toast('Preencha equipamento e cliente.', 'error');
-        upsert('equipamentos', e); toast('Equipamento salvo.'); setEditing(null);
+        if (!e.nome || !e.clienteId) return toast(`Preencha ${r.ativo.toLowerCase()} e cliente.`, 'error');
+        upsert('equipamentos', e); toast('Cadastro salvo.'); setEditing(null);
       }} />}
-      {deleting && <Confirm text={<>Excluir <strong>{deleting.nome}</strong>?</>} onClose={() => setDeleting(null)} onConfirm={() => { remove('equipamentos', deleting.id); if (sel === deleting.id) setSel(null); toast('Equipamento excluído.'); }} />}
+      {deleting && <Confirm text={<>Excluir <strong>{deleting.nome}</strong>?</>} onClose={() => setDeleting(null)} onConfirm={() => { remove('equipamentos', deleting.id); if (sel === deleting.id) setSel(null); toast('Cadastro excluído.'); }} />}
     </>
   );
 }
 
 function EquipForm({ e, onClose, onSave }: { e: Equipamento; onClose: () => void; onSave: (e: Equipamento) => void }) {
+  const { negocio } = useStore();
+  const r = negocio.rotulos;
   const [f, setF] = useState(e);
   const set = <K extends keyof Equipamento>(k: K, v: Equipamento[K]) => setF((x) => ({ ...x, [k]: v }));
   return (
-    <Modal title={e.nome ? 'Editar equipamento' : 'Novo equipamento'} onClose={onClose} footer={<>
+    <Modal title={e.nome ? `Editar ${r.ativo.toLowerCase()}` : `Novo cadastro – ${r.ativo.toLowerCase()}`} onClose={onClose} footer={<>
       <button className="btn" onClick={onClose}>Cancelar</button>
       <button className="btn btn-primary" form="eq-form">Salvar</button>
     </>}>
       <form id="eq-form" className="form-grid" onSubmit={(ev) => { ev.preventDefault(); onSave(f); }}>
-        <Field label="Equipamento / modelo" full><input className="input" value={f.nome} onChange={(ev) => set('nome', ev.target.value)} required /></Field>
-        <Field label="Marca"><input className="input" value={f.marca} onChange={(ev) => set('marca', ev.target.value)} /></Field>
-        <Field label="Tipo"><select className="select" value={f.tipo} onChange={(ev) => set('tipo', ev.target.value as Equipamento['tipo'])}><Options items={TIPOS} /></select></Field>
+        <Field label={`${r.ativo} (nome/identificação)`} full><input className="input" value={f.nome} onChange={(ev) => set('nome', ev.target.value)} required /></Field>
+        <Field label={r.marca}><input className="input" value={f.marca} onChange={(ev) => set('marca', ev.target.value)} /></Field>
+        <Field label="Tipo"><select className="select" value={f.tipo} onChange={(ev) => set('tipo', ev.target.value as Equipamento['tipo'])}><Options items={comAtual(negocio.tiposAtivo, f.tipo)} /></select></Field>
         <Field label="Cliente" full><ClienteSelect value={f.clienteId} onChange={(v) => set('clienteId', v)} /></Field>
-        <Field label="Nº de série"><input className="input" value={f.numeroSerie} onChange={(ev) => set('numeroSerie', ev.target.value)} /></Field>
-        <Field label="Status"><select className="select" value={f.status} onChange={(ev) => set('status', ev.target.value as Equipamento['status'])}><Options items={['Em uso', 'Em manutenção', 'Inativo'] as const} /></select></Field>
-        <Field label="Data de aquisição"><input className="input" type="date" value={f.dataAquisicao} onChange={(ev) => set('dataAquisicao', ev.target.value)} /></Field>
-        <Field label="Garantia (meses)"><input className="input" type="number" min={0} value={f.garantiaMeses} onChange={(ev) => set('garantiaMeses', Number(ev.target.value))} /></Field>
+        <Field label={r.serie}><input className="input" value={f.numeroSerie} onChange={(ev) => set('numeroSerie', ev.target.value)} /></Field>
+        <Field label="Status"><select className="select" value={f.status} onChange={(ev) => set('status', ev.target.value as Equipamento['status'])}><Options items={STATUS_ATIVO} /></select></Field>
+        <Field label={r.aquisicao}><input className="input" type="date" value={f.dataAquisicao} onChange={(ev) => set('dataAquisicao', ev.target.value)} /></Field>
+        {r.usaGarantia && <Field label="Garantia (meses)"><input className="input" type="number" min={0} value={f.garantiaMeses} onChange={(ev) => set('garantiaMeses', Number(ev.target.value))} /></Field>}
         <Field label="Observações" full><textarea className="textarea" value={f.observacoes ?? ''} onChange={(ev) => set('observacoes', ev.target.value)} /></Field>
       </form>
     </Modal>

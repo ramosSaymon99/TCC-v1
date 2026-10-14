@@ -9,7 +9,7 @@ interface Resultado { tipo: string; titulo: string; sub: string; to: string; mod
 
 /** Busca em todos os cadastros a partir da barra superior (atalho Ctrl+K / ⌘K). */
 export function BuscaGlobal() {
-  const { db, can } = useStore();
+  const { db, can, negocio } = useStore();
   const nome = useClienteNome();
   const nav = useNavigate();
   const [q, setQ] = useState('');
@@ -37,11 +37,11 @@ export function BuscaGlobal() {
       ...db.orcamentos.filter((o) => has(o.numero, o.servico, nome(o.clienteId)))
         .map((o) => ({ tipo: 'Orçamento', titulo: `${o.numero} · ${o.servico}`, sub: `${nome(o.clienteId)} · ${money(o.valor)} · ${o.status}`, to: '/orcamentos', mod: 'orcamentos' as Modulo })),
       ...db.equipamentos.filter((e) => has(e.nome, e.marca, e.numeroSerie, nome(e.clienteId)))
-        .map((e) => ({ tipo: 'Equipamento', titulo: e.nome, sub: `${nome(e.clienteId)} · ${e.numeroSerie}`, to: '/equipamentos', mod: 'equipamentos' as Modulo })),
+        .map((e) => ({ tipo: negocio.rotulos.ativo, titulo: e.nome, sub: `${nome(e.clienteId)} · ${e.numeroSerie}`, to: '/equipamentos', mod: 'equipamentos' as Modulo })),
       ...db.contratos.filter((c) => has(c.tipo, c.descricao, nome(c.clienteId)))
         .map((c) => ({ tipo: 'Contrato', titulo: `${c.tipo} · ${nome(c.clienteId)}`, sub: `${money(c.valorMensal)}/mês · ${c.status}`, to: '/contratos', mod: 'contratos' as Modulo })),
       ...db.pecas.filter((p) => has(p.nome, p.sku, p.fornecedor))
-        .map((p) => ({ tipo: 'Peça', titulo: p.nome, sub: `${p.sku} · ${p.quantidade} em estoque`, to: '/estoque', mod: 'estoque' as Modulo })),
+        .map((p) => ({ tipo: negocio.rotulos.material, titulo: p.nome, sub: `${p.sku} · ${p.quantidade} em estoque`, to: '/estoque', mod: 'estoque' as Modulo })),
       ...db.servicos.filter((s) => has(s.nome, s.categoria))
         .map((s) => ({ tipo: 'Serviço', titulo: s.nome, sub: `${s.categoria} · ${money(s.preco)}`, to: '/servicos', mod: 'servicos' as Modulo })),
       ...db.turmas.filter((tu) => has(tu.curso, ...tu.alunos.map((a) => a.nome)))
@@ -58,7 +58,7 @@ export function BuscaGlobal() {
     <div className="busca" style={{ position: 'relative', flex: '0 1 420px' }}>
       <div className="search" style={{ minWidth: 0 }}>
         <Search size={16} />
-        <input ref={ref} className="input" placeholder="Buscar clientes, OS, orçamentos, peças…  (Ctrl+K)" value={q}
+        <input ref={ref} className="input" placeholder="Buscar clientes, OS, orçamentos, itens…  (Ctrl+K)" value={q}
           onChange={(e) => { setQ(e.target.value); setSel(0); setOpen(true); }}
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 150)}

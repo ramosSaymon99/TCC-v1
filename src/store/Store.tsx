@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { Assinatura, Database, Empresa, Modulo, Perfil, Usuario } from '../types';
 import { createSeed, migrar } from './seed';
 import { assinaturaDe, bloqueio, TENANT_PRINCIPAL } from './plataforma';
+import { perfilDaEmpresa, type PerfilNegocio } from './segmentos';
 import { ls, loadPlataformaLocal, loadTenantLocal, saveTenantLocal, SESSION_KEY, TENANT_KEY, TOKEN_KEY } from './local';
 
 type Collection = Exclude<keyof Database, 'permissoes' | 'empresa'>;
@@ -22,6 +23,8 @@ interface StoreValue {
   /** Empresa (base) logada e o que o plano dela libera. */
   tenant: string;
   assinatura: Assinatura | null;
+  /** Perfil do negócio (segmento + listas personalizadas): categorias, catálogo e nomes das telas. */
+  negocio: PerfilNegocio;
   /** Proprietário da empresa principal: acessa o console da plataforma SaaS. */
   adminPlataforma: boolean;
   login: (email: string, senha: string) => Promise<string | null>;
@@ -134,10 +137,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [toast, sair, recarregar]);
 
   const user = db.usuarios.find((u) => u.id === userId) ?? null;
+  const negocio = useMemo(() => perfilDaEmpresa(db.empresa), [db.empresa]);
   const liberado = useCallback((m: Modulo) => !assinatura || assinatura.modulos.includes(m), [assinatura]);
 
   const value = useMemo<StoreValue>(() => ({
-    db, user, modo, toasts, toast, tenant, assinatura, liberado,
+    db, user, modo, toasts, toast, tenant, assinatura, liberado, negocio,
     adminPlataforma: tenant === TENANT_PRINCIPAL && user?.perfil === 'Proprietário',
     login: async (email, senha) => {
       if (modo === 'remote') {
@@ -219,7 +223,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       catch (e) { return (e as Error).message; }
     },
     can: (m) => !!user && liberado(m) && (user.perfil === 'Proprietário' || !!db.permissoes[user.perfil]?.includes(m)),
-  }), [db, user, modo, toasts, toast, tenant, assinatura, liberado, sair, sync, recarregar]);
+  }), [db, user, modo, toasts, toast, tenant, assinatura, liberado, negocio, sair, sync, recarregar]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

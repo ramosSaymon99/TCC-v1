@@ -6,11 +6,12 @@ import { Avatar, Badge, Confirm, Modal, PageHeader } from '../components/ui';
 import { Field, Options } from '../components/fields';
 import { dateTime, uid } from '../utils/format';
 import { MODULOS } from '../store/seed';
+import { nomePerfil, rotuloModulo } from '../store/segmentos';
 
 const PERFIS: Perfil[] = ['Proprietário', 'Operador', 'Financeiro', 'Técnico'];
 
 export default function Usuarios() {
-  const { db, user, upsert, remove, setPermissoes, changePassword, modo, toast, assinatura } = useStore();
+  const { db, user, upsert, remove, setPermissoes, changePassword, modo, toast, assinatura, negocio } = useStore();
   const [perfil, setPerfil] = useState<Perfil>('Operador');
   const [perms, setPerms] = useState<Modulo[]>(db.permissoes['Operador']);
   const [editing, setEditing] = useState<Usuario | null>(null);
@@ -37,7 +38,7 @@ export default function Usuarios() {
                 {db.usuarios.map((u) => (
                   <tr key={u.id}>
                     <td><div className="person"><Avatar nome={u.nome} /><div><div className="name">{u.nome}{u.id === user?.id && <span className="small muted"> (você)</span>}</div><div className="meta">{u.email}</div></div></div></td>
-                    <td><Badge>{u.perfil}</Badge></td>
+                    <td><Badge tone={({ 'Proprietário': 'blue', Operador: 'purple', Financeiro: 'green', 'Técnico': 'orange' } as Record<string, string>)[u.perfil]}>{nomePerfil(u.perfil, negocio)}</Badge></td>
                     <td><Badge>{u.status}</Badge></td>
                     <td className="hide-sm nowrap">{u.ultimoAcesso ? dateTime(u.ultimoAcesso) : 'Nunca acessou'}</td>
                     <td className="right nowrap">
@@ -55,7 +56,7 @@ export default function Usuarios() {
           <div className="card-head"><h3 className="row"><ShieldCheck size={16} color="var(--primary)" /> Permissões por perfil</h3></div>
           <div style={{ padding: '14px 20px 20px' }}>
             <Field label="Perfil">
-              <select className="select" value={perfil} onChange={(e) => trocarPerfil(e.target.value as Perfil)}><Options items={PERFIS} /></select>
+              <select className="select" value={perfil} onChange={(e) => trocarPerfil(e.target.value as Perfil)}>{PERFIS.map((p) => <option key={p} value={p}>{nomePerfil(p, negocio)}</option>)}</select>
             </Field>
             <p className="small muted">
               {perfil === 'Proprietário' ? 'O proprietário sempre tem acesso completo.' : `Módulos que o perfil ${perfil} pode acessar. ${db.usuarios.filter((u) => u.perfil === perfil).length} usuário(s) com este perfil.`}
@@ -64,7 +65,7 @@ export default function Usuarios() {
               {MODULOS.map((m) => (
                 <label key={m.id} className="check">
                   <input type="checkbox" disabled={perfil === 'Proprietário' || m.id === 'inicio'} checked={perfil === 'Proprietário' || perms.includes(m.id)} onChange={() => toggle(m.id)} />
-                  {m.label}
+                  {rotuloModulo(m.id, m.label, negocio)}
                 </label>
               ))}
             </div>
@@ -104,6 +105,7 @@ export default function Usuarios() {
 function UserForm({ u, novo, podeSenha, onClose, onSave }: {
   u: Usuario; novo: boolean; podeSenha: boolean; onClose: () => void; onSave: (u: Usuario, senha?: string) => void;
 }) {
+  const { negocio } = useStore();
   const [f, setF] = useState(u);
   const [senha, setSenha] = useState('');
   const set = <K extends keyof Usuario>(k: K, v: Usuario[K]) => setF((x) => ({ ...x, [k]: v }));
@@ -115,7 +117,7 @@ function UserForm({ u, novo, podeSenha, onClose, onSave }: {
       <form id="user-form" className="form-grid" onSubmit={(e) => { e.preventDefault(); onSave(f, senha || undefined); }}>
         <Field label="Nome" full><input className="input" value={f.nome} onChange={(e) => set('nome', e.target.value)} required autoFocus /></Field>
         <Field label="E-mail" full><input className="input" type="email" value={f.email} onChange={(e) => set('email', e.target.value)} required /></Field>
-        <Field label="Perfil"><select className="select" value={f.perfil} onChange={(e) => set('perfil', e.target.value as Perfil)}><Options items={PERFIS} /></select></Field>
+        <Field label="Perfil"><select className="select" value={f.perfil} onChange={(e) => set('perfil', e.target.value as Perfil)}>{PERFIS.map((p) => <option key={p} value={p}>{nomePerfil(p, negocio)}</option>)}</select></Field>
         <Field label="Status"><select className="select" value={f.status} onChange={(e) => set('status', e.target.value as Usuario['status'])}><Options items={['Ativo', 'Inativo'] as const} /></select></Field>
         {podeSenha && (
           <Field label={novo ? 'Senha inicial' : 'Redefinir senha'} full hint={novo ? 'Em branco = 123456. Mínimo de 6 caracteres.' : 'Deixe em branco para manter a senha atual.'}>

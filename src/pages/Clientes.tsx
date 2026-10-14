@@ -147,13 +147,13 @@ export default function Clientes() {
 function ClientePanel({ c, tab, setTab, onClose, onEdit }: {
   c: Row; tab: string; setTab: (t: 'dados' | 'historico' | 'servicos' | 'orcamentos') => void; onClose: () => void; onEdit: () => void;
 }) {
-  const { db } = useStore();
+  const { db, negocio } = useStore();
   const hist = db.lancamentos.filter((l) => l.clienteId === c.id && l.tipo === 'Receita').sort((a, b) => b.data.localeCompare(a.data));
   const os = db.ordens.filter((o) => o.clienteId === c.id).sort((a, b) => b.abertura.localeCompare(a.abertura));
   const orc = db.orcamentos.filter((o) => o.clienteId === c.id).sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
   const total = hist.reduce((s, l) => s + l.valor, 0);
   const cats = [...new Set(hist.map((h) => h.categoria))];
-  const naoContratados = ['Treinamento', 'Manutenção', 'Desenvolvimento Web', 'Implantação'].filter((x) => !cats.includes(x));
+  const naoContratados = negocio.categoriasServico.filter((x) => !cats.includes(x)).slice(0, 4);
 
   return (
     <aside className="card side-panel">

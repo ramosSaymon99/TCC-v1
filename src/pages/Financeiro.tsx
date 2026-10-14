@@ -8,12 +8,12 @@ import { Badge, Confirm, Empty, Kpi, Modal, PageHeader, Pager, RowMenu, SearchIn
 import { ClienteSelect, Field, Options, toNumber } from '../components/fields';
 import { addDays, date, diffDays, downloadCSV, money, moneyShort, monthKey, monthLabel, normalize, parseDate, pct, toISODate, today, uid, variation } from '../utils/format';
 import { resumoPeriodo } from '../utils/metrics';
-import { CATEGORIAS_DESPESA, CATEGORIAS_RECEITA } from '../store/seed';
+import { comAtual } from '../store/segmentos';
 
 const CORES = ['#1e6fe8', '#12336d', '#7fb2f6', '#f59e0b', '#16a34a', '#94a3b8'];
 
 export default function Financeiro() {
-  const { db, upsert, remove, toast } = useStore();
+  const { db, upsert, remove, toast, negocio } = useStore();
   const nome = useClienteNome();
   const [params] = useSearchParams();
   const hoje = today();
@@ -91,7 +91,7 @@ export default function Financeiro() {
           ['Data', 'Tipo', 'Descrição', 'Categoria', 'Cliente', 'Status', 'Valor'],
           ...rows.map((l) => [date(l.data), l.tipo, l.descricao, l.categoria, nome(l.clienteId), l.status, l.valor.toFixed(2).replace('.', ',')]),
         ])}><Download size={16} /> Exportar</button>
-        <button className="btn btn-primary" onClick={() => setEditing({ id: uid(), tipo: 'Receita', descricao: '', categoria: 'Manutenção', valor: 0, data: hoje, status: 'Pago' })}><Plus size={16} /> Lançamento</button>
+        <button className="btn btn-primary" onClick={() => setEditing({ id: uid(), tipo: 'Receita', descricao: '', categoria: negocio.categoriasServico[0] ?? 'Serviço', valor: 0, data: hoje, status: 'Pago' })}><Plus size={16} /> Lançamento</button>
       </PageHeader>
 
       <div className="row" style={{ marginBottom: 14, flexWrap: 'wrap' }}>
@@ -210,9 +210,13 @@ export default function Financeiro() {
 }
 
 function LancForm({ l, onClose, onSave }: { l: Lancamento; onClose: () => void; onSave: (l: Lancamento) => void }) {
+  const { negocio } = useStore();
+  // receitas aceitam também a categoria das mensalidades de contratos
+  const CATEGORIAS_RECEITA = [...negocio.categoriasServico, 'Recorrência'];
+  const CATEGORIAS_DESPESA = negocio.categoriasDespesa;
   const [f, setF] = useState(l);
   const set = <K extends keyof Lancamento>(k: K, v: Lancamento[K]) => setF((x) => ({ ...x, [k]: v }));
-  const cats = f.tipo === 'Receita' ? CATEGORIAS_RECEITA : CATEGORIAS_DESPESA;
+  const cats = comAtual(f.tipo === 'Receita' ? CATEGORIAS_RECEITA : CATEGORIAS_DESPESA, f.categoria);
   return (
     <Modal title={l.descricao ? 'Editar lançamento' : 'Novo lançamento'} onClose={onClose} footer={<>
       <button className="btn" onClick={onClose}>Cancelar</button>

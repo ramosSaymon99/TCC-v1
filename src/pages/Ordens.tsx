@@ -8,13 +8,13 @@ import { Badge, Confirm, Empty, Kpi, Modal, PageHeader, Pager, RowMenu, SearchIn
 import { ClienteSelect, Field, Options, toNumber } from '../components/fields';
 import { addDays, date, diffDays, downloadCSV, lastMonths, money, monthKey, monthLabel, normalize, pct, today, uid } from '../utils/format';
 import { ABERTAS } from '../utils/metrics';
-import { CATEGORIAS } from '../store/seed';
+import { comAtual } from '../store/segmentos';
 
 type Row = OrdemServico & { cliente: string; atrasada: boolean };
-const STATUS: StatusOS[] = ['Aberta', 'Em andamento', 'Aguardando peças', 'Finalizada', 'Cancelada'];
+const STATUS: StatusOS[] = ['Aberta', 'Em andamento', 'Aguardando material', 'Finalizada', 'Cancelada'];
 
 export default function Ordens() {
-  const { db, upsert, remove, toast } = useStore();
+  const { db, upsert, remove, toast, negocio } = useStore();
   const nome = useClienteNome();
   const [params, setParams] = useSearchParams();
   const [q, setQ] = useState('');
@@ -44,7 +44,7 @@ export default function Ordens() {
   const semAvaliacao = finalizadas.filter((o) => o.avaliacao === undefined).length;
   const noPrazo = finalizadas.filter((o) => o.conclusao! <= o.prazo);
   const tempoMedio = finalizadas.length ? finalizadas.reduce((a, o) => a + diffDays(o.conclusao!, o.abertura), 0) / finalizadas.length : 0;
-  const aguardando = rows.filter((o) => o.status === 'Aguardando peças');
+  const aguardando = rows.filter((o) => o.status === 'Aguardando material');
 
   const mudarStatus = (o: OrdemServico, st: StatusOS) => {
     const upd: OrdemServico = { ...o, status: st, conclusao: st === 'Finalizada' ? hoje : undefined };
@@ -57,7 +57,7 @@ export default function Ordens() {
 
   const novo = (): OrdemServico => {
     const n = db.ordens.reduce((m, x) => Math.max(m, Number(x.numero.replace(/\D/g, '')) || 0), 0) + 1;
-    return { id: uid(), numero: `OS-${String(n).padStart(3, '0')}`, clienteId: '', servico: '', categoria: 'Manutenção', abertura: hoje, prazo: addDays(hoje, 5), status: 'Aberta', valor: 0 };
+    return { id: uid(), numero: `OS-${String(n).padStart(3, '0')}`, clienteId: '', servico: '', categoria: negocio.categoriasServico[0] ?? 'Serviço', abertura: hoje, prazo: addDays(hoje, 5), status: 'Aberta', valor: 0 };
   };
 
   return (
@@ -76,7 +76,7 @@ export default function Ordens() {
           foot={atrasadas.length ? <button className="btn btn-sm btn-ghost" style={{ padding: 0, height: 'auto', color: 'var(--danger)' }} onClick={() => setParams({ filtro: 'atrasadas' })}>Ver atrasadas →</button> : 'Nenhuma atrasada'} />
         <Kpi icon={<CheckCircle2 size={20} />} tone="green" label="Entregas no prazo (SLA)" value={pct(finalizadas.length ? noPrazo.length / finalizadas.length : 0)} foot={`${noPrazo.length} de ${finalizadas.length} finalizadas`} />
         <Kpi icon={<Timer size={20} />} tone="orange" label="Tempo médio de execução" value={`${tempoMedio.toFixed(1).replace('.', ',')} dias`}
-          foot={aguardando.length ? <span className="row" style={{ gap: 4 }}><Gauge size={13} /> {aguardando.length} aguardando peças</span> : 'Abertura → conclusão'} />
+          foot={aguardando.length ? <span className="row" style={{ gap: 4 }}><Gauge size={13} /> {aguardando.length} aguardando material</span> : 'Abertura → conclusão'} />
         <Kpi icon={<Smile size={20} />} tone="purple" label="Satisfação (NPS)" value={nps === null ? '—' : nps}
           foot={`${avaliadas.length} avaliação(ões)${semAvaliacao ? ` · ${semAvaliacao} OS sem nota` : ''}`} />
       </div>
@@ -124,7 +124,7 @@ export default function Ordens() {
                       { label: 'Abrir / editar', onClick: () => setEditing(o) },
                       { label: <><Printer size={14} /> Imprimir OS / termo</>, onClick: () => imprimirOS(o, db.clientes.find((c) => c.id === o.clienteId), db.empresa,
                         db.equipamentos.find((e) => e.id === o.equipamentoId)?.nome,
-                        db.movimentos.filter((m) => m.osId === o.id && m.tipo === 'Saída').map((m) => ({ nome: db.pecas.find((p) => p.id === m.pecaId)?.nome ?? 'Peça', qtd: m.quantidade }))) },
+                        db.movimentos.filter((m) => m.osId === o.id && m.tipo === 'Saída').map((m) => ({ nome: db.pecas.find((p) => p.id === m.pecaId)?.nome ?? negocio.rotulos.material, qtd: m.quantidade })), negocio.rotulos) },
                       ...STATUS.filter((st) => st !== o.status).map((st) => ({ label: `Mudar para: ${st}`, onClick: () => mudarStatus(o, st) })),
                       { label: 'Excluir', danger: true, onClick: () => setDeleting(o) },
                     ]} />
@@ -151,7 +151,8 @@ export default function Ordens() {
 }
 
 function OSForm({ o, onClose, onSave }: { o: OrdemServico; onClose: () => void; onSave: (o: OrdemServico) => void }) {
-  const { db } = useStore();
+  const { db, negocio } = useStore();
+  const r = negocio.rotulos;
   const [f, setF] = useState(o);
   const set = <K extends keyof OrdemServico>(k: K, v: OrdemServico[K]) => setF((x) => ({ ...x, [k]: v }));
   const equips = db.equipamentos.filter((e) => e.clienteId === f.clienteId);
@@ -165,15 +166,15 @@ function OSForm({ o, onClose, onSave }: { o: OrdemServico; onClose: () => void; 
         <Field label="Cliente" full><ClienteSelect value={f.clienteId} onChange={(v) => setF((x) => ({ ...x, clienteId: v, equipamentoId: undefined }))} /></Field>
         <Field label="Serviço"><input className="input" value={f.servico} onChange={(e) => set('servico', e.target.value)} required /></Field>
         <Field label="Categoria">
-          <select className="select" value={f.categoria} onChange={(e) => set('categoria', e.target.value as CategoriaServico)}><Options items={CATEGORIAS} /></select>
+          <select className="select" value={f.categoria} onChange={(e) => set('categoria', e.target.value as CategoriaServico)}><Options items={comAtual(negocio.categoriasServico, f.categoria)} /></select>
         </Field>
-        <Field label="Equipamento">
+        <Field label={r.ativo}>
           <select className="select" value={f.equipamentoId ?? ''} onChange={(e) => set('equipamentoId', e.target.value || undefined)}>
-            <option value="">{f.clienteId ? (equips.length ? 'Nenhum' : 'Cliente sem equipamentos') : 'Selecione o cliente'}</option>
+            <option value="">{f.clienteId ? (equips.length ? 'Nenhum' : `Cliente sem ${r.ativos.toLowerCase()}`) : 'Selecione o cliente'}</option>
             {equips.map((e) => <option key={e.id} value={e.id}>{e.nome} ({e.numeroSerie})</option>)}
           </select>
         </Field>
-        <Field label="Técnico responsável">
+        <Field label={`${r.profissional} responsável`}>
           <select className="select" value={f.tecnico ?? ''} onChange={(e) => set('tecnico', e.target.value || undefined)}>
             <option value="">Não atribuído</option><Options items={tecnicos} />
           </select>

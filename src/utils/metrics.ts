@@ -2,7 +2,7 @@ import type { Database, Lancamento } from '../types';
 import { addDays, diffDays, lastMonths, money, monthKey, pct, today, variation } from './format';
 import { insightsSocial } from './social';
 
-export const ABERTAS = ['Aberta', 'Em andamento', 'Aguardando peças'] as const;
+export const ABERTAS = ['Aberta', 'Em andamento', 'Aguardando material'] as const;
 
 export const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 export const receitas = (ls: Lancamento[]) => ls.filter((l) => l.tipo === 'Receita');
@@ -221,11 +221,11 @@ export function gerarInsights(db: Database): Insight[] {
   // 10. Estoque abaixo do mínimo travando OS
   const baixos = (db.pecas ?? []).filter((p) => p.quantidade < p.minimo);
   if (baixos.length) {
-    const aguardando = db.ordens.filter((o) => o.status === 'Aguardando peças');
+    const aguardando = db.ordens.filter((o) => o.status === 'Aguardando material');
     out.push({
       kind: aguardando.length ? 'risk' : 'warn', peso: aguardando.length ? 80 : 42,
-      title: `${baixos.length} peça(s) abaixo do estoque mínimo`,
-      detail: `${baixos.slice(0, 3).map((p) => `${p.nome} (${p.quantidade}/${p.minimo})`).join(', ')}${baixos.length > 3 ? '…' : ''}.${aguardando.length ? ` ${aguardando.length} OS aguardando peças (${money(sum(aguardando.map((o) => o.valor)))} parados).` : ''}`,
+      title: `${baixos.length} item(ns) abaixo do estoque mínimo`,
+      detail: `${baixos.slice(0, 3).map((p) => `${p.nome} (${p.quantidade}/${p.minimo})`).join(', ')}${baixos.length > 3 ? '…' : ''}.${aguardando.length ? ` ${aguardando.length} OS aguardando material (${money(sum(aguardando.map((o) => o.valor)))} parados).` : ''}`,
       action: 'Ver lista de compras', to: '/estoque',
     });
   }

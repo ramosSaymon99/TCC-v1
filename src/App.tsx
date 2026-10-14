@@ -28,12 +28,13 @@ import ConsolePlanos from './pages/console/Planos';
 import ConsoleFaturas from './pages/console/Faturas';
 import { PlataformaProvider } from './store/PlataformaStore';
 import { MODULOS } from './store/seed';
+import { rotuloModulo } from './store/segmentos';
 import { money } from './utils/format';
 
 /** Módulo fora do plano: mostra o que o upgrade libera (e o custo) em vez de só bloquear. */
 function Upgrade({ mod }: { mod: Modulo }) {
-  const { assinatura, user } = useStore();
-  const nome = MODULOS.find((m) => m.id === mod)?.label ?? mod;
+  const { assinatura, user, negocio } = useStore();
+  const nome = rotuloModulo(mod, MODULOS.find((m) => m.id === mod)?.label ?? mod, negocio);
   const atual = assinatura?.ofertas?.find((o) => o.nome === assinatura.plano);
   const alvo = assinatura?.ofertas?.find((o) => o.modulos.includes(mod) && (!atual || o.precoMensal > atual.precoMensal)) ?? assinatura?.ofertas?.find((o) => o.modulos.includes(mod));
   const ganha = alvo ? MODULOS.filter((m) => alvo.modulos.includes(m.id) && !assinatura?.modulos.includes(m.id)) : [];
@@ -43,7 +44,7 @@ function Upgrade({ mod }: { mod: Modulo }) {
       <h3 style={{ margin: '6px 0' }}>{nome} não está incluído no plano {assinatura?.plano}</h3>
       {alvo ? (
         <div style={{ maxWidth: 480 }}>
-          Disponível no plano <strong>{alvo.nome}</strong> ({money(alvo.precoMensal)}/mês{atual ? `, +${money(alvo.precoMensal - atual.precoMensal)} em relação ao seu plano` : ''}), que também libera {ganha.map((m) => m.label).join(', ')} e até {alvo.maxUsuarios} usuários.
+          Disponível no plano <strong>{alvo.nome}</strong> ({money(alvo.precoMensal)}/mês{atual ? `, +${money(alvo.precoMensal - atual.precoMensal)} em relação ao seu plano` : ''}), que também libera {ganha.map((m) => rotuloModulo(m.id, m.label, negocio)).join(', ')} e até {alvo.maxUsuarios} usuários.
         </div>
       ) : <div>Fale com o comercial Pivot Hub para liberar este módulo.</div>}
       <div className="small muted" style={{ marginTop: 10 }}>

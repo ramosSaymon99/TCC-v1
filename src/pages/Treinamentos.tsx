@@ -22,7 +22,9 @@ export function analisarTurma(t: Turma, hoje = today()) {
 }
 
 export default function Treinamentos() {
-  const { db, upsert, remove, toast } = useStore();
+  const { db, upsert, remove, toast, negocio } = useStore();
+  // categoria de receita das inscrições: a do segmento ligada a cursos/aulas, se houver
+  const catTurma = negocio.categoriasServico.find((c) => /trein|curso|aula|workshop|grupo/i.test(c)) ?? negocio.rotulos.turmas;
   const [filtro, setFiltro] = useState<string>('ativas');
   const [aberta, setAberta] = useState<Turma | null>(null);
   const [deleting, setDeleting] = useState<Turma | null>(null);
@@ -42,8 +44,8 @@ export default function Treinamentos() {
 
   return (
     <>
-      <PageHeader title="Turmas de Treinamento" subtitle="Cursos de informática: vagas, ocupação, ponto de equilíbrio e pagamentos dos alunos.">
-        <button className="btn btn-primary" onClick={() => setAberta({ id: uid(), curso: '', inicio: addDays(hoje, 14), fim: addDays(hoje, 35), horario: '', local: 'Sala Pivot Hub', vagas: 10, precoAluno: 0, custoTurma: 0, status: 'Inscrições abertas', alunos: [] })}>
+      <PageHeader title={negocio.rotulos.turmas} subtitle="Turmas, cursos e eventos com inscrição: vagas, ocupação, ponto de equilíbrio e pagamentos dos participantes.">
+        <button className="btn btn-primary" onClick={() => setAberta({ id: uid(), curso: '', inicio: addDays(hoje, 14), fim: addDays(hoje, 35), horario: '', local: '', vagas: 10, precoAluno: 0, custoTurma: 0, status: 'Inscrições abertas', alunos: [] })}>
           <Plus size={16} /> Nova turma
         </button>
       </PageHeader>
@@ -118,7 +120,7 @@ export default function Treinamentos() {
           for (const al of t.alunos) {
             const eraPago = antes?.alunos.find((x) => x.nome === al.nome)?.pago ?? false;
             const desc = `Turma ${t.curso} - ${al.nome}`;
-            if (al.pago && !eraPago) upsert('lancamentos', { id: uid(), tipo: 'Receita', descricao: desc, categoria: 'Treinamento', valor: t.precoAluno, data: hoje, status: 'Pago', clienteId: al.clienteId, turmaId: t.id });
+            if (al.pago && !eraPago) upsert('lancamentos', { id: uid(), tipo: 'Receita', descricao: desc, categoria: catTurma, valor: t.precoAluno, data: hoje, status: 'Pago', clienteId: al.clienteId, turmaId: t.id });
             if (!al.pago && eraPago) {
               const l = db.lancamentos.find((x) => x.turmaId === t.id && x.descricao === desc);
               if (l) remove('lancamentos', l.id);

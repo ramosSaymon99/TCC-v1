@@ -7,7 +7,7 @@ import type { CategoriaServico, Orcamento, StatusOrcamento } from '../types';
 import { Badge, Confirm, Empty, Kpi, Modal, PageHeader, Pager, RowMenu, SearchInput, Th, useSortPage } from '../components/ui';
 import { ClienteSelect, Field, Options, toNumber } from '../components/fields';
 import { addDays, date, downloadCSV, lastMonths, money, monthKey, monthLabel, normalize, pct, today, uid } from '../utils/format';
-import { CATEGORIAS } from '../store/seed';
+import { comAtual } from '../store/segmentos';
 
 const ABERTOS: StatusOrcamento[] = ['Orçamento', 'Em análise', 'Proposta enviada'];
 const TABS = [
@@ -21,7 +21,7 @@ const TABS = [
 type Row = Orcamento & { cliente: string; situacao: string };
 
 export default function Orcamentos() {
-  const { db, upsert, remove, toast } = useStore();
+  const { db, upsert, remove, toast, negocio } = useStore();
   const nome = useClienteNome();
   const nav = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -75,7 +75,7 @@ export default function Orcamentos() {
   ]);
   const novo = (): Orcamento => {
     const n = db.orcamentos.reduce((m, x) => Math.max(m, Number(x.numero.replace(/\D/g, '')) || 0), 0) + 1;
-    return { id: uid(), numero: `OR-${String(n).padStart(3, '0')}`, clienteId: '', servico: '', categoria: 'Manutenção', valor: 0, criadoEm: hoje, validade: addDays(hoje, 15), status: 'Orçamento' };
+    return { id: uid(), numero: `OR-${String(n).padStart(3, '0')}`, clienteId: '', servico: '', categoria: negocio.categoriasServico[0] ?? 'Serviço', valor: 0, criadoEm: hoje, validade: addDays(hoje, 15), status: 'Orçamento' };
   };
 
   return (
@@ -167,7 +167,7 @@ export default function Orcamentos() {
 }
 
 function OrcamentoForm({ o, onClose, onSave }: { o: Orcamento; onClose: () => void; onSave: (o: Orcamento) => void }) {
-  const { db } = useStore();
+  const { db, negocio } = useStore();
   const [f, setF] = useState(o);
   const [vk, setVk] = useState(0); // remonta o campo de valor quando o catálogo preenche o preço
   const catalogo = db.servicos.filter((s) => s.ativo);
@@ -191,7 +191,7 @@ function OrcamentoForm({ o, onClose, onSave }: { o: Orcamento; onClose: () => vo
         </Field>
         <Field label="Serviço"><input className="input" value={f.servico} onChange={(e) => set('servico', e.target.value)} required /></Field>
         <Field label="Categoria">
-          <select className="select" value={f.categoria} onChange={(e) => set('categoria', e.target.value as CategoriaServico)}><Options items={CATEGORIAS} /></select>
+          <select className="select" value={f.categoria} onChange={(e) => set('categoria', e.target.value as CategoriaServico)}><Options items={comAtual(negocio.categoriasServico, f.categoria)} /></select>
         </Field>
         <Field label="Valor (R$)" hint={tabela && f.valor < tabela.preco ? `Desconto de ${pct((tabela.preco - f.valor) / tabela.preco)} sobre a tabela (${money(tabela.preco)}).` : undefined}>
           <input key={vk} className="input" inputMode="decimal" defaultValue={f.valor ? String(f.valor).replace('.', ',') : ''} onChange={(e) => set('valor', toNumber(e.target.value))} required />

@@ -1,14 +1,15 @@
 import { useRef, useState } from 'react';
-import { BadgeCheck, Building2, Check, Database as DbIcon, Download, KeyRound, Lock, RotateCcw, Target, Upload } from 'lucide-react';
+import { BadgeCheck, Building2, Check, Database as DbIcon, Download, KeyRound, Layers, Lock, Plus, RotateCcw, Target, Upload, X } from 'lucide-react';
 import { useStore } from '../store/Store';
 import type { Database, Empresa } from '../types';
-import { Badge, Confirm, PageHeader } from '../components/ui';
+import { Badge, Confirm, Modal, PageHeader } from '../components/ui';
+import { LISTAS_EDITAVEIS, rotuloModulo, SEGMENTOS, segmentoPorId, type ListaEditavel } from '../store/segmentos';
 import { MODULOS } from '../store/seed';
 import { Field, toNumber } from '../components/fields';
-import { date, money, today } from '../utils/format';
+import { date, money, today, uid } from '../utils/format';
 
 export default function Configuracoes() {
-  const { db, setEmpresa, resetDemo, replaceDb, changePassword, modo, toast, assinatura } = useStore();
+  const { db, setEmpresa, resetDemo, replaceDb, changePassword, modo, toast, assinatura, negocio } = useStore();
   const cliente = assinatura && !assinatura.principal ? assinatura : null;
   const [senhas, setSenhas] = useState({ atual: '', nova: '', conf: '' });
   const [f, setF] = useState<Empresa>(db.empresa);
@@ -43,7 +44,8 @@ export default function Configuracoes() {
 
   return (
     <>
-      <PageHeader title="Configurações" subtitle="Dados da empresa, metas e gestão dos dados do sistema." />
+      <PageHeader title="Configurações" subtitle="Dados da empresa, segmento do negócio, metas e gestão dos dados do sistema." />
+      <SegmentoCard />
       {cliente && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-head">
@@ -68,8 +70,8 @@ export default function Configuracoes() {
             </div>
             <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
               {MODULOS.map((m) => cliente.modulos.includes(m.id)
-                ? <Badge key={m.id} tone="blue"><Check size={10} /> {m.label}</Badge>
-                : <Badge key={m.id} tone="gray"><Lock size={10} /> {m.label}</Badge>)}
+                ? <Badge key={m.id} tone="blue"><Check size={10} /> {rotuloModulo(m.id, m.label, negocio)}</Badge>
+                : <Badge key={m.id} tone="gray"><Lock size={10} /> {rotuloModulo(m.id, m.label, negocio)}</Badge>)}
             </div>
             <div className="small muted">Para mudar de plano, contratar usuários extras ou módulos avulsos, fale com o comercial Pivot Hub. A liberação é imediata e os dados são mantidos.</div>
           </div>
@@ -78,7 +80,7 @@ export default function Configuracoes() {
       <div className="grid g-2">
         <div className="card">
           <div className="card-head"><h3 className="row"><Building2 size={16} color="var(--primary)" /> Dados da empresa</h3></div>
-          <form className="form-grid" style={{ padding: 20 }} onSubmit={(e) => { e.preventDefault(); setEmpresa(f); toast('Configurações salvas.'); }}>
+          <form className="form-grid" style={{ padding: 20 }} onSubmit={(e) => { e.preventDefault(); setEmpresa({ ...f, segmento: db.empresa.segmento, listas: db.empresa.listas }); toast('Configurações salvas.'); }}>
             <Field label="Nome fantasia" full><input className="input" value={f.nome} onChange={(e) => set('nome', e.target.value)} /></Field>
             <Field label="CNPJ"><input className="input" value={f.cnpj} onChange={(e) => set('cnpj', e.target.value)} /></Field>
             <Field label="Telefone"><input className="input" value={f.telefone} onChange={(e) => set('telefone', e.target.value)} /></Field>
@@ -114,11 +116,12 @@ export default function Configuracoes() {
             </div>
             <div className="divider" style={{ margin: 0 }} />
             <div className="small">
-              <strong>Resumo da base:</strong> {db.clientes.length} clientes · {db.orcamentos.length} orçamentos · {db.ordens.length} OS · {db.equipamentos.length} equipamentos · {db.lancamentos.length} lançamentos
+              <strong>Resumo da base:</strong> {db.clientes.length} clientes · {db.orcamentos.length} orçamentos · {db.ordens.length} OS · {db.equipamentos.length} {negocio.rotulos.ativos.toLowerCase()} · {db.lancamentos.length} lançamentos
             </div>
-            <div>
+            {/* a base de exemplo é de uma empresa de tecnologia: só faz sentido nesse segmento */}
+            {(!cliente || negocio.id === 'tecnologia') && <div>
               <button className="btn" style={{ color: 'var(--danger)' }} onClick={() => setReset(true)}><RotateCcw size={15} /> {cliente ? 'Carregar dados de exemplo' : 'Restaurar dados de demonstração'}</button>
-            </div>
+            </div>}
           </div>
         </div>
       </div>
@@ -141,5 +144,98 @@ export default function Configuracoes() {
       )}
       {reset && <Confirm label="Restaurar" text={cliente ? 'Clientes, orçamentos, OS e demais registros serão substituídos por dados de exemplo. Usuários e dados da empresa são mantidos. Deseja continuar?' : 'Todos os dados atuais serão substituídos pelos dados de demonstração. Deseja continuar?'} onClose={() => setReset(false)} onConfirm={() => { resetDemo().then((err) => toast(err ?? 'Dados de demonstração restaurados.', err ? 'error' : 'success')); }} />}
     </>
+  );
+}
+
+/** Segmento do negócio: define categorias, catálogo sugerido e nomes de telas; as listas podem ser personalizadas. */
+function SegmentoCard() {
+  const { db, setEmpresa, upsert, negocio, toast } = useStore();
+  const [trocar, setTrocar] = useState<string | null>(null);
+  const [importar, setImportar] = useState(true);
+  const [novo, setNovo] = useState<Partial<Record<ListaEditavel, string>>>({});
+  const atual = segmentoPorId(db.empresa.segmento);
+  const listas = db.empresa.listas ?? {};
+
+  const salvarLista = (id: ListaEditavel, valores: string[]) => {
+    setEmpresa({ ...db.empresa, listas: { ...listas, [id]: valores } });
+  };
+  const adicionar = (id: ListaEditavel) => {
+    const v = (novo[id] ?? '').trim();
+    if (!v) return;
+    if (negocio[id].some((x) => x.toLowerCase() === v.toLowerCase())) return toast('Este item já está na lista.', 'error');
+    salvarLista(id, [...negocio[id], v]);
+    setNovo((n) => ({ ...n, [id]: '' }));
+  };
+  const remover = (id: ListaEditavel, v: string) => {
+    if (negocio[id].length <= 1) return toast('A lista precisa de ao menos um item.', 'error');
+    salvarLista(id, negocio[id].filter((x) => x !== v));
+  };
+  const aplicarSegmento = (id: string) => {
+    const seg = segmentoPorId(id);
+    setEmpresa({ ...db.empresa, segmento: id, listas: {} });
+    if (importar) {
+      // só acrescenta o que ainda não existe; nada do que a empresa já cadastrou é alterado
+      const servicos = new Set(db.servicos.map((x) => x.nome.toLowerCase()));
+      const itens = new Set(db.pecas.map((x) => x.nome.toLowerCase()));
+      let ns = 0, ni = 0;
+      for (const [nome, categoria, preco, custo, duracaoHoras] of seg.servicos) {
+        if (servicos.has(nome.toLowerCase())) continue;
+        upsert('servicos', { id: uid(), nome, categoria, preco, custo, duracaoHoras, ativo: true }); ns++;
+      }
+      seg.materiais.forEach(([nome, categoria, custoUnit, precoVenda], i) => {
+        if (itens.has(nome.toLowerCase())) return;
+        upsert('pecas', { id: uid(), nome, categoria, sku: `${seg.id.slice(0, 3).toUpperCase()}-${String(db.pecas.length + i + 1).padStart(3, '0')}`, quantidade: 0, minimo: 0, custoUnit, precoVenda }); ni++;
+      });
+      toast(`Segmento ${seg.nome} aplicado: ${ns} serviço(s) e ${ni} item(ns) de estoque sugeridos foram adicionados.`);
+    } else toast(`Segmento ${seg.nome} aplicado.`);
+  };
+
+  return (
+    <div className="card" style={{ marginBottom: 16 }}>
+      <div className="card-head">
+        <div>
+          <h3 className="row"><Layers size={16} color="var(--primary)" /> Segmento do negócio</h3>
+          <div className="card-sub">Define as categorias, o catálogo sugerido e os nomes de telas como {negocio.rotulos.ativos}, Estoque de {negocio.rotulos.materiais} e {negocio.rotulos.turmas}.</div>
+        </div>
+      </div>
+      <div className="card-pad" style={{ display: 'grid', gap: 16 }}>
+        <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+          <select className="select" style={{ maxWidth: 360 }} value={atual.id} onChange={(e) => e.target.value !== atual.id && setTrocar(e.target.value)}>
+            {SEGMENTOS.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
+          </select>
+          <span className="small muted">{atual.exemplos}</span>
+        </div>
+        <div className="grid g-3" style={{ gap: 14 }}>
+          {LISTAS_EDITAVEIS.map(({ id, rotulo }) => (
+            <div key={id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12 }}>
+              <div className="row between" style={{ marginBottom: 8 }}>
+                <strong className="small">{rotulo}</strong>
+                {listas[id]?.length ? <button className="btn btn-ghost btn-sm" style={{ padding: '2px 6px', fontSize: 11.5 }} onClick={() => { const { [id]: _x, ...resto } = listas; setEmpresa({ ...db.empresa, listas: resto }); }}>Restaurar padrão</button> : null}
+              </div>
+              <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                {negocio[id].map((v) => (
+                  <span key={v} className="badge b-blue" style={{ paddingRight: 4 }}>{v}
+                    <button aria-label={`Remover ${v}`} onClick={() => remover(id, v)} style={{ border: 0, background: 'none', cursor: 'pointer', padding: 0, marginLeft: 2, color: 'inherit', display: 'inline-flex' }}><X size={12} /></button>
+                  </span>
+                ))}
+              </div>
+              <form className="row" style={{ gap: 6 }} onSubmit={(e) => { e.preventDefault(); adicionar(id); }}>
+                <input className="input" style={{ height: 32 }} placeholder="Adicionar..." value={novo[id] ?? ''} onChange={(e) => setNovo((n) => ({ ...n, [id]: e.target.value }))} />
+                <button className="btn btn-sm" aria-label="Adicionar"><Plus size={14} /></button>
+              </form>
+            </div>
+          ))}
+        </div>
+      </div>
+      {trocar && (
+        <Modal title={`Trocar para ${segmentoPorId(trocar).nome}?`} onClose={() => setTrocar(null)} footer={<>
+          <button className="btn" onClick={() => setTrocar(null)}>Cancelar</button>
+          <button className="btn btn-primary" onClick={() => { aplicarSegmento(trocar); setTrocar(null); }}>Aplicar segmento</button>
+        </>}>
+          <p style={{ marginTop: 0 }}>As listas e os nomes de telas passam a ser os de <strong>{segmentoPorId(trocar).nome}</strong> (as personalizações atuais das listas são descartadas). Clientes, OS, orçamentos e lançamentos já cadastrados <strong>não são alterados</strong>.</p>
+          <label className="check"><input type="checkbox" checked={importar} onChange={(e) => setImportar(e.target.checked)} /> Adicionar o catálogo sugerido ({segmentoPorId(trocar).servicos.length} serviços com preço e {segmentoPorId(trocar).materiais.length} itens de estoque)</label>
+        </Modal>
+      )}
+    </div>
   );
 }

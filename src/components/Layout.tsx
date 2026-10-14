@@ -2,9 +2,10 @@ import { useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Bell, BarChart3, Boxes, Building2, CalendarDays, ChevronDown, ClipboardList, DollarSign, FileText, Filter, GraduationCap, Home, Layers, LayoutDashboard,
-  Lock, LogOut, Menu, Megaphone, Monitor, Receipt, Repeat, Settings, Tag, Target, UserCog, Users, Wrench,
+  Lock, LogOut, Menu, Megaphone, Receipt, Shapes, Repeat, Settings, Tag, Target, UserCog, Users, Wrench,
 } from 'lucide-react';
 import { BuscaGlobal } from './BuscaGlobal';
+import { nomePerfil, rotuloModulo } from '../store/segmentos';
 import { useStore } from '../store/Store';
 import type { Modulo } from '../types';
 import { Avatar, Logo } from './ui';
@@ -23,7 +24,7 @@ const NAV: { secao?: string; itens: NavItem[] }[] = [
   ] },
   { secao: 'Operação', itens: [
     { to: '/ordens', label: 'Ordens de Serviço', icon: <Wrench size={18} />, mod: 'ordens' },
-    { to: '/equipamentos', label: 'Equipamentos', icon: <Monitor size={18} />, mod: 'equipamentos' },
+    { to: '/equipamentos', label: 'Equipamentos', icon: <Shapes size={18} />, mod: 'equipamentos' },
     { to: '/estoque', label: 'Estoque de Peças', icon: <Boxes size={18} />, mod: 'estoque' },
     { to: '/treinamentos', label: 'Treinamentos', icon: <GraduationCap size={18} />, mod: 'treinamentos' },
     { to: '/agenda', label: 'Agenda', icon: <CalendarDays size={18} />, mod: 'agenda' },
@@ -65,7 +66,7 @@ const NAV_PLATAFORMA = [
 ];
 
 export default function Layout() {
-  const { user, logout, can, liberado, db, assinatura, adminPlataforma } = useStore();
+  const { user, logout, can, liberado, db, assinatura, adminPlataforma, negocio } = useStore();
   // Proprietário vê os módulos fora do plano com cadeado (vitrine de upgrade); demais perfis só o que podem usar
   const visivel = (m: Modulo) => can(m) || (user?.perfil === 'Proprietário' && !liberado(m));
   const [open, setOpen] = useState(false);
@@ -95,7 +96,7 @@ export default function Layout() {
   const alerts = [
     atrasadas && { text: `${atrasadas} OS com prazo vencido`, to: '/ordens?filtro=atrasadas' },
     tarefasHoje && { text: `${tarefasHoje} tarefa(s) pendente(s) para hoje`, to: '/agenda' },
-    baixos && { text: `${baixos} peça(s) abaixo do estoque mínimo`, to: '/estoque' },
+    baixos && { text: `${baixos} item(ns) abaixo do estoque mínimo`, to: '/estoque' },
     renovar && { text: `${renovar} contrato(s) para renovar em 30 dias`, to: '/contratos' },
   ].filter(Boolean) as { text: string; to: string }[];
 
@@ -122,7 +123,7 @@ export default function Layout() {
                 {/* recolhida: continua mostrando a página aberta, para não perder a referência */}
                 {itens.filter((n) => mostrar || ativa(n.to)).map((n) => (
                   <NavLink key={n.to} to={n.to} end={n.to === '/'} className={liberado(n.mod) ? undefined : 'locked'} title={liberado(n.mod) ? undefined : 'Fora do seu plano'}>
-                    {n.icon}{n.label}{!liberado(n.mod) && <Lock size={13} className="lock" />}
+                    {n.icon}{rotuloModulo(n.mod, n.label, negocio)}{!liberado(n.mod) && <Lock size={13} className="lock" />}
                     {n.mod === 'ordens' && abertas > 0 && <span className="count">{abertas}</span>}
                     {n.mod === 'estoque' && baixos > 0 && <span className="count" style={{ background: 'var(--danger)' }}>{baixos}</span>}
                   </NavLink>
@@ -175,7 +176,7 @@ export default function Layout() {
               <Avatar nome={user.nome} navy />
               <div className="hide-sm">
                 <div className="name">{user.nome}</div>
-                <div className="meta">{user.perfil}{assinatura && !assinatura.principal ? ` · Plano ${assinatura.plano}` : adminPlataforma ? ' · Admin da plataforma' : ''}</div>
+                <div className="meta">{nomePerfil(user.perfil, negocio)}{assinatura && !assinatura.principal ? ` · Plano ${assinatura.plano}` : adminPlataforma ? ' · Admin da plataforma' : ''}</div>
               </div>
             </div>
           )}

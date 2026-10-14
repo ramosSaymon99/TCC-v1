@@ -9,7 +9,7 @@ import type { CategoriaServico, FormatoPost, PilarConteudo, Post, RedeSocial, Se
 import { Badge, Confirm, Empty, Kpi, Modal, PageHeader, Pager, RowMenu, Th, Trend, useSortPage } from '../components/ui';
 import { Field, Options, toNumber } from '../components/fields';
 import { addDays, date, DIAS_SEMANA, int, MESES_LONGOS, money, monthLabel, parseDate, pct, toISODate, today, uid, variation } from '../utils/format';
-import { CATEGORIAS } from '../store/seed';
+import { comAtual } from '../store/segmentos';
 import {
   agrupar, atribuicao, COR_REDE, engajamento, insightsSocial, interacoes, porSemana, REDES, resumoPosts, sugerirPautas, type Pauta,
 } from '../utils/social';
@@ -448,6 +448,7 @@ function Roi({ de, ate }: { de: string; ate: string }) {
 
 /* ---------------- Formulários ---------------- */
 function PostForm({ p, onClose, onSave }: { p: Post; onClose: () => void; onSave: (p: Post) => void }) {
+  const { negocio } = useStore();
   const [f, setF] = useState(p);
   const set = <K extends keyof Post>(k: K, v: Post[K]) => setF((x) => ({ ...x, [k]: v }));
   const n = (k: keyof Post, label: string) => (
@@ -463,7 +464,7 @@ function PostForm({ p, onClose, onSave }: { p: Post; onClose: () => void; onSave
         <Field label="Rede"><select className="select" value={f.rede} onChange={(e) => set('rede', e.target.value as RedeSocial)}><Options items={REDES} /></select></Field>
         <Field label="Formato"><select className="select" value={f.formato} onChange={(e) => set('formato', e.target.value as FormatoPost)}><Options items={FORMATOS} /></select></Field>
         <Field label="Pilar de conteúdo" hint="Educativo e prova social constroem audiência; promocional converte."><select className="select" value={f.pilar} onChange={(e) => set('pilar', e.target.value as PilarConteudo)}><Options items={PILARES} /></select></Field>
-        <Field label="Serviço divulgado"><select className="select" value={f.categoria ?? ''} onChange={(e) => set('categoria', (e.target.value || undefined) as CategoriaServico | undefined)}><option value="">Nenhum (institucional)</option><Options items={CATEGORIAS} /></select></Field>
+        <Field label="Serviço divulgado"><select className="select" value={f.categoria ?? ''} onChange={(e) => set('categoria', (e.target.value || undefined) as CategoriaServico | undefined)}><option value="">Nenhum (institucional)</option><Options items={comAtual(negocio.categoriasServico, f.categoria)} /></select></Field>
         <Field label="Data"><input className="input" type="date" value={f.data} onChange={(e) => set('data', e.target.value)} required /></Field>
         <Field label="Horário"><input className="input" type="time" value={f.hora ?? ''} onChange={(e) => set('hora', e.target.value)} /></Field>
         <Field label="Status"><select className="select" value={f.status} onChange={(e) => set('status', e.target.value as StatusPost)}><Options items={STATUS} /></select></Field>
