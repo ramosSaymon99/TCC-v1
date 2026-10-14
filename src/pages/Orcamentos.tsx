@@ -62,7 +62,7 @@ export default function Orcamentos() {
   const converter = (o: Orcamento) => {
     const n = db.ordens.reduce((m, x) => Math.max(m, Number(x.numero.replace(/\D/g, '')) || 0), 0) + 1;
     const os = {
-      id: uid(), numero: `OS-${String(n).padStart(3, '0')}`, clienteId: o.clienteId, servico: o.servico, categoria: o.categoria,
+      id: uid(), numero: `${negocio.rotulos.prefixo}-${String(n).padStart(3, '0')}`, clienteId: o.clienteId, servico: o.servico, categoria: o.categoria,
       abertura: hoje, prazo: addDays(hoje, 7), status: 'Aberta' as const, valor: o.valor, descricao: `Gerada a partir de ${o.numero}`,
     };
     upsert('ordens', os);
@@ -142,9 +142,9 @@ export default function Orcamentos() {
                       { label: 'Editar', onClick: () => setEditing(o) },
                       { label: <><Printer size={14} /> Gerar proposta (PDF)</>, onClick: () => imprimirProposta(o, db.clientes.find((c) => c.id === o.clienteId), db.empresa) },
                       { label: <><Send size={14} /> Marcar proposta enviada</>, onClick: () => setStatusOrc(o, 'Proposta enviada'), hidden: !ABERTOS.includes(o.status) || o.status === 'Proposta enviada' },
-                      { label: <><CheckCircle2 size={14} /> Converter em OS</>, onClick: () => converter(o), hidden: !ABERTOS.includes(o.status) },
+                      { label: <><CheckCircle2 size={14} /> Converter em {negocio.rotulos.sigla}</>, onClick: () => converter(o), hidden: !ABERTOS.includes(o.status) },
                       { label: 'Marcar como recusado', onClick: () => setStatusOrc(o, 'Recusado'), hidden: !ABERTOS.includes(o.status) },
-                      { label: 'Ver ordens de serviço', onClick: () => nav('/ordens'), hidden: o.status !== 'Convertido' },
+                      { label: `Ver ${negocio.rotulos.ordens.toLowerCase()}`, onClick: () => nav('/ordens'), hidden: o.status !== 'Convertido' },
                       { label: 'Excluir', onClick: () => setDeleting(o), danger: true },
                     ]} />
                   </td>

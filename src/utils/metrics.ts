@@ -225,7 +225,7 @@ export function gerarInsights(db: Database): Insight[] {
     out.push({
       kind: aguardando.length ? 'risk' : 'warn', peso: aguardando.length ? 80 : 42,
       title: `${baixos.length} item(ns) abaixo do estoque mínimo`,
-      detail: `${baixos.slice(0, 3).map((p) => `${p.nome} (${p.quantidade}/${p.minimo})`).join(', ')}${baixos.length > 3 ? '…' : ''}.${aguardando.length ? ` ${aguardando.length} OS aguardando material (${money(sum(aguardando.map((o) => o.valor)))} parados).` : ''}`,
+      detail: `${baixos.slice(0, 3).map((p) => `${p.nome} (${p.quantidade}/${p.minimo})`).join(', ')}${baixos.length > 3 ? '…' : ''}.${aguardando.length ? ` ${aguardando.length} registro(s) em aberto aguardando material (${money(sum(aguardando.map((o) => o.valor)))} parados).` : ''}`,
       action: 'Ver lista de compras', to: '/estoque',
     });
   }
@@ -271,7 +271,7 @@ export function gerarInsights(db: Database): Insight[] {
       kind: 'warn', peso: 58,
       title: `${detratores.length} cliente(s) insatisfeito(s) nos últimos 60 dias`,
       detail: `${detratores.map((o) => `${o.numero} (nota ${o.avaliacao})`).join(', ')}. Um contato de recuperação reduz o risco de perda e de indicação negativa.`,
-      action: 'Ver ordens de serviço', to: '/ordens',
+      action: 'Ver em andamento', to: '/ordens',
     });
   }
 

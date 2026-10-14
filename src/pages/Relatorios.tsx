@@ -137,7 +137,7 @@ const REPORTS: Record<string, Report[]> = {
       },
     },
     {
-      id: 'os', title: 'Desempenho Operacional (OS)', desc: 'Volume, prazo cumprido e tempo médio de execução por tipo de serviço.', icon: <Wrench size={20} />,
+      id: 'os', title: 'Desempenho Operacional', desc: 'Volume, prazo cumprido e tempo médio de execução por tipo de serviço.', icon: <Wrench size={20} />,
       build: (db, p) => {
         const hoje = today();
         const os = db.ordens.filter((o) => o.abertura >= p.de && o.abertura <= p.ate);
@@ -154,7 +154,7 @@ const REPORTS: Record<string, Report[]> = {
         return {
           columns: ['Serviço', 'Abertas no período', 'Finalizadas', 'No prazo', 'Tempo médio', 'Atrasadas', 'Valor'], rows,
           notes: [
-            aguard.length ? `${aguard.length} OS paradas aguardando material (${money(sum(aguard.map((o) => o.valor)))}). Manter estoque mínimo dos itens mais usados reduz o ciclo.` : 'Nenhuma OS aguardando material.',
+            aguard.length ? `${aguard.length} registro(s) parado(s) aguardando material (${money(sum(aguard.map((o) => o.valor)))}). Manter estoque mínimo dos itens mais usados reduz o ciclo.` : 'Nada parado aguardando material.',
           ],
         };
       },

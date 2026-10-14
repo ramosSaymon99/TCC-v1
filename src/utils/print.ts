@@ -64,9 +64,9 @@ ${blocoCliente(c)}
 }
 
 export function imprimirOS(o: OrdemServico, c: Cliente | undefined, e: Empresa, equipamento?: string, pecas: { nome: string; qtd: number }[] = [],
-  r: { ativo: string; profissional: string; materiais: string; material: string } = { ativo: 'Item', profissional: 'Responsável', materiais: 'Materiais', material: 'Material' }) {
-  abrir(`OS ${o.numero}`, `
-${cabecalho(e, 'Ordem de Serviço', o.numero, `Abertura ${date(o.abertura)} · Prazo ${date(o.prazo)}`)}
+  r: { ativo: string; profissional: string; materiais: string; material: string; ordem?: string } = { ativo: 'Item', profissional: 'Responsável', materiais: 'Materiais', material: 'Material' }) {
+  abrir(`${r.ordem ?? 'OS'} ${o.numero}`, `
+${cabecalho(e, r.ordem ?? 'Ordem de Serviço', o.numero, `Abertura ${date(o.abertura)} · Prazo ${date(o.prazo)}`)}
 ${blocoCliente(c)}
 <h2>Serviço</h2>
 <div class="box grid">

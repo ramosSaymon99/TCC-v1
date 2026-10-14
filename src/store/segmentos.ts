@@ -16,6 +16,12 @@ export interface Rotulos {
   materiais: string;    // plural (nome do estoque)
   profissional: string; // responsável pela OS: Técnico, Mecânico, Profissional...
   turmas: string;       // nome do módulo de turmas: Treinamentos, Cursos, Workshops...
+  ordem: string;        // singular da OS: Ordem de serviço, Pedido, Encomenda, Atendimento...
+  ordens: string;       // plural (nome do módulo)
+  sigla: string;        // forma curta usada em botões e alertas: OS, pedido, encomenda...
+  novaOrdem: string;    // texto do botão de criação: Nova OS, Novo pedido...
+  prefixo: string;      // prefixo da numeração: OS, PED, ENC, AT
+  catalogo: string;     // nome do catálogo: Serviços e Preços, Cardápio e Preços...
 }
 
 export interface PerfilNegocio {
@@ -48,7 +54,8 @@ export const LISTAS_EDITAVEIS: { id: ListaEditavel; rotulo: string }[] = [
 
 const R = (o: Partial<Rotulos>): Rotulos => ({
   ativo: 'Equipamento', ativos: 'Equipamentos', marca: 'Marca/modelo', serie: 'Identificação', aquisicao: 'Data de aquisição', usaGarantia: true,
-  material: 'Material', materiais: 'Materiais', profissional: 'Responsável', turmas: 'Cursos e Turmas', ...o,
+  material: 'Material', materiais: 'Materiais', profissional: 'Responsável', turmas: 'Cursos e Turmas',
+  ordem: 'Ordem de serviço', ordens: 'Ordens de Serviço', sigla: 'OS', novaOrdem: 'Nova OS', prefixo: 'OS', catalogo: 'Serviços e Preços', ...o,
 });
 const DESPESAS_BASE = ['Materiais e insumos', 'Transporte', 'Marketing', 'Software e assinaturas', 'Aluguel e contas', 'Impostos', 'Outros'];
 
@@ -97,12 +104,12 @@ export const SEGMENTOS: PerfilNegocio[] = [
     categoriasDespesa: ['Peças', 'Ferramentas', 'Aluguel e contas', 'Marketing', 'Impostos', 'Outros'],
   },
   {
-    id: 'beleza', nome: 'Beleza e estética', exemplos: 'Salão, barbearia, estética, manicure, depilação',
-    rotulos: R({ ativo: 'Ficha do cliente', ativos: 'Fichas de Clientes', marca: 'Tipo de pele/cabelo', serie: 'Observação técnica', aquisicao: 'Última avaliação', usaGarantia: false, material: 'Produto', materiais: 'Produtos', profissional: 'Profissional', turmas: 'Cursos' }),
-    categoriasServico: ['Cabelo', 'Unhas', 'Estética facial', 'Estética corporal', 'Barbearia', 'Depilação'],
+    id: 'beleza', nome: 'Beleza e estética', exemplos: 'Salão de beleza, estética, manicure, depilação, maquiagem, sobrancelha',
+    rotulos: R({ ativo: 'Ficha do cliente', ativos: 'Fichas de Clientes', marca: 'Tipo de pele/cabelo', serie: 'Observação técnica', aquisicao: 'Última avaliação', usaGarantia: false, material: 'Produto', materiais: 'Produtos', profissional: 'Profissional', turmas: 'Cursos', ordem: 'Atendimento', ordens: 'Atendimentos', sigla: 'atendimento', novaOrdem: 'Novo atendimento', prefixo: 'AT' }),
+    categoriasServico: ['Cabelo', 'Unhas', 'Estética facial', 'Estética corporal', 'Depilação', 'Maquiagem'],
     servicos: [
       ['Corte feminino', 'Cabelo', 90, 8, 1], ['Escova', 'Cabelo', 60, 6, 0.75], ['Coloração', 'Cabelo', 220, 60, 2], ['Manicure e pedicure', 'Unhas', 70, 10, 1.25],
-      ['Limpeza de pele', 'Estética facial', 160, 25, 1.25], ['Corte masculino', 'Barbearia', 50, 3, 0.5], ['Depilação pernas', 'Depilação', 80, 12, 0.75],
+      ['Limpeza de pele', 'Estética facial', 160, 25, 1.25], ['Maquiagem social', 'Maquiagem', 180, 20, 1.25], ['Depilação pernas', 'Depilação', 80, 12, 0.75],
     ],
     tiposAtivo: ['Ficha de cabelo', 'Ficha de pele', 'Anamnese', 'Outro'],
     categoriasMaterial: ['Cabelo', 'Unhas', 'Estética', 'Descartáveis', 'Revenda'],
@@ -113,7 +120,7 @@ export const SEGMENTOS: PerfilNegocio[] = [
   },
   {
     id: 'saude', nome: 'Saúde e bem-estar', exemplos: 'Clínica, consultório, odontologia, fisioterapia, psicologia, nutrição',
-    rotulos: R({ ativo: 'Prontuário', ativos: 'Prontuários', marca: 'Convênio', serie: 'Nº da carteirinha', aquisicao: 'Data de nascimento', usaGarantia: false, material: 'Insumo', materiais: 'Insumos', profissional: 'Profissional', turmas: 'Grupos e Cursos' }),
+    rotulos: R({ ativo: 'Prontuário', ativos: 'Prontuários', marca: 'Convênio', serie: 'Nº da carteirinha', aquisicao: 'Data de nascimento', usaGarantia: false, material: 'Insumo', materiais: 'Insumos', profissional: 'Profissional', turmas: 'Grupos e Cursos', ordem: 'Atendimento', ordens: 'Atendimentos', sigla: 'atendimento', novaOrdem: 'Novo atendimento', prefixo: 'AT' }),
     categoriasServico: ['Consulta', 'Retorno', 'Procedimento', 'Exame', 'Sessão', 'Pacote de tratamento'],
     servicos: [['Consulta', 'Consulta', 250, 10, 0.75], ['Retorno', 'Retorno', 120, 5, 0.5], ['Sessão de fisioterapia', 'Sessão', 140, 10, 1], ['Limpeza (profilaxia)', 'Procedimento', 220, 35, 1], ['Avaliação inicial', 'Consulta', 180, 5, 1]],
     tiposAtivo: ['Particular', 'Convênio', 'Outro'],
@@ -125,7 +132,7 @@ export const SEGMENTOS: PerfilNegocio[] = [
   },
   {
     id: 'educacao', nome: 'Educação e cursos', exemplos: 'Escola de idiomas, cursos livres, reforço escolar, música, autoescola',
-    rotulos: R({ ativo: 'Material do aluno', ativos: 'Materiais de Alunos', marca: 'Curso', serie: 'Matrícula', aquisicao: 'Data de entrega', usaGarantia: false, material: 'Material didático', materiais: 'Materiais Didáticos', profissional: 'Professor', turmas: 'Turmas' }),
+    rotulos: R({ ativo: 'Material do aluno', ativos: 'Materiais de Alunos', marca: 'Curso', serie: 'Matrícula', aquisicao: 'Data de entrega', usaGarantia: false, material: 'Material didático', materiais: 'Materiais Didáticos', profissional: 'Professor', turmas: 'Turmas', ordem: 'Solicitação', ordens: 'Solicitações', sigla: 'solicitação', novaOrdem: 'Nova solicitação', prefixo: 'SOL' }),
     categoriasServico: ['Curso regular', 'Aula particular', 'Workshop', 'Material didático', 'Matrícula'],
     servicos: [['Mensalidade curso regular', 'Curso regular', 380, 40, 8], ['Aula particular (hora)', 'Aula particular', 120, 0, 1], ['Workshop', 'Workshop', 250, 40, 4], ['Matrícula', 'Matrícula', 150, 0, 0.5], ['Apostila', 'Material didático', 90, 35, 0]],
     tiposAtivo: ['Livro', 'Apostila', 'Instrumento', 'Equipamento', 'Outro'],
@@ -149,7 +156,7 @@ export const SEGMENTOS: PerfilNegocio[] = [
   },
   {
     id: 'pet', nome: 'Pet shop e veterinária', exemplos: 'Banho e tosa, clínica veterinária, hotel e creche para pets',
-    rotulos: R({ ativo: 'Pet', ativos: 'Pets', marca: 'Espécie/raça', serie: 'Microchip / registro', aquisicao: 'Data de nascimento', usaGarantia: false, material: 'Produto', materiais: 'Produtos', profissional: 'Profissional', turmas: 'Cursos e Eventos' }),
+    rotulos: R({ ativo: 'Pet', ativos: 'Pets', marca: 'Espécie/raça', serie: 'Microchip / registro', aquisicao: 'Data de nascimento', usaGarantia: false, material: 'Produto', materiais: 'Produtos', profissional: 'Profissional', turmas: 'Cursos e Eventos', ordem: 'Atendimento', ordens: 'Atendimentos', sigla: 'atendimento', novaOrdem: 'Novo atendimento', prefixo: 'AT' }),
     categoriasServico: ['Banho e tosa', 'Consulta veterinária', 'Vacina', 'Hospedagem', 'Adestramento'],
     servicos: [['Banho (porte pequeno)', 'Banho e tosa', 60, 10, 1], ['Banho e tosa (porte médio)', 'Banho e tosa', 110, 18, 1.5], ['Consulta veterinária', 'Consulta veterinária', 180, 10, 0.75], ['Vacina V10', 'Vacina', 120, 55, 0.25], ['Diária de hospedagem', 'Hospedagem', 90, 25, 0]],
     tiposAtivo: ['Cão', 'Gato', 'Ave', 'Outro'],
@@ -161,7 +168,7 @@ export const SEGMENTOS: PerfilNegocio[] = [
   },
   {
     id: 'consultoria', nome: 'Consultoria, agência e serviços profissionais', exemplos: 'Contabilidade, marketing, advocacia, arquitetura, RH, design',
-    rotulos: R({ ativo: 'Projeto', ativos: 'Projetos', marca: 'Área', serie: 'Código do projeto', aquisicao: 'Data de início', usaGarantia: false, material: 'Recurso', materiais: 'Recursos', profissional: 'Consultor', turmas: 'Workshops' }),
+    rotulos: R({ ativo: 'Projeto', ativos: 'Projetos', marca: 'Área', serie: 'Código do projeto', aquisicao: 'Data de início', usaGarantia: false, material: 'Recurso', materiais: 'Recursos', profissional: 'Consultor', turmas: 'Workshops', ordem: 'Entrega', ordens: 'Entregas e Demandas', sigla: 'demanda', novaOrdem: 'Nova demanda', prefixo: 'DM' }),
     categoriasServico: ['Consultoria', 'Projeto', 'Assessoria mensal', 'Diagnóstico', 'Treinamento'],
     servicos: [['Hora de consultoria', 'Consultoria', 220, 0, 1], ['Diagnóstico inicial', 'Diagnóstico', 900, 50, 6], ['Projeto sob medida', 'Projeto', 4500, 300, 30], ['Assessoria mensal', 'Assessoria mensal', 1800, 100, 12], ['Workshop in company', 'Treinamento', 2500, 200, 8]],
     tiposAtivo: ['Projeto', 'Campanha', 'Processo', 'Outro'],
@@ -172,16 +179,97 @@ export const SEGMENTOS: PerfilNegocio[] = [
     categoriasDespesa: ['Terceiros e freelancers', 'Software e assinaturas', 'Deslocamento', 'Marketing', 'Impostos', 'Outros'],
   },
   {
-    id: 'eventos', nome: 'Eventos e alimentação', exemplos: 'Buffet, confeitaria, fotografia, decoração, som e iluminação',
+    id: 'eventos', nome: 'Eventos e festas', exemplos: 'Buffet, decoração, fotografia, som e iluminação, espaço de festas, cerimonial',
     rotulos: R({ ativo: 'Evento', ativos: 'Eventos', marca: 'Tipo de evento', serie: 'Local', aquisicao: 'Data do evento', usaGarantia: false, material: 'Insumo', materiais: 'Insumos', profissional: 'Responsável', turmas: 'Cursos e Oficinas' }),
-    categoriasServico: ['Buffet', 'Doces e bolos', 'Decoração', 'Fotografia e vídeo', 'Som e iluminação', 'Locação'],
-    servicos: [['Buffet (por pessoa)', 'Buffet', 85, 38, 0], ['Bolo decorado (kg)', 'Doces e bolos', 120, 45, 1], ['Decoração completa', 'Decoração', 2800, 900, 8], ['Cobertura fotográfica', 'Fotografia e vídeo', 1800, 150, 6], ['Som e iluminação', 'Som e iluminação', 1500, 200, 6]],
+    categoriasServico: ['Buffet', 'Cerimonial', 'Decoração', 'Fotografia e vídeo', 'Som e iluminação', 'Locação'],
+    servicos: [['Buffet (por pessoa)', 'Buffet', 85, 38, 0], ['Cerimonial completo', 'Cerimonial', 2200, 300, 10], ['Decoração completa', 'Decoração', 2800, 900, 8], ['Cobertura fotográfica', 'Fotografia e vídeo', 1800, 150, 6], ['Som e iluminação', 'Som e iluminação', 1500, 200, 6]],
     tiposAtivo: ['Casamento', 'Aniversário', 'Corporativo', 'Formatura', 'Outro'],
     categoriasMaterial: ['Alimentos', 'Bebidas', 'Descartáveis', 'Decoração', 'Equipamentos'],
     materiais: [['Farinha de trigo (kg)', 'Alimentos', 6, 0, 20], ['Refrigerante 2L', 'Bebidas', 7, 0, 24], ['Kit descartáveis (100 un.)', 'Descartáveis', 35, 0, 5], ['Toalha de mesa', 'Decoração', 25, 0, 30]],
     tiposCompromisso: ['Evento', 'Degustação', 'Visita técnica', 'Reunião'],
     tiposContrato: ['Fornecimento mensal', 'Pacote de eventos', 'Locação recorrente'],
     categoriasDespesa: ['Insumos', 'Equipe extra', 'Transporte', 'Marketing', 'Impostos', 'Outros'],
+  },
+  {
+    id: 'alimentacao', nome: 'Alimentação e encomendas', exemplos: 'Bolos, tortas, doces, salgados, marmitas, comida caseira, confeitaria, delivery',
+    rotulos: R({ ativo: 'Preferência do cliente', ativos: 'Preferências de Clientes', marca: 'Restrição alimentar', serie: 'Endereço de entrega', aquisicao: 'Data especial (aniversário)', usaGarantia: false, material: 'Insumo', materiais: 'Insumos', profissional: 'Produção', turmas: 'Cursos e Aulas', ordem: 'Encomenda', ordens: 'Encomendas', sigla: 'encomenda', novaOrdem: 'Nova encomenda', prefixo: 'ENC', catalogo: 'Cardápio e Preços' }),
+    categoriasServico: ['Bolos', 'Tortas', 'Doces', 'Salgados', 'Marmitas e refeições', 'Kits festa'],
+    servicos: [
+      ['Bolo de aniversário (kg)', 'Bolos', 110, 38, 2], ['Torta doce inteira', 'Tortas', 95, 32, 2], ['Torta salgada inteira', 'Tortas', 85, 30, 1.5], ['Docinhos (cento)', 'Doces', 120, 40, 3],
+      ['Salgados fritos (cento)', 'Salgados', 90, 35, 3], ['Marmita (unidade)', 'Marmitas e refeições', 22, 9, 0.2], ['Kit festa 20 pessoas', 'Kits festa', 380, 140, 5],
+    ],
+    tiposAtivo: ['Sem restrição', 'Sem glúten', 'Sem lactose', 'Vegano', 'Diabético', 'Outro'],
+    categoriasMaterial: ['Farinhas e grãos', 'Laticínios e ovos', 'Chocolates e confeitos', 'Carnes e hortifrúti', 'Embalagens'],
+    materiais: [['Farinha de trigo (kg)', 'Farinhas e grãos', 6, 0, 10], ['Açúcar (kg)', 'Farinhas e grãos', 5, 0, 10], ['Leite condensado (lata)', 'Laticínios e ovos', 7, 0, 12], ['Ovos (dúzia)', 'Laticínios e ovos', 12, 0, 5], ['Chocolate nobre (kg)', 'Chocolates e confeitos', 45, 0, 2], ['Embalagem para bolo', 'Embalagens', 4, 0, 10], ['Marmitex descartável (un.)', 'Embalagens', 1.2, 0, 50]],
+    tiposCompromisso: ['Produção', 'Entrega', 'Retirada', 'Degustação'],
+    tiposContrato: ['Marmitas semanais', 'Fornecimento para cafeteria/loja', 'Café corporativo mensal'],
+    categoriasDespesa: ['Insumos', 'Embalagens', 'Entregas e aplicativos', 'Gás e energia', 'Marketing', 'Impostos', 'Outros'],
+  },
+  {
+    id: 'barbearia', nome: 'Barbearia', exemplos: 'Barbearia, barber shop, clube de assinatura de corte',
+    rotulos: R({ ativo: 'Ficha do cliente', ativos: 'Fichas de Clientes', marca: 'Tipo de cabelo/barba', serie: 'Corte preferido', aquisicao: 'Último atendimento', usaGarantia: false, material: 'Produto', materiais: 'Produtos', profissional: 'Barbeiro', turmas: 'Cursos', ordem: 'Atendimento', ordens: 'Atendimentos', sigla: 'atendimento', novaOrdem: 'Novo atendimento', prefixo: 'AT' }),
+    categoriasServico: ['Corte', 'Barba', 'Combo', 'Química e coloração', 'Sobrancelha e estética', 'Venda de produtos'],
+    servicos: [
+      ['Corte masculino', 'Corte', 45, 3, 0.5], ['Barba', 'Barba', 35, 3, 0.5], ['Corte + barba', 'Combo', 70, 5, 1], ['Corte infantil', 'Corte', 35, 2, 0.5],
+      ['Pigmentação', 'Química e coloração', 50, 10, 0.5], ['Platinado', 'Química e coloração', 150, 40, 2], ['Sobrancelha', 'Sobrancelha e estética', 20, 1, 0.25],
+    ],
+    tiposAtivo: ['Cliente avulso', 'Assinante', 'Outro'],
+    categoriasMaterial: ['Finalizadores', 'Barba', 'Descartáveis', 'Química', 'Bebidas'],
+    materiais: [['Pomada modeladora', 'Finalizadores', 18, 45, 6], ['Óleo para barba', 'Barba', 20, 49, 4], ['Lâminas (caixa)', 'Descartáveis', 25, 0, 3], ['Toalhas descartáveis (pct)', 'Descartáveis', 30, 0, 3], ['Descolorante (pote)', 'Química', 35, 0, 2], ['Cerveja long neck', 'Bebidas', 4, 10, 24]],
+    tiposCompromisso: ['Corte', 'Barba', 'Combo', 'Bloqueio de agenda'],
+    tiposContrato: ['Clube de assinatura (corte ilimitado)', 'Plano mensal corte + barba', 'Pacote de cortes'],
+    categoriasDespesa: ['Produtos', 'Comissões', 'Aluguel e contas', 'Marketing', 'Impostos', 'Outros'],
+  },
+  {
+    id: 'moda', nome: 'Moda e vestuário', exemplos: 'Loja de roupas, calçados, acessórios, moda íntima, ateliê de costura e ajustes',
+    rotulos: R({ ativo: 'Ficha de medidas', ativos: 'Medidas e Preferências', marca: 'Estilo/preferência', serie: 'Tamanho (P/M/G/nº)', aquisicao: 'Última compra', usaGarantia: false, material: 'Produto', materiais: 'Produtos', profissional: 'Vendedor(a)', turmas: 'Eventos e Workshops', ordem: 'Pedido', ordens: 'Pedidos e Ajustes', sigla: 'pedido', novaOrdem: 'Novo pedido', prefixo: 'PED', catalogo: 'Produtos e Serviços' }),
+    categoriasServico: ['Venda de roupas', 'Calçados', 'Acessórios', 'Ajustes e costura', 'Personalização', 'Consultoria de estilo'],
+    servicos: [
+      ['Ajuste de barra', 'Ajustes e costura', 25, 3, 0.5], ['Ajuste de cintura', 'Ajustes e costura', 40, 4, 0.75], ['Bordado/estampa personalizada', 'Personalização', 60, 15, 1],
+      ['Consultoria de estilo', 'Consultoria de estilo', 250, 0, 2], ['Kit look completo', 'Venda de roupas', 320, 150, 0], ['Embalagem para presente', 'Acessórios', 10, 3, 0],
+    ],
+    tiposAtivo: ['Feminino', 'Masculino', 'Infantil', 'Plus size', 'Outro'],
+    categoriasMaterial: ['Roupas', 'Calçados', 'Acessórios', 'Aviamentos', 'Embalagens'],
+    materiais: [['Camiseta básica', 'Roupas', 25, 69.9, 10], ['Calça jeans', 'Roupas', 70, 159.9, 6], ['Vestido midi', 'Roupas', 60, 149.9, 4], ['Tênis casual', 'Calçados', 110, 229.9, 4], ['Bolsa transversal', 'Acessórios', 55, 129.9, 3], ['Linha de costura (cone)', 'Aviamentos', 8, 0, 5], ['Sacola personalizada', 'Embalagens', 1.5, 0, 50]],
+    tiposCompromisso: ['Atendimento personalizado', 'Prova de ajuste', 'Retirada de pedido', 'Chegada de coleção'],
+    tiposContrato: ['Clube de assinatura', 'Uniformes corporativos', 'Consignado para revendedora'],
+    categoriasDespesa: ['Compra de mercadoria', 'Embalagens', 'Comissões', 'Aluguel e contas', 'Marketing', 'Impostos', 'Outros'],
+  },
+  {
+    id: 'varejo', nome: 'Comércio e varejo', exemplos: 'Loja de presentes, cosméticos, papelaria, celulares e acessórios, utilidades, material de construção',
+    rotulos: R({ ativo: 'Compra com garantia', ativos: 'Garantias e Trocas', marca: 'Produto', serie: 'Nº da nota / série', aquisicao: 'Data da compra', usaGarantia: true, material: 'Produto', materiais: 'Produtos', profissional: 'Vendedor(a)', turmas: 'Eventos e Workshops', ordem: 'Pedido', ordens: 'Pedidos', sigla: 'pedido', novaOrdem: 'Novo pedido', prefixo: 'PED', catalogo: 'Produtos e Serviços' }),
+    categoriasServico: ['Venda balcão', 'Encomenda', 'Entrega', 'Instalação e montagem', 'Presentes'],
+    servicos: [['Entrega local', 'Entrega', 15, 5, 0.5], ['Montagem/instalação', 'Instalação e montagem', 80, 0, 1], ['Encomenda especial', 'Encomenda', 50, 0, 0.5], ['Embalagem para presente', 'Presentes', 8, 2, 0.1]],
+    tiposAtivo: ['Eletrônico', 'Utilidade', 'Vestuário', 'Outro'],
+    categoriasMaterial: ['Mais vendidos', 'Lançamentos', 'Acessórios', 'Embalagens', 'Outros'],
+    materiais: [['Produto campeão de vendas', 'Mais vendidos', 30, 69.9, 10], ['Lançamento da estação', 'Lançamentos', 45, 99.9, 5], ['Acessório complementar', 'Acessórios', 8, 24.9, 20], ['Sacola (un.)', 'Embalagens', 0.8, 0, 100]],
+    tiposCompromisso: ['Entrega', 'Chegada de mercadoria', 'Atendimento agendado', 'Ação promocional'],
+    tiposContrato: ['Fornecimento recorrente', 'Clube de fidelidade', 'Venda corporativa mensal'],
+    categoriasDespesa: ['Compra de mercadoria', 'Embalagens', 'Fretes', 'Comissões', 'Aluguel e contas', 'Marketing', 'Impostos', 'Outros'],
+  },
+  {
+    id: 'fitness', nome: 'Academia, esporte e bem-estar', exemplos: 'Academia, personal trainer, pilates, crossfit, dança, artes marciais, yoga',
+    rotulos: R({ ativo: 'Avaliação física', ativos: 'Avaliações Físicas', marca: 'Objetivo', serie: 'Restrição/lesão', aquisicao: 'Data da avaliação', usaGarantia: false, material: 'Produto', materiais: 'Produtos', profissional: 'Instrutor(a)', turmas: 'Turmas e Aulas', ordem: 'Atendimento', ordens: 'Atendimentos', sigla: 'atendimento', novaOrdem: 'Novo atendimento', prefixo: 'AT' }),
+    categoriasServico: ['Mensalidade', 'Personal', 'Aula avulsa', 'Pilates', 'Avaliação', 'Venda de produtos'],
+    servicos: [['Mensalidade musculação', 'Mensalidade', 110, 10, 0], ['Sessão de personal', 'Personal', 120, 0, 1], ['Aula de pilates', 'Pilates', 70, 5, 1], ['Aula avulsa (diária)', 'Aula avulsa', 30, 3, 1], ['Avaliação física', 'Avaliação', 80, 0, 0.75]],
+    tiposAtivo: ['Hipertrofia', 'Emagrecimento', 'Condicionamento', 'Reabilitação', 'Outro'],
+    categoriasMaterial: ['Suplementos', 'Bebidas', 'Vestuário', 'Higiene e limpeza', 'Outros'],
+    materiais: [['Whey protein 900g', 'Suplementos', 90, 150, 3], ['Água mineral', 'Bebidas', 1.2, 4, 24], ['Camiseta da academia', 'Vestuário', 25, 59, 5], ['Álcool 70% (L)', 'Higiene e limpeza', 12, 0, 4]],
+    tiposCompromisso: ['Aula', 'Avaliação', 'Personal', 'Aula experimental'],
+    tiposContrato: ['Plano mensal', 'Plano trimestral', 'Plano anual', 'Pacote de personal'],
+    categoriasDespesa: ['Instrutores', 'Manutenção de equipamentos', 'Aluguel e contas', 'Marketing', 'Impostos', 'Outros'],
+  },
+  {
+    id: 'limpeza', nome: 'Limpeza e serviços domésticos', exemplos: 'Diarista, limpeza pós-obra, higienização de estofados, lavanderia, jardinagem, piscinas',
+    rotulos: R({ ativo: 'Local atendido', ativos: 'Locais Atendidos', marca: 'Tipo de imóvel', serie: 'Endereço', aquisicao: 'Primeiro atendimento', usaGarantia: false, material: 'Produto', materiais: 'Produtos', profissional: 'Equipe', turmas: 'Treinamentos' }),
+    categoriasServico: ['Limpeza residencial', 'Limpeza comercial', 'Pós-obra', 'Higienização de estofados', 'Lavanderia', 'Jardinagem e piscina'],
+    servicos: [['Diária residencial', 'Limpeza residencial', 220, 30, 8], ['Limpeza comercial (visita)', 'Limpeza comercial', 350, 40, 4], ['Limpeza pós-obra (m²)', 'Pós-obra', 12, 2, 0.1], ['Higienização de sofá 3 lugares', 'Higienização de estofados', 220, 25, 2], ['Lavagem de tapete (m²)', 'Lavanderia', 30, 5, 0.3], ['Manutenção de piscina', 'Jardinagem e piscina', 180, 40, 1.5]],
+    tiposAtivo: ['Casa', 'Apartamento', 'Escritório', 'Comércio', 'Condomínio', 'Outro'],
+    categoriasMaterial: ['Produtos de limpeza', 'Descartáveis', 'Piscina', 'Jardinagem', 'Equipamentos'],
+    materiais: [['Desinfetante (5L)', 'Produtos de limpeza', 25, 0, 4], ['Detergente neutro (5L)', 'Produtos de limpeza', 20, 0, 4], ['Pano de microfibra', 'Descartáveis', 6, 0, 20], ['Saco de lixo 100L (pct)', 'Descartáveis', 30, 0, 5], ['Cloro para piscina (10kg)', 'Piscina', 160, 0, 2]],
+    tiposCompromisso: ['Limpeza', 'Visita para orçamento', 'Coleta', 'Entrega'],
+    tiposContrato: ['Limpeza semanal', 'Limpeza quinzenal', 'Conservação predial', 'Manutenção de piscina'],
+    categoriasDespesa: ['Produtos de limpeza', 'Equipe e diárias', 'Transporte', 'Marketing', 'Impostos', 'Outros'],
   },
 ];
 
@@ -216,8 +304,10 @@ export function rotuloModulo(id: string, padrao: string, p: PerfilNegocio) {
   if (id === 'equipamentos') return p.rotulos.ativos;
   if (id === 'estoque') return `Estoque de ${p.rotulos.materiais}`;
   if (id === 'treinamentos') return p.rotulos.turmas;
+  if (id === 'ordens') return p.rotulos.ordens;
+  if (id === 'servicos') return p.rotulos.catalogo;
   return padrao;
 }
 
 /** Categorias de despesa tratadas como custo variável (materiais, insumos, comissões, terceiros). */
-export const ehCustoVariavel = (categoria: string) => /peç|materia|insumo|produto|comiss|laborat|terceir|equipe extra|ração|medicament/i.test(categoria);
+export const ehCustoVariavel = (categoria: string) => /peç|materia|insumo|produto|comiss|laborat|terceir|equipe|ração|medicament|mercadoria|embalage|frete|entrega|instrutor/i.test(categoria);
