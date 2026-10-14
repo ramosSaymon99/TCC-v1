@@ -54,6 +54,7 @@ export default function Login() {
           {erro && <div className="error-text">{erro}</div>}
           <button className="btn btn-primary" style={{ height: 42 }} disabled={enviando}><LogIn size={16} /> {enviando ? 'Entrando…' : 'Entrar'}</button>
         </form>
+        <div className="assinatura-sistema assinatura-login">Powered by <span>Kaivo</span></div>
       </section>
     </div>
   );

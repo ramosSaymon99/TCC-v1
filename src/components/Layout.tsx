@@ -141,6 +141,7 @@ export default function Layout() {
           <button className="btn btn-ghost btn-sm" style={{ color: '#c9d6ee', width: '100%', justifyContent: 'flex-start' }} onClick={() => { logout(); nav('/login'); }}>
             <LogOut size={16} /> Sair
           </button>
+          <div className="assinatura-sistema">Powered by <span>Kaivo</span></div>
         </div>
       </aside>
       <div className={`scrim ${open ? 'open' : ''}`} onClick={() => setOpen(false)} />
