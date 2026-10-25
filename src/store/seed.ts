@@ -1,7 +1,7 @@
 import type {
   CategoriaServico, Cliente, Compromisso, Contrato, Database, Equipamento, Lancamento, Movimento, Oportunidade,
   Orcamento, OrdemServico, Peca, Servico, Tarefa, Turma, Usuario, Modulo, Perfil,
-  OrigemLead, Post, RedeSocial, FormatoPost, PilarConteudo, Seguidores,
+  OrigemLead, Post, RedeSocial, FormatoPost, PilarConteudo, Seguidores, Mensagem,
 } from '../types';
 import { addDays, lastMonths, pad, toISODate } from '../utils/format';
 import { inferirSegmento } from './segmentos';
@@ -394,9 +394,18 @@ export function createSeed(): Database {
     if (anteriores.length) o.postId = anteriores[anteriores.length - 1 - (i % Math.min(3, anteriores.length))].id;
   });
 
+  // ---------- WhatsApp: conversas de exemplo ----------
+  const tel = (c: Cliente) => `55${c.telefone.replace(/\D/g, '')}`;
+  const [maria, , carlos] = clientes;
+  const mensagens: Mensagem[] = [
+    { id: 'wa_demo1', direcao: 'Recebida', canal: 'API', status: 'Recebida', telefone: tel(maria), clienteId: maria.id, nome: maria.nome, texto: 'Bom dia! Meu notebook voltou a esquentar. Vocês conseguem olhar essa semana?', data: hora(-2, 9, 12) },
+    { id: 'wa_demo2', direcao: 'Enviada', canal: 'API', status: 'Lida', telefone: tel(maria), clienteId: maria.id, nome: maria.nome, texto: 'Olá, Maria! Conseguimos sim. Pode trazer amanhã às 10h que fazemos o diagnóstico na hora.', usuario: 'Saymon Ramos', data: hora(-2, 9, 20) },
+    { id: 'wa_demo3', direcao: 'Enviada', canal: 'API', status: 'Entregue', telefone: tel(carlos), clienteId: carlos.id, nome: carlos.nome, texto: 'Olá, Carlos! Seu serviço está pronto para retirada. Qualquer dúvida, é só responder esta mensagem.', referencia: 'OS', usuario: 'Saymon Ramos', data: hora(-1, 16, 45) },
+  ];
+
   return {
     clientes, orcamentos, oportunidades, ordens, equipamentos, compromissos, tarefas, lancamentos, usuarios,
-    servicos, pecas, movimentos, contratos, turmas, posts, seguidores,
+    servicos, pecas, movimentos, contratos, turmas, posts, seguidores, mensagens,
     permissoes: PERMISSOES_PADRAO,
     empresa: {
       nome: 'Pivot Hub', cnpj: '45.123.456/0001-78', telefone: '(27) 99999-0000', email: 'contato@pivothub.com',

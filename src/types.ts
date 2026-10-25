@@ -46,6 +46,7 @@ export interface Oportunidade {
   atualizadoEm: string;
   origem?: OrigemLead;   // canal que trouxe o lead (atribuição de marketing)
   postId?: string;       // post de rede social que gerou o contato, quando houver
+  telefone?: string;     // contato que chegou pelo WhatsApp e ainda não é cliente
 }
 
 export type RedeSocial = 'Instagram' | 'Facebook' | 'LinkedIn' | 'WhatsApp' | 'TikTok';
@@ -253,6 +254,41 @@ export interface Empresa {
   listas?: Partial<Record<'categoriasServico' | 'tiposAtivo' | 'categoriasMaterial' | 'tiposCompromisso' | 'tiposContrato' | 'categoriasDespesa', string[]>>;
 }
 
+/* ---------------- WhatsApp Business ---------------- */
+export type DirecaoMensagem = 'Enviada' | 'Recebida';
+/** API = Cloud API da Meta (envio automático); Link = aberto no WhatsApp do usuário com o texto pronto. */
+export type CanalMensagem = 'API' | 'Link';
+export type StatusMensagem = 'Enviada' | 'Entregue' | 'Lida' | 'Falhou' | 'Recebida' | 'Aberta no WhatsApp';
+export interface Mensagem {
+  id: string;
+  waId?: string;               // id da mensagem na Meta (wamid)
+  direcao: DirecaoMensagem;
+  canal: CanalMensagem;
+  status: StatusMensagem;
+  telefone: string;            // somente dígitos, com DDI
+  clienteId?: string;
+  nome?: string;
+  texto: string;
+  modelo?: boolean;            // enviada como modelo aprovado (fora da janela de 24 h)
+  referencia?: string;         // ex.: "OR-012", "OS-008", lançamento pendente
+  usuario?: string;
+  data: string;                // ISO
+  erro?: string;
+}
+export interface WhatsAppConfig {
+  configurado: boolean;
+  phoneNumberId: string;
+  wabaId: string;
+  numero: string;
+  nomeVerificado: string;
+  token: string;               // mascarado
+  appSecret: string;           // mascarado
+  verifyToken: string;
+  webhookUrl: string;
+  modelo: { nome: string; idioma: string };
+  ultimoEvento: string | null;
+}
+
 export interface Database {
   clientes: Cliente[];
   orcamentos: Orcamento[];
@@ -270,6 +306,7 @@ export interface Database {
   turmas: Turma[];
   posts: Post[];
   seguidores: Seguidores[];
+  mensagens: Mensagem[];
   permissoes: Record<Perfil, Modulo[]>;
   empresa: Empresa;
 }

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { Assinatura, Database, Empresa, Modulo, Perfil, Usuario } from '../types';
+import type { Assinatura, Database, Empresa, Mensagem, Modulo, Perfil, Usuario } from '../types';
 import { createSeed, migrar } from './seed';
 import { assinaturaDe, bloqueio, TENANT_PRINCIPAL } from './plataforma';
 import { perfilDaEmpresa, type PerfilNegocio } from './segmentos';
@@ -42,9 +42,14 @@ interface StoreValue {
   liberado: (m: Modulo) => boolean;
   toast: (text: string, kind?: Toast['kind']) => void;
   toasts: Toast[];
+  /** Inclui na tela uma mensagem que o servidor já gravou (envio pelo WhatsApp). */
+  registrarMensagem: (m: Mensagem) => void;
 }
 
 const Ctx = createContext<StoreValue | null>(null);
+
+/** Bases gravadas antes de uma coleção existir chegam sem ela: completa com lista vazia. */
+const completar = (d: Database): Database => (Array.isArray(d.mensagens) ? d : { ...d, mensagens: [] });
 
 export async function call<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
   const token = ls.get(TOKEN_KEY);
@@ -65,7 +70,8 @@ const tenantInicial = () => ls.get(TENANT_KEY) || TENANT_PRINCIPAL;
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [modo, setModo] = useState<Modo>('checking');
   const [tenant, setTenant] = useState<string>(tenantInicial);
-  const [db, setDb] = useState<Database>(() => (location.protocol.startsWith('http') ? createSeed() : loadTenantLocal(tenantInicial()) ?? createSeed()));
+  const [db, setDbBruto] = useState<Database>(() => completar(location.protocol.startsWith('http') ? createSeed() : loadTenantLocal(tenantInicial()) ?? createSeed()));
+  const setDb = useCallback((v: Database | ((cur: Database) => Database)) => setDbBruto((cur) => completar(typeof v === 'function' ? v(cur) : v)), []);
   const [assinatura, setAssinatura] = useState<Assinatura | null>(null);
   const [userId, setUserId] = useState<string | null>(() => ls.get(SESSION_KEY));
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -85,7 +91,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setAssinatura(null);
     // volta para a base principal (a tela de login lista os usuários de demonstração dela)
     setDb(modoRef.current === 'local' ? loadTenantLocal(TENANT_PRINCIPAL)! : createSeed());
-  }, []);
+  }, [setDb]);
 
   const recarregar = useCallback(async () => {
     try {
@@ -100,7 +106,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (err.status === 401 || err.bloqueado) { if (err.bloqueado) toast(err.message, 'error'); sair(); }
       else throw e;
     }
-  }, [sair, toast]);
+  }, [sair, toast, setDb]);
 
   // Detecta se existe a API do Worker; na primeira execução, popula o banco com os dados de demonstração.
   useEffect(() => {
@@ -222,8 +228,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       try { await call('/password', { method: 'POST', body: JSON.stringify({ nova, atual, userId: alvo }) }); return null; }
       catch (e) { return (e as Error).message; }
     },
+    registrarMensagem: (m) => setDb((cur) => ({ ...cur, mensagens: [m, ...cur.mensagens.filter((x) => x.id !== m.id)] })),
     can: (m) => !!user && liberado(m) && (user.perfil === 'Proprietário' || !!db.permissoes[user.perfil]?.includes(m)),
-  }), [db, user, modo, toasts, toast, tenant, assinatura, liberado, negocio, sair, sync, recarregar]);
+  }), [db, user, modo, toasts, toast, tenant, assinatura, liberado, negocio, sair, sync, recarregar, setDb]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

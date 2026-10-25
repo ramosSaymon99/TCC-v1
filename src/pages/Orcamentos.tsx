@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle2, Clock, Download, FileText, Percent, Plus, Printer, Send, Wallet, X } from 'lucide-react';
+import { CheckCircle2, Clock, Download, FileText, MessageCircle, Percent, Plus, Printer, Send, Wallet, X } from 'lucide-react';
 import { imprimirProposta } from '../utils/print';
 import { useClienteNome, useStore } from '../store/Store';
 import type { CategoriaServico, Orcamento, StatusOrcamento } from '../types';
@@ -8,6 +8,8 @@ import { Badge, Confirm, Empty, Kpi, Modal, PageHeader, Pager, RowMenu, SearchIn
 import { ClienteSelect, Field, Options, toNumber } from '../components/fields';
 import { addDays, date, downloadCSV, lastMonths, money, monthKey, monthLabel, normalize, pct, today, uid } from '../utils/format';
 import { comAtual } from '../store/segmentos';
+import { EnviarWhatsApp, type EnvioWhatsApp } from '../components/WhatsApp';
+import { msgOrcamento } from '../utils/whatsapp';
 
 const ABERTOS: StatusOrcamento[] = ['Orçamento', 'Em análise', 'Proposta enviada'];
 const TABS = [
@@ -31,6 +33,7 @@ export default function Orcamentos() {
   const [mes, setMes] = useState('');
   const [editing, setEditing] = useState<Orcamento | null>(null);
   const [deleting, setDeleting] = useState<Orcamento | null>(null);
+  const [whats, setWhats] = useState<(EnvioWhatsApp & { orc: Orcamento }) | null>(null);
   const filtro = params.get('filtro');
   const hoje = today();
   const lim = addDays(hoje, db.empresa.diasAlertaOrcamento);
@@ -141,6 +144,10 @@ export default function Orcamentos() {
                     <RowMenu actions={[
                       { label: 'Editar', onClick: () => setEditing(o) },
                       { label: <><Printer size={14} /> Gerar proposta (PDF)</>, onClick: () => imprimirProposta(o, db.clientes.find((c) => c.id === o.clienteId), db.empresa) },
+                      { label: <><MessageCircle size={14} /> Enviar pelo WhatsApp</>, onClick: () => {
+                        const c = db.clientes.find((x) => x.id === o.clienteId);
+                        setWhats({ telefone: c?.telefone, clienteId: c?.id, nome: c?.nome, texto: msgOrcamento(o, c, db.empresa), referencia: o.numero, orc: o });
+                      } },
                       { label: <><Send size={14} /> Marcar proposta enviada</>, onClick: () => setStatusOrc(o, 'Proposta enviada'), hidden: !ABERTOS.includes(o.status) || o.status === 'Proposta enviada' },
                       { label: <><CheckCircle2 size={14} /> Converter em {negocio.rotulos.sigla}</>, onClick: () => converter(o), hidden: !ABERTOS.includes(o.status) },
                       { label: 'Marcar como recusado', onClick: () => setStatusOrc(o, 'Recusado'), hidden: !ABERTOS.includes(o.status) },
@@ -161,6 +168,7 @@ export default function Orcamentos() {
         if (!o.clienteId || !o.servico) return toast('Preencha cliente e serviço.', 'error');
         upsert('orcamentos', o); toast('Orçamento salvo.'); setEditing(null);
       }} />}
+      {whats && <EnviarWhatsApp envio={whats} onClose={() => setWhats(null)} onEnviado={() => { if (whats.orc.status === 'Orçamento' || whats.orc.status === 'Em análise') setStatusOrc(whats.orc, 'Proposta enviada'); }} />}
       {deleting && <Confirm text={<>Excluir o orçamento <strong>{deleting.numero}</strong>?</>} onClose={() => setDeleting(null)} onConfirm={() => { remove('orcamentos', deleting.id); toast('Orçamento excluído.'); }} />}
     </>
   );

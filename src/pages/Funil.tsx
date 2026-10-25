@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { AlertCircle, Plus, Target, TrendingUp, Trash2, Wallet, Timer } from 'lucide-react';
+import { AlertCircle, MessageCircle, Plus, Target, TrendingUp, Trash2, Wallet, Timer } from 'lucide-react';
 import { useStore } from '../store/Store';
 import type { EtapaFunil, Oportunidade, OrigemLead } from '../types';
 import { COR_REDE, isRede, ORIGENS } from '../utils/social';
 import { Confirm, Kpi, Modal, PageHeader } from '../components/ui';
 import { ClienteSelect, Field, Options, toNumber } from '../components/fields';
 import { diffDays, money, moneyShort, pct, today, uid } from '../utils/format';
+import { EnviarWhatsApp, type EnvioWhatsApp } from '../components/WhatsApp';
+import { conversaDe, msgLivre, telefoneFormatado } from '../utils/whatsapp';
 
 const ETAPAS: { k: EtapaFunil; bg: string; fg: string; prob: number }[] = [
   { k: 'Leads', bg: '#1e6fe8', fg: '#fff', prob: 0.1 },
@@ -21,6 +23,7 @@ export default function Funil() {
   const [drag, setDrag] = useState<string | null>(null);
   const [over, setOver] = useState<EtapaFunil | null>(null);
   const [editing, setEditing] = useState<Oportunidade | null>(null);
+  const [whats, setWhats] = useState<EnvioWhatsApp | null>(null);
   const [deleting, setDeleting] = useState<Oportunidade | null>(null);
   const hoje = today();
 
@@ -85,6 +88,20 @@ export default function Funil() {
                       <div className="t">{o.titulo}</div>
                       <div className="s">{o.servico}</div>
                       {o.origem && <div className="s" style={{ fontSize: 11, color: isRede(o.origem) ? COR_REDE[o.origem] : undefined, fontWeight: 600 }}>via {o.origem}</div>}
+                      {(() => {
+                        const c = db.clientes.find((x) => x.id === o.clienteId);
+                        const tel = c?.telefone ?? o.telefone;
+                        if (!tel) return null;
+                        const ultima = conversaDe(db.mensagens, c, tel).filter((m) => m.direcao === 'Recebida').pop();
+                        return (
+                          <>
+                            {ultima && <div className="s" style={{ fontSize: 11.5, fontStyle: 'italic' }}>“{ultima.texto.slice(0, 70)}{ultima.texto.length > 70 ? '…' : ''}”</div>}
+                            <button className="btn btn-sm btn-whatsapp-outline" style={{ margin: '4px 0 2px', height: 26 }} onClick={(e) => { e.stopPropagation(); setWhats({ telefone: tel, clienteId: c?.id, nome: c?.nome ?? o.titulo, texto: msgLivre(c ?? { nome: o.titulo }, db.empresa) }); }}>
+                              <MessageCircle size={13} /> {telefoneFormatado(tel)}
+                            </button>
+                          </>
+                        );
+                      })()}
                       <div className="row">
                         <strong>{money(o.valor)}</strong>
                         {parado && <span className="stale row" style={{ gap: 3 }}><AlertCircle size={12} />{diffDays(hoje, o.atualizadoEm)}d parado</span>}
@@ -99,6 +116,7 @@ export default function Funil() {
         })}
       </div>
 
+      {whats && <EnviarWhatsApp envio={whats} onClose={() => setWhats(null)} />}
       {editing && (
         <OportunidadeForm o={editing} onClose={() => setEditing(null)}
           onDelete={db.oportunidades.some((x) => x.id === editing.id) ? () => { setDeleting(editing); setEditing(null); } : undefined}
@@ -128,6 +146,7 @@ function OportunidadeForm({ o, onClose, onSave, onDelete }: { o: Oportunidade; o
         </Field>
         <Field label="Nome do lead / cliente"><input className="input" value={f.titulo} onChange={(e) => set('titulo', e.target.value)} required /></Field>
         <Field label="Serviço de interesse"><input className="input" value={f.servico} onChange={(e) => set('servico', e.target.value)} /></Field>
+        {!f.clienteId && <Field label="WhatsApp / telefone"><input className="input" value={f.telefone ?? ''} onChange={(e) => set('telefone', e.target.value || undefined)} placeholder="(27) 99999-9999" /></Field>}
         <Field label="Valor estimado (R$)"><input className="input" inputMode="decimal" defaultValue={f.valor ? String(f.valor).replace('.', ',') : ''} onChange={(e) => set('valor', toNumber(e.target.value))} /></Field>
         <Field label="Etapa">
           <select className="select" value={f.etapa} onChange={(e) => set('etapa', e.target.value as EtapaFunil)}><Options items={ETAPAS.map((x) => x.k)} /></select>

@@ -394,3 +394,20 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .login-form { position: relative; }
 .assinatura-login { position: absolute; bottom: 18px; right: 24px; margin: 0; padding: 0; color: #a3afc2; }
 .assinatura-login span { color: #8a97ad; }
+
+/* ---------- WhatsApp ---------- */
+.text-whatsapp { color: #1fa855; }
+.btn-whatsapp { background: #1fa855; border-color: #1fa855; color: #fff; }
+.btn-whatsapp:hover:not(:disabled) { background: #188d47; border-color: #188d47; }
+.btn-whatsapp-outline { color: #188d47; border-color: #b7e4c7; background: #f0fbf4; }
+.btn-whatsapp-outline:hover { background: #dff5e7; }
+.alert-erro { background: var(--danger-bg); color: var(--danger); border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+.wa-conversa { display: flex; flex-direction: column; gap: 8px; background: #efeae2; border-radius: 10px; padding: 12px; max-height: 360px; overflow-y: auto; }
+.wa-conversa.compacta { max-height: 200px; }
+.wa-msg { max-width: 82%; padding: 7px 10px 5px; border-radius: 8px; box-shadow: 0 1px 1px rgba(0,0,0,.08); font-size: 13px; line-height: 1.4; }
+.wa-msg.in { align-self: flex-start; background: #fff; border-top-left-radius: 2px; }
+.wa-msg.out { align-self: flex-end; background: #d9fdd3; border-top-right-radius: 2px; }
+.wa-texto { white-space: pre-wrap; word-break: break-word; color: #111b21; }
+.wa-meta { font-size: 10.5px; color: #667781; text-align: right; margin-top: 2px; }
+.copiavel { display: flex; gap: 6px; align-items: center; }
+.copiavel code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font-size: 12px; }

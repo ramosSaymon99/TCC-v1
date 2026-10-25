@@ -7,23 +7,24 @@
  *   dados(tenant, col, id, data, updated_at) → registros de cada coleção em JSON
  *   ajustes(tenant, key, data)               → permissoes, empresa
  *   senhas(tenant, user_id, salt, hash)      → senhas (PBKDF2), nunca enviadas ao cliente
- *   secrets(key, value)                      → chave que assina as sessões
+ *   secrets(key, value)                      → chave que assina as sessões e credenciais do WhatsApp (wa:<tenant>)
  * O tenant "principal" é a empresa dona da plataforma (acesso ao console SaaS).
  * O tenant "_plataforma" guarda planos, assinantes, faturas e configurações comerciais.
- * Cobrança automática das assinaturas: ver worker/asaas.js.
+ * Cobrança automática das assinaturas: ver worker/asaas.js. WhatsApp Business: ver worker/whatsapp.js.
  */
 import { aposSalvarAssinante, rotasAdminAsaas, rotinaDiaria, valorMensalDe, webhookAsaas } from './asaas.js';
+import { rotasWhatsApp, webhookWhatsApp } from './whatsapp.js';
 
 
 const COLS = [
   'clientes', 'orcamentos', 'oportunidades', 'ordens', 'equipamentos', 'compromissos', 'tarefas', 'lancamentos', 'usuarios',
-  'servicos', 'pecas', 'movimentos', 'contratos', 'turmas', 'posts', 'seguidores',
+  'servicos', 'pecas', 'movimentos', 'contratos', 'turmas', 'posts', 'seguidores', 'mensagens',
 ];
 const MODULO = {
   clientes: 'clientes', orcamentos: 'orcamentos', oportunidades: 'funil', ordens: 'ordens', equipamentos: 'equipamentos',
   compromissos: 'agenda', tarefas: 'agenda', lancamentos: 'financeiro', usuarios: 'usuarios',
   servicos: 'servicos', pecas: 'estoque', movimentos: 'estoque', contratos: 'contratos', turmas: 'treinamentos',
-  posts: 'social', seguidores: 'social',
+  posts: 'social', seguidores: 'social', mensagens: 'clientes',
 };
 const TODOS_MODULOS = ['inicio', 'clientes', 'orcamentos', 'funil', 'contratos', 'ordens', 'equipamentos', 'estoque', 'treinamentos',
   'agenda', 'servicos', 'financeiro', 'relatorios', 'planejamento', 'social', 'usuarios', 'configuracoes'];
@@ -207,6 +208,14 @@ function podeEscrever(ctx, col, item) {
   return false;
 }
 
+/** Funções de banco entregues ao módulo do WhatsApp. */
+const utilWhatsApp = (env) => ({
+  json, erro,
+  upsert: (tenant, col, item) => upsertStmt(env, tenant, col, item).run(),
+  listar, getItem,
+  tenantExiste: async (t) => t === PRINCIPAL || !!(await getItem(env, PLAT, 'assinantes', t)),
+});
+
 /* ---------------- Rotas da empresa ---------------- */
 async function api(req, env, url) {
   await garantirEsquema(env);
@@ -214,6 +223,9 @@ async function api(req, env, url) {
   const method = req.method;
   // Webhook do Asaas: autenticado pelo token próprio (lê o corpo por conta própria)
   if (path === '/asaas/webhook' && method === 'POST') return webhookAsaas(req, env, json);
+  // Webhook do WhatsApp (Meta): verificação por GET e eventos assinados por POST, um endereço por empresa
+  const wh = path.match(/^\/whatsapp\/webhook\/([A-Za-z0-9_-]{2,40})$/);
+  if (wh) return webhookWhatsApp(req, env, wh[1], utilWhatsApp(env));
   const body = ['POST', 'PUT'].includes(method) ? await req.json().catch(() => null) : null;
 
   // Públicas
@@ -255,6 +267,7 @@ async function api(req, env, url) {
   const dono = user.perfil === 'Proprietário';
   const perms = (await getConfig(env, tenant, 'permissoes')) ?? {};
   const ctx = { tenant, user, dono, perms, assinatura };
+  if (path.startsWith('/whatsapp/')) return rotasWhatsApp(req, env, path.slice('/whatsapp'.length), method, body, ctx, utilWhatsApp(env));
 
   if (path.startsWith('/admin/')) {
     if (tenant !== PRINCIPAL || !dono) return erro('Acesso restrito ao administrador da plataforma.', 403);
@@ -448,6 +461,7 @@ async function admin(req, env, path, method, body, user) {
         env.DB.prepare('DELETE FROM senhas WHERE tenant = ?').bind(id),
         env.DB.prepare("DELETE FROM dados WHERE tenant = ? AND col = 'assinantes' AND id = ?").bind(PLAT, id),
         env.DB.prepare("DELETE FROM dados WHERE tenant = ? AND col = 'faturas' AND json_extract(data, '$.assinanteId') = ?").bind(PLAT, id),
+        env.DB.prepare('DELETE FROM secrets WHERE key = ?').bind(`wa:${id}`),
       ]);
       return json({ ok: true });
     }
