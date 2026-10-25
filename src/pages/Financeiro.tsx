@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { ArrowDownCircle, ArrowUpCircle, CheckCircle2, Download, Plus, Trash2, Wallet } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, CheckCircle2, Download, MessageCircle, Plus, Trash2, Wallet } from 'lucide-react';
 import { useClienteNome, useStore } from '../store/Store';
 import type { Lancamento } from '../types';
 import { Badge, Confirm, Empty, Kpi, Modal, PageHeader, Pager, RowMenu, SearchInput, Th, Trend, useSortPage } from '../components/ui';
@@ -9,6 +9,8 @@ import { ClienteSelect, Field, Options, toNumber } from '../components/fields';
 import { addDays, date, diffDays, downloadCSV, money, moneyShort, monthKey, monthLabel, normalize, parseDate, pct, toISODate, today, uid, variation } from '../utils/format';
 import { resumoPeriodo } from '../utils/metrics';
 import { comAtual } from '../store/segmentos';
+import { EnviarWhatsApp, type EnvioWhatsApp } from '../components/WhatsApp';
+import { msgCobranca } from '../utils/whatsapp';
 
 const CORES = ['#1e6fe8', '#12336d', '#7fb2f6', '#f59e0b', '#16a34a', '#94a3b8'];
 
@@ -24,6 +26,7 @@ export default function Financeiro() {
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState<Lancamento | null>(null);
   const [deleting, setDeleting] = useState<Lancamento | null>(null);
+  const [whats, setWhats] = useState<EnvioWhatsApp | null>(null);
 
   // Período anterior equivalente (mesmo nº de dias imediatamente antes)
   const dias = diffDays(ate, de) + 1;
@@ -187,6 +190,10 @@ export default function Financeiro() {
                   <td className="right">
                     <RowMenu actions={[
                       { label: <><CheckCircle2 size={14} /> Marcar como pago</>, hidden: l.status === 'Pago', onClick: () => { upsert('lancamentos', { ...l, status: 'Pago' }); toast('Lançamento baixado.'); } },
+                      { label: <><MessageCircle size={14} /> Cobrar pelo WhatsApp</>, hidden: l.tipo !== 'Receita' || l.status === 'Pago' || !l.clienteId, onClick: () => {
+                        const c = db.clientes.find((x) => x.id === l.clienteId);
+                        setWhats({ telefone: c?.telefone, clienteId: c?.id, nome: c?.nome, texto: msgCobranca(l, c, db.empresa), referencia: 'Cobrança' });
+                      } },
                       { label: 'Editar', onClick: () => setEditing(l) },
                       { label: <><Trash2 size={14} /> Excluir</>, danger: true, onClick: () => setDeleting(l) },
                     ]} />
@@ -204,6 +211,7 @@ export default function Financeiro() {
         if (!l.descricao || l.valor <= 0) return toast('Informe descrição e valor maior que zero.', 'error');
         upsert('lancamentos', l); toast('Lançamento salvo.'); setEditing(null);
       }} />}
+      {whats && <EnviarWhatsApp envio={whats} onClose={() => setWhats(null)} />}
       {deleting && <Confirm text={<>Excluir o lançamento <strong>{deleting.descricao}</strong> de {money(deleting.valor)}?</>} onClose={() => setDeleting(null)} onConfirm={() => { remove('lancamentos', deleting.id); toast('Lançamento excluído.'); }} />}
     </>
   );

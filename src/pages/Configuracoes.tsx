@@ -7,6 +7,7 @@ import { LISTAS_EDITAVEIS, rotuloModulo, SEGMENTOS, segmentoPorId, type ListaEdi
 import { MODULOS } from '../store/seed';
 import { Field, toNumber } from '../components/fields';
 import { date, money, today, uid } from '../utils/format';
+import { WhatsAppCard } from '../components/WhatsApp';
 
 export default function Configuracoes() {
   const { db, setEmpresa, resetDemo, replaceDb, changePassword, modo, toast, assinatura, negocio } = useStore();
@@ -46,6 +47,7 @@ export default function Configuracoes() {
     <>
       <PageHeader title="Configurações" subtitle="Dados da empresa, segmento do negócio, metas e gestão dos dados do sistema." />
       <SegmentoCard />
+      <WhatsAppCard />
       {cliente && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-head">

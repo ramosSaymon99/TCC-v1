@@ -19,6 +19,7 @@ export const MODULO_DA_COLECAO: Record<string, Modulo> = {
   clientes: 'clientes', orcamentos: 'orcamentos', oportunidades: 'funil', ordens: 'ordens', equipamentos: 'equipamentos',
   compromissos: 'agenda', tarefas: 'agenda', lancamentos: 'financeiro', usuarios: 'usuarios', servicos: 'servicos',
   pecas: 'estoque', movimentos: 'estoque', contratos: 'contratos', turmas: 'treinamentos', posts: 'social', seguidores: 'social',
+  mensagens: 'clientes',
 };
 
 const BASICO: Modulo[] = ['inicio', 'clientes', 'orcamentos', 'ordens', 'agenda', 'servicos', 'financeiro', 'usuarios', 'configuracoes'];
@@ -160,7 +161,7 @@ export function criarBaseVazia(a: Pick<Assinante, 'empresa' | 'cnpj' | 'telefone
     pecas: comCatalogo ? seg.materiais.map(([nome, categoria, custoUnit, precoVenda], i) => ({
       id: `mt${i + 1}`, nome, categoria, sku: `${seg.id.slice(0, 3).toUpperCase()}-${String(i + 1).padStart(3, '0')}`, quantidade: 0, minimo: 0, custoUnit, precoVenda,
     })) : [],
-    movimentos: [], contratos: [], turmas: [], posts: [], seguidores: [],
+    movimentos: [], contratos: [], turmas: [], posts: [], seguidores: [], mensagens: [],
     permissoes: PERMISSOES_PADRAO,
     empresa: {
       nome: a.empresa, cnpj: a.cnpj, telefone: a.telefone, email: a.email.trim().toLowerCase(), endereco: a.cidade,

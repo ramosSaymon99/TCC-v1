@@ -61,6 +61,31 @@ O que acontece sozinho:
 
 O ambiente é deduzido do prefixo da chave (`$aact_hmlg_` = sandbox, `$aact_prod_` = produção) ou definido pela variável `ASAAS_AMBIENTE`. Para ir à produção: troque o secret pela chave de produção e clique em **Reconfigurar webhook**.
 
+## WhatsApp Business
+
+Cada empresa conecta o **próprio número** do WhatsApp Business. Há dois modos:
+
+- **Modo link (sem configuração):** nos botões de WhatsApp, o sistema abre o WhatsApp do usuário com a mensagem pronta (`wa.me`). Funciona desde o primeiro dia e também no modo local.
+- **Conectado à API oficial (Cloud API da Meta):** as mensagens saem direto do sistema, o status (entregue/lida) é atualizado, as respostas dos clientes ficam no histórico e **contatos novos viram oportunidades no Funil** (origem WhatsApp).
+
+Onde aparece:
+
+- **Orçamentos** → menu da linha → *Enviar pelo WhatsApp* (proposta com número, serviço, valor e validade; marca como "Proposta enviada").
+- **Ordens de Serviço** → *Avisar cliente pelo WhatsApp* (texto conforme o status: concluída, aguardando material, andamento).
+- **Financeiro** → receitas pendentes → *Cobrar pelo WhatsApp*.
+- **Clientes** → painel → aba *WhatsApp* com a conversa e *Nova mensagem*.
+- **Funil** → cartões de leads com o telefone, a última mensagem recebida e o atalho de resposta.
+
+### Como conectar (API oficial)
+
+1. Em developers.facebook.com: crie um app do tipo **Business** e adicione o produto **WhatsApp**; cadastre e verifique o número da empresa.
+2. No Gerenciador de Negócios: crie um **usuário do sistema**, dê acesso ao app e à conta do WhatsApp e gere um **token permanente** com as permissões `whatsapp_business_messaging` e `whatsapp_business_management`.
+3. No Pivot Hub: *Configurações → WhatsApp Business → Conectar* e informe o **Phone number ID**, o **token** e o **App secret** (*Configurações do app → Básico*). O sistema valida os dados na Meta antes de salvar. Token e App secret ficam só no banco do servidor e nunca voltam para o navegador.
+4. Copie a **URL de retorno** (`/api/whatsapp/webhook/<empresa>`) e o **token de verificação** mostrados no cartão e cole em *WhatsApp → Configuração → Webhook* no app da Meta; assine o campo **messages**.
+5. Opcional: cadastre e aprove na Meta um **modelo de mensagem** (ex.: `aviso_cliente`, corpo com `{{1}}` = nome e `{{2}}` = mensagem) e informe o nome no cartão. Fora da janela de 24 h desde a última mensagem do cliente, a Meta só aceita modelos aprovados; o Pivot Hub reenvia automaticamente como modelo quando o texto livre é recusado.
+
+Segurança: o webhook só aceita eventos com a assinatura `X-Hub-Signature-256` válida (HMAC com o App secret); eventos repetidos são ignorados. Variáveis opcionais do Worker: `WHATSAPP_GRAPH_VERSION` (versão da Graph API, padrão `v23.0`) e `WHATSAPP_GRAPH_URL` (usada em testes).
+
 ## Tecnologias
 
 React 18 + TypeScript + Vite, React Router, Recharts e Lucide Icons. Back-end em Cloudflare Workers com banco Cloudflare D1.

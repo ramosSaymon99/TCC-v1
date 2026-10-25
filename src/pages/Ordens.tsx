@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, CheckCircle2, Download, Gauge, Plus, Printer, Smile, Timer, Wrench, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Download, Gauge, MessageCircle, Plus, Printer, Smile, Timer, Wrench, X } from 'lucide-react';
 import { imprimirOS } from '../utils/print';
 import { useClienteNome, useStore } from '../store/Store';
 import type { CategoriaServico, OrdemServico, StatusOS } from '../types';
@@ -9,6 +9,8 @@ import { ClienteSelect, Field, Options, toNumber } from '../components/fields';
 import { addDays, date, diffDays, downloadCSV, lastMonths, money, monthKey, monthLabel, normalize, pct, today, uid } from '../utils/format';
 import { ABERTAS } from '../utils/metrics';
 import { comAtual } from '../store/segmentos';
+import { EnviarWhatsApp, type EnvioWhatsApp } from '../components/WhatsApp';
+import { msgOrdem } from '../utils/whatsapp';
 
 type Row = OrdemServico & { cliente: string; atrasada: boolean };
 const STATUS: StatusOS[] = ['Aberta', 'Em andamento', 'Aguardando material', 'Finalizada', 'Cancelada'];
@@ -23,6 +25,7 @@ export default function Ordens() {
   const [mes, setMes] = useState('');
   const [editing, setEditing] = useState<OrdemServico | null>(() => db.ordens.find((o) => o.id === params.get('id')) ?? null);
   const [deleting, setDeleting] = useState<OrdemServico | null>(null);
+  const [whats, setWhats] = useState<EnvioWhatsApp | null>(null);
   const filtro = params.get('filtro');
   const hoje = today();
 
@@ -126,6 +129,10 @@ export default function Ordens() {
                       { label: <><Printer size={14} /> Imprimir {rt.sigla} / termo</>, onClick: () => imprimirOS(o, db.clientes.find((c) => c.id === o.clienteId), db.empresa,
                         db.equipamentos.find((e) => e.id === o.equipamentoId)?.nome,
                         db.movimentos.filter((m) => m.osId === o.id && m.tipo === 'Saída').map((m) => ({ nome: db.pecas.find((p) => p.id === m.pecaId)?.nome ?? negocio.rotulos.material, qtd: m.quantidade })), negocio.rotulos) },
+                      { label: <><MessageCircle size={14} /> Avisar cliente pelo WhatsApp</>, onClick: () => {
+                        const c = db.clientes.find((x) => x.id === o.clienteId);
+                        setWhats({ telefone: c?.telefone, clienteId: c?.id, nome: c?.nome, texto: msgOrdem(o, c, db.empresa, rt), referencia: o.numero });
+                      } },
                       ...STATUS.filter((st) => st !== o.status).map((st) => ({ label: `Mudar para: ${st}`, onClick: () => mudarStatus(o, st) })),
                       { label: 'Excluir', danger: true, onClick: () => setDeleting(o) },
                     ]} />
@@ -146,6 +153,7 @@ export default function Ordens() {
         else { upsert('ordens', o); toast('Ordem de serviço salva.'); }
         setEditing(null);
       }} />}
+      {whats && <EnviarWhatsApp envio={whats} onClose={() => setWhats(null)} />}
       {deleting && <Confirm text={<>Excluir a <strong>{deleting.numero}</strong>?</>} onClose={() => setDeleting(null)} onConfirm={() => { remove('ordens', deleting.id); toast('OS excluída.'); }} />}
     </>
   );

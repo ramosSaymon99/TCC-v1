@@ -6,6 +6,8 @@ import type { Cliente } from '../types';
 import { Avatar, Badge, Confirm, Empty, Modal, PageHeader, Pager, SearchInput, Th, useSortPage } from '../components/ui';
 import { Field, Options } from '../components/fields';
 import { addDays, date, diffDays, downloadCSV, money, normalize, today, uid } from '../utils/format';
+import { BotaoWhatsApp, Conversa, EnviarWhatsApp, type EnvioWhatsApp } from '../components/WhatsApp';
+import { conversaDe, msgLivre } from '../utils/whatsapp';
 
 type Row = Cliente & { ultimaCompra: string; receita12m: number; pedidos: number; risco: boolean };
 
@@ -22,7 +24,7 @@ export default function Clientes() {
   const [status, setStatus] = useState('');
   const [editing, setEditing] = useState<Cliente | null>(null);
   const [deleting, setDeleting] = useState<Cliente | null>(null);
-  const [tab, setTab] = useState<'dados' | 'historico' | 'servicos' | 'orcamentos'>('dados');
+  const [tab, setTab] = useState<'dados' | 'historico' | 'servicos' | 'orcamentos' | 'whatsapp'>('dados');
   const filtro = params.get('filtro');
   const selId = params.get('id');
   const hoje = today();
@@ -145,9 +147,12 @@ export default function Clientes() {
 }
 
 function ClientePanel({ c, tab, setTab, onClose, onEdit }: {
-  c: Row; tab: string; setTab: (t: 'dados' | 'historico' | 'servicos' | 'orcamentos') => void; onClose: () => void; onEdit: () => void;
+  c: Row; tab: string; setTab: (t: 'dados' | 'historico' | 'servicos' | 'orcamentos' | 'whatsapp') => void; onClose: () => void; onEdit: () => void;
 }) {
   const { db, negocio } = useStore();
+  const [whats, setWhats] = useState<EnvioWhatsApp | null>(null);
+  const conversa = conversaDe(db.mensagens, c);
+  const novaMensagem = () => setWhats({ telefone: c.telefone, clienteId: c.id, nome: c.nome, texto: msgLivre(c, db.empresa) });
   const hist = db.lancamentos.filter((l) => l.clienteId === c.id && l.tipo === 'Receita').sort((a, b) => b.data.localeCompare(a.data));
   const os = db.ordens.filter((o) => o.clienteId === c.id).sort((a, b) => b.abertura.localeCompare(a.abertura));
   const orc = db.orcamentos.filter((o) => o.clienteId === c.id).sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
@@ -157,6 +162,7 @@ function ClientePanel({ c, tab, setTab, onClose, onEdit }: {
 
   return (
     <aside className="card side-panel">
+      {whats && <EnviarWhatsApp envio={whats} onClose={() => setWhats(null)} />}
       <div className="panel-head">
         <div className="person">
           <Avatar nome={c.nome} size="lg" />
@@ -172,8 +178,8 @@ function ClientePanel({ c, tab, setTab, onClose, onEdit }: {
         <div className="card card-pad" style={{ padding: 10, boxShadow: 'none' }}><div className="small muted">Ticket médio</div><div className="strong">{money(hist.length ? total / hist.length : 0)}</div></div>
       </div>
       <div className="tabs">
-        {([['dados', 'Dados'], ['historico', 'Histórico'], ['servicos', 'Serviços'], ['orcamentos', 'Orçamentos']] as const).map(([k, l]) => (
-          <button key={k} style={{ padding: '12px 8px' }} className={`tab ${tab === k ? 'active' : ''}`} onClick={() => setTab(k)}>{l}</button>
+        {([['dados', 'Dados'], ['historico', 'Compras'], ['servicos', 'Serviços'], ['orcamentos', 'Orçam.'], ['whatsapp', `WhatsApp${conversa.length ? ` ${conversa.length}` : ''}`]] as const).map(([k, l]) => (
+          <button key={k} style={{ padding: '12px 6px', fontSize: 12.5, flex: 1, whiteSpace: 'nowrap' }} className={`tab ${tab === k ? 'active' : ''}`} onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
       <div className="panel-body" style={{ paddingTop: 16 }}>
@@ -182,7 +188,7 @@ function ClientePanel({ c, tab, setTab, onClose, onEdit }: {
             <dl className="dl">
               <div><dt>Nome completo</dt><dd>{c.nome}</dd></div>
               <div><dt>{c.tipo === 'Pessoa Física' ? 'CPF' : 'CNPJ'}</dt><dd>{c.documento || '—'}</dd></div>
-              <div><dt>Telefone</dt><dd>{c.telefone}</dd></div>
+              <div><dt>Telefone</dt><dd className="row" style={{ gap: 8, flexWrap: 'wrap' }}>{c.telefone || '—'}{c.telefone && <BotaoWhatsApp onClick={novaMensagem} label="Conversar" />}</dd></div>
               <div><dt>E-mail</dt><dd>{c.email}</dd></div>
               <div><dt>Endereço</dt><dd>{c.endereco}{c.cidade ? ` - ${c.cidade}` : ''}</dd></div>
               <div><dt>Status</dt><dd><Badge>{c.status}</Badge></dd></div>
@@ -194,6 +200,13 @@ function ClientePanel({ c, tab, setTab, onClose, onEdit }: {
               </div>
             )}
             <button className="btn btn-primary" style={{ width: '100%', marginTop: 16 }} onClick={onEdit}><Pencil size={15} /> Editar</button>
+          </>
+        )}
+        {tab === 'whatsapp' && (
+          <>
+            <Conversa mensagens={conversa} />
+            <button className="btn btn-whatsapp" style={{ width: '100%', marginTop: 12 }} onClick={novaMensagem} disabled={!c.telefone}>Nova mensagem</button>
+            {!c.telefone && <div className="small muted" style={{ marginTop: 6 }}>Cadastre o telefone do cliente para conversar pelo WhatsApp.</div>}
           </>
         )}
         {tab === 'historico' && (
