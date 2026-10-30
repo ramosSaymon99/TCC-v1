@@ -1,0 +1,19 @@
+{
+  "name": "controle-equipamentos",
+  "version": "1.0.0",
+  "description": "Aplicação web para controle de entregas, devoluções, trocas e estoque de equipamentos em um provedor de internet",
+  "private": true,
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch server.js",
+    "seed": "node --disable-warning=ExperimentalWarning scripts/seed.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

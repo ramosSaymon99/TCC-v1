@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Controle de entregas, devoluções, trocas e estoque de equipamentos do provedor de internet">
+  <title>Controle de Equipamentos</title>
+  <link rel="icon" href="img/icone.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+  <header class="topo">
+    <button class="menu-botao" type="button" aria-label="Abrir menu" aria-controls="menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <a class="marca" href="#/inicio">
+      <img src="img/icone.svg" alt="" width="28" height="28">
+      <span>Controle de Equipamentos</span>
+    </a>
+  </header>
+
+  <nav id="menu" class="menu" aria-label="Menu principal">
+    <a class="marca marca-menu" href="#/inicio">
+      <img src="img/icone.svg" alt="" width="30" height="30">
+      <span>Controle de<br><strong>Equipamentos</strong></span>
+    </a>
+    <ul>
+      <li><a href="#/inicio" data-rota="inicio"><span class="ico" aria-hidden="true">◧</span>Início</a></li>
+      <li class="grupo">Movimentações</li>
+      <li><a href="#/entrega" data-rota="entrega"><span class="ico" aria-hidden="true">↗</span>Entrega</a></li>
+      <li><a href="#/devolucao" data-rota="devolucao"><span class="ico" aria-hidden="true">↙</span>Devolução</a></li>
+      <li><a href="#/troca" data-rota="troca"><span class="ico" aria-hidden="true">⇄</span>Troca</a></li>
+      <li class="grupo">Estoque</li>
+      <li><a href="#/estoque" data-rota="estoque"><span class="ico" aria-hidden="true">☰</span>Estoque e histórico</a></li>
+      <li><a href="#/cadastro" data-rota="cadastro"><span class="ico" aria-hidden="true">＋</span>Cadastro de equipamentos</a></li>
+    </ul>
+  </nav>
+
+  <main id="conteudo" class="conteudo" tabindex="-1">
+    <p class="carregando">Carregando…</p>
+  </main>
+
+  <div id="avisos" class="avisos" role="status" aria-live="polite"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
