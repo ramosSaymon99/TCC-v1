@@ -2,8 +2,19 @@
 // Uso: npm run seed
 import { db } from '../src/db.js';
 import * as s from '../src/servicos.js';
+import { gerarHash } from '../src/auth.js';
 
-db.exec('DELETE FROM movimentacoes; DELETE FROM trocas; DELETE FROM equipamentos; DELETE FROM sqlite_sequence;');
+db.exec(`DELETE FROM movimentacoes; DELETE FROM trocas; DELETE FROM equipamentos;
+  DELETE FROM sessoes; DELETE FROM usuarios; DELETE FROM sqlite_sequence;`);
+
+// Usuários de demonstração (senhas definitivas, sem troca obrigatória).
+const usuariosDemo = [
+  ['Juliana Lima', 'admin@provedor.local', 'admin123', 'administrador'],
+  ['Carlos Souza', 'tecnico@provedor.local', 'tecnico123', 'operador'],
+];
+for (const [nome, email, senha, perfil] of usuariosDemo) {
+  db.prepare('INSERT INTO usuarios (nome, email, senha_hash, perfil) VALUES (?, ?, ?, ?)').run(nome, email, gerarHash(senha), perfil);
+}
 
 // Gerador pseudoaleatório com semente fixa: a demonstração é sempre a mesma.
 let semente = 42;
@@ -125,3 +136,4 @@ for (let d = new Date(inicio); d <= new Date(); d.setDate(d.getDate() + 1)) {
 
 const r = s.resumo();
 console.log(`Base de demonstração criada: ${r.total} equipamentos.`, r.por_situacao);
+console.log('Acessos: admin@provedor.local / admin123 (administrador) · tecnico@provedor.local / tecnico123 (operador)');

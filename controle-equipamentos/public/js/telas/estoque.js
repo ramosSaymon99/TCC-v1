@@ -1,7 +1,7 @@
 // Tela Estoque e histórico: pesquisa de aparelhos, detalhe com linha do tempo e avaliação técnica.
 import { api } from '../api.js';
 import {
-  esc, opcoes, selo, dataBR, dias, numero, enviar, aviso, lerFormulario, lembrarResponsavel, camposComuns, exportarCsv,
+  esc, opcoes, selo, dataBR, dias, numero, enviar, aviso, lerFormulario, camposComuns, exportarCsv,
 } from '../ui.js';
 import { rotuloMov } from './inicio.js';
 
@@ -127,7 +127,9 @@ export async function renderizar(raiz, params) {
 
 async function detalhe(id, op, aoAlterar, sincronizarEndereco) {
   document.querySelectorAll('.painel, .painel-fundo').forEach((el) => el.remove());
+  const tela = document.querySelector('#conteudo > div');
   const e = await api.equipamento(id);
+  if (tela !== document.querySelector('#conteudo > div')) return; // o usuário já mudou de tela
   sincronizarEndereco({ id: e.id });
   document.querySelectorAll('tr[data-id]').forEach((tr) => tr.classList.toggle('selecionada', tr.dataset.id === String(e.id)));
 
@@ -185,7 +187,6 @@ async function detalhe(id, op, aoAlterar, sincronizarEndereco) {
     const dados = { ...lerFormulario(form), equipamento_id: e.id };
     const r = await enviar(form, () => api.avaliar(dados));
     if (!r) return;
-    lembrarResponsavel(dados.responsavel);
     aviso(`Avaliação registrada: ${r.numero_serie} → ${op.situacoes[r.situacao]}.`, 'sucesso');
     await Promise.all([opcoes(true), aoAlterar()]);
     detalhe(e.id, op, aoAlterar, sincronizarEndereco);
@@ -236,7 +237,8 @@ function itemHistorico(m, op) {
   }
   if (m.situacao_nova && !['cadastro', 'avaliacao'].includes(m.tipo)) partes.push(`→ ${esc(op.situacoes[m.situacao_nova])}`);
   return `<li class="t-${m.tipo}">
-    <div class="quando">${dataBR(m.data)} · ${esc(m.responsavel)}</div>
+    <div class="quando">${dataBR(m.data)} · ${esc(m.responsavel)}${
+      m.registrado_por && m.registrado_por !== m.responsavel ? ` · lançado por ${esc(m.registrado_por)}` : ''}</div>
     <strong>${rotuloMov(m, op)}</strong>
     ${partes.length ? `<div class="detalhe">${partes.join(' · ')}</div>` : ''}
     ${m.observacao ? `<div class="detalhe">“${esc(m.observacao)}”</div>` : ''}

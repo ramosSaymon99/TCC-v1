@@ -1,6 +1,6 @@
 // Tela Cadastro de equipamentos: um aparelho ou um lote inteiro (um número de série por linha).
 import { api } from '../api.js';
-import { esc, opcoes, datalist, camposComuns, enviar, aviso, lerFormulario, lembrarResponsavel, dataBR, selo } from '../ui.js';
+import { esc, opcoes, datalist, camposComuns, enviar, aviso, lerFormulario, dataBR, selo } from '../ui.js';
 
 export async function renderizar(raiz, params) {
   if (params.id) return editar(raiz, params.id);
@@ -66,7 +66,6 @@ export async function renderizar(raiz, params) {
     const dados = lerFormulario(form);
     const resultado = await enviar(form, () => api.cadastrar({ ...dados, numeros_serie: lista() }));
     if (!resultado) return;
-    lembrarResponsavel(dados.responsavel);
     aviso(`${resultado.ids.length} equipamento(s) cadastrado(s) como disponível.`, 'sucesso');
     numeros.value = '';
     numeros.dispatchEvent(new Event('input'));

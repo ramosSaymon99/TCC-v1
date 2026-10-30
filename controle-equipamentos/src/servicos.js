@@ -92,12 +92,13 @@ const inserirMovimentacao = (m) =>
   db
     .prepare(
       `INSERT INTO movimentacoes
-        (equipamento_id, tipo, cliente_codigo, data, responsavel, motivo, condicao, situacao_anterior, situacao_nova, troca_id, observacao)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        (equipamento_id, tipo, cliente_codigo, data, responsavel, motivo, condicao, situacao_anterior, situacao_nova, troca_id, observacao, usuario_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       m.equipamento_id, m.tipo, m.cliente_codigo ?? null, m.data, m.responsavel, m.motivo ?? null,
-      m.condicao ?? null, m.situacao_anterior ?? null, m.situacao_nova, m.troca_id ?? null, m.observacao ?? null
+      m.condicao ?? null, m.situacao_anterior ?? null, m.situacao_nova, m.troca_id ?? null, m.observacao ?? null,
+      m.usuario_id ?? null
     );
 
 const mudarSituacao = (id, situacao, cliente, data) =>
@@ -141,7 +142,9 @@ export function cadastrar(dados) {
     return lista.map((numero) => {
       const { lastInsertRowid } = inserir.run(tipo, marca, modelo, numero, data, observacao);
       const id = Number(lastInsertRowid);
-      inserirMovimentacao({ equipamento_id: id, tipo: 'cadastro', data, responsavel, situacao_nova: 'disponivel', observacao });
+      inserirMovimentacao({
+        equipamento_id: id, tipo: 'cadastro', data, responsavel, situacao_nova: 'disponivel', observacao, usuario_id: dados.usuario_id,
+      });
       return id;
     });
   });
@@ -179,18 +182,18 @@ export function entregar(dados) {
     mudarSituacao(equipamento.id, 'com_cliente', cliente, data);
     inserirMovimentacao({
       equipamento_id: equipamento.id, tipo: 'entrega', cliente_codigo: cliente, data, responsavel,
-      situacao_anterior: equipamento.situacao, situacao_nova: 'com_cliente', observacao,
+      situacao_anterior: equipamento.situacao, situacao_nova: 'com_cliente', observacao, usuario_id: dados.usuario_id,
     });
   });
   return obter(equipamento.id);
 }
 
 // A devolução nunca torna o aparelho disponível: ele aguarda avaliação técnica.
-function registrarDevolucao(equipamento, { motivo, condicao, data, responsavel, observacao, troca_id }) {
+function registrarDevolucao(equipamento, { motivo, condicao, data, responsavel, observacao, troca_id, usuario_id }) {
   mudarSituacao(equipamento.id, 'aguardando_avaliacao', null, data);
   inserirMovimentacao({
     equipamento_id: equipamento.id, tipo: 'devolucao', cliente_codigo: equipamento.cliente_codigo, data, responsavel,
-    motivo, condicao, situacao_anterior: equipamento.situacao, situacao_nova: 'aguardando_avaliacao', troca_id, observacao,
+    motivo, condicao, situacao_anterior: equipamento.situacao, situacao_nova: 'aguardando_avaliacao', troca_id, observacao, usuario_id,
   });
 }
 
@@ -203,7 +206,9 @@ export function devolver(dados) {
   const observacao = texto(dados.observacao, 'Observação', { obrigatorio: false, max: 500 });
   const data = dataMovimentacao(dados.data, equipamento);
 
-  transacao(() => registrarDevolucao(equipamento, { motivo, condicao, data, responsavel, observacao }));
+  transacao(() =>
+    registrarDevolucao(equipamento, { motivo, condicao, data, responsavel, observacao, usuario_id: dados.usuario_id })
+  );
   return obter(equipamento.id);
 }
 
@@ -229,11 +234,11 @@ export function trocar(dados) {
       )
       .run(cliente, devolvido.id, novo.id, data, responsavel, motivo, observacao);
     const troca_id = Number(lastInsertRowid);
-    registrarDevolucao(devolvido, { motivo, condicao, data, responsavel, observacao, troca_id });
+    registrarDevolucao(devolvido, { motivo, condicao, data, responsavel, observacao, troca_id, usuario_id: dados.usuario_id });
     mudarSituacao(novo.id, 'com_cliente', cliente, data);
     inserirMovimentacao({
       equipamento_id: novo.id, tipo: 'entrega', cliente_codigo: cliente, data, responsavel,
-      situacao_anterior: novo.situacao, situacao_nova: 'com_cliente', troca_id, observacao,
+      situacao_anterior: novo.situacao, situacao_nova: 'com_cliente', troca_id, observacao, usuario_id: dados.usuario_id,
     });
     return troca_id;
   });
@@ -256,7 +261,7 @@ export function avaliar(dados) {
     mudarSituacao(equipamento.id, resultado, null, data);
     inserirMovimentacao({
       equipamento_id: equipamento.id, tipo: 'avaliacao', data, responsavel,
-      situacao_anterior: equipamento.situacao, situacao_nova: resultado, observacao,
+      situacao_anterior: equipamento.situacao, situacao_nova: resultado, observacao, usuario_id: dados.usuario_id,
     });
   });
   return obter(equipamento.id);
@@ -298,8 +303,10 @@ export function obter(id) {
     .prepare(
       `SELECT m.*,
               CASE WHEN t.equipamento_devolvido_id = m.equipamento_id THEN en.numero_serie ELSE dv.numero_serie END AS troca_outro_serie,
-              CASE WHEN t.equipamento_devolvido_id = m.equipamento_id THEN en.id ELSE dv.id END AS troca_outro_id
+              CASE WHEN t.equipamento_devolvido_id = m.equipamento_id THEN en.id ELSE dv.id END AS troca_outro_id,
+              u.nome AS registrado_por
          FROM movimentacoes m
+         LEFT JOIN usuarios u ON u.id = m.usuario_id
          LEFT JOIN trocas t ON t.id = m.troca_id
          LEFT JOIN equipamentos en ON en.id = t.equipamento_entregue_id
          LEFT JOIN equipamentos dv ON dv.id = t.equipamento_devolvido_id

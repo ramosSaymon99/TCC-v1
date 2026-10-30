@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Acesso ao Controle de Equipamentos do provedor de internet">
+  <title>Entrar · Controle de Equipamentos</title>
+  <link rel="icon" href="img/icone.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="pagina-login">
+  <main class="login">
+    <section class="login-marca" aria-hidden="true">
+      <img src="img/icone.svg" alt="" width="52" height="52">
+      <h2>Controle de Equipamentos</h2>
+      <p>Entregas, devoluções, trocas e estoque de ONUs e roteadores em um só lugar, com o histórico completo de cada aparelho.</p>
+      <ul>
+        <li>Saiba onde está cada número de série</li>
+        <li>Aparelhos devolvidos passam por avaliação</li>
+        <li>Alertas de estoque e de modelos com falha</li>
+      </ul>
+    </section>
+
+    <section class="login-cartao">
+      <img class="login-icone" src="img/icone.svg" alt="" width="40" height="40">
+      <h1>Entrar</h1>
+      <p class="suave">Use o e-mail e a senha cadastrados pelo administrador.</p>
+
+      <form id="form-login" novalidate>
+        <div class="campo">
+          <label for="email">E-mail</label>
+          <input id="email" name="email" type="email" required maxlength="120" autocomplete="username" autofocus
+            placeholder="seu.nome@provedor.com.br">
+        </div>
+        <div class="campo">
+          <label for="senha">Senha</label>
+          <div class="senha-campo">
+            <input id="senha" name="senha" type="password" required maxlength="128" autocomplete="current-password">
+            <button type="button" class="mostrar-senha" aria-controls="senha" aria-pressed="false">Mostrar</button>
+          </div>
+        </div>
+        <p class="erro-login" role="alert" hidden></p>
+        <button class="botao botao-largo" type="submit">Entrar</button>
+      </form>
+      <p class="fraco login-rodape">Esqueceu a senha? Peça ao administrador para redefini-la.</p>
+    </section>
+  </main>
+  <script type="module" src="js/login.js"></script>
+</body>
+</html>

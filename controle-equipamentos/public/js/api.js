@@ -19,6 +19,12 @@ async function requisicao(metodo, caminho, corpo) {
     throw new ErroApi('Não foi possível conectar ao servidor. Verifique se ele está em execução.', 0);
   }
   const dados = await resposta.json().catch(() => ({}));
+  // Sem sessão: volta para o login e, depois de entrar, retorna à tela em que estava.
+  if (resposta.status === 401 && caminho !== '/login') {
+    location.href = `login.html?voltar=${encodeURIComponent(location.hash)}`;
+    return new Promise(() => {});
+  }
+  if (resposta.status === 403 && dados.trocar_senha && location.hash !== '#/senha') location.hash = '#/senha';
   if (!resposta.ok) throw new ErroApi(dados.erro || 'Erro ao processar a solicitação.', resposta.status, dados.detalhes);
   return dados;
 }
@@ -29,6 +35,13 @@ const consulta = (params = {}) => {
 };
 
 export const api = {
+  login: (email, senha) => requisicao('POST', '/login', { email, senha }),
+  logout: () => requisicao('POST', '/logout', {}),
+  sessao: () => requisicao('GET', '/sessao'),
+  trocarSenha: (atual, nova) => requisicao('POST', '/senha', { atual, nova }),
+  usuarios: () => requisicao('GET', '/usuarios'),
+  criarUsuario: (dados) => requisicao('POST', '/usuarios', dados),
+  atualizarUsuario: (id, dados) => requisicao('PUT', `/usuarios/${id}`, dados),
   resumo: () => requisicao('GET', '/resumo'),
   opcoes: () => requisicao('GET', '/opcoes'),
   equipamentos: (filtros) => requisicao('GET', `/equipamentos${consulta(filtros)}`),

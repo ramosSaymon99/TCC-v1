@@ -14,6 +14,9 @@ export const numero = (n) => Number(n || 0).toLocaleString('pt-BR');
 export const pct = (n, casas = 0) => `${(Number(n || 0) * 100).toLocaleString('pt-BR', { maximumFractionDigits: casas, minimumFractionDigits: casas })}%`;
 export const dias = (n) => (n === 1 ? '1 dia' : `${numero(n)} dias`);
 
+// Usuário conectado (preenchido pelo app.js ao abrir a aplicação).
+export const sessao = { usuario: null };
+
 // Listas de opções (situações, motivos, responsáveis…) carregadas uma vez e atualizadas após cada gravação.
 let opcoesCache = null;
 export async function opcoes(recarregar = false) {
@@ -74,21 +77,14 @@ export function camposComuns(op, { rotuloObs = 'Observação', obsObrigatoria = 
     <div class="campo">
       <label class="obrigatorio" for="responsavel">Responsável</label>
       <input id="responsavel" name="responsavel" required maxlength="80" list="lista-responsaveis" autocomplete="off"
-        placeholder="Quem realizou" value="${esc(localStorage.getItem('responsavel') || '')}">
+        placeholder="Quem realizou" value="${esc(sessao.usuario?.nome || '')}">
+      <span class="dica">Quem fez a movimentação. O lançamento fica registrado em nome de ${esc(sessao.usuario?.nome || 'você')}.</span>
       ${datalist('lista-responsaveis', op.responsaveis)}
     </div>
     <div class="campo inteiro">
       <label for="observacao" class="${obsObrigatoria ? 'obrigatorio' : ''}">${esc(rotuloObs)}</label>
       <textarea id="observacao" name="observacao" maxlength="500" rows="2" ${obsObrigatoria ? 'required' : ''}></textarea>
     </div>`;
-}
-
-export function lembrarResponsavel(nome) {
-  try {
-    localStorage.setItem('responsavel', nome);
-  } catch {
-    /* navegação privada: apenas não lembra */
-  }
 }
 
 export const descricao = (e) => `${e.tipo} · ${e.marca} ${e.modelo}`;

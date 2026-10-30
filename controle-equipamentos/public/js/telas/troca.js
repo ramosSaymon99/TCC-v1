@@ -1,6 +1,6 @@
 // Tela Troca: relaciona o equipamento devolvido ao novo equipamento entregue ao mesmo cliente.
 import { api } from '../api.js';
-import { esc, opcoes, camposComuns, enviar, aviso, lerFormulario, lembrarResponsavel, seletorEquipamento, numero } from '../ui.js';
+import { esc, opcoes, camposComuns, enviar, aviso, lerFormulario, seletorEquipamento, numero } from '../ui.js';
 
 const MOTIVOS_TROCA = ['defeito_relatado', 'queima_relatada', 'troca'];
 
@@ -85,7 +85,6 @@ export async function renderizar(raiz, params) {
     const dados = lerFormulario(form);
     const r = await enviar(form, () => api.trocar(dados));
     if (!r) return;
-    lembrarResponsavel(dados.responsavel);
     aviso(`Troca registrada: ${r.devolvido.numero_serie} → ${r.entregue.numero_serie} (cliente ${r.entregue.cliente_codigo}).`, 'sucesso');
     await opcoes(true);
     renderizar(raiz, {});

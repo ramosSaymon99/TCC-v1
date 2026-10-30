@@ -35,7 +35,16 @@
       <li class="grupo">Estoque</li>
       <li><a href="#/estoque" data-rota="estoque"><span class="ico" aria-hidden="true">☰</span>Estoque e histórico</a></li>
       <li><a href="#/cadastro" data-rota="cadastro"><span class="ico" aria-hidden="true">＋</span>Cadastro de equipamentos</a></li>
+      <li class="grupo" data-perfil="administrador" hidden>Administração</li>
+      <li data-perfil="administrador" hidden><a href="#/usuarios" data-rota="usuarios"><span class="ico" aria-hidden="true">👤</span>Usuários</a></li>
     </ul>
+    <div class="usuario-menu">
+      <div><div class="nome" data-usuario-nome></div><div class="perfil" data-usuario-perfil></div></div>
+      <div class="links">
+        <a class="link-menu" href="#/senha">Alterar senha</a>
+        <button type="button" data-sair>Sair</button>
+      </div>
+    </div>
   </nav>
 
   <main id="conteudo" class="conteudo" tabindex="-1">

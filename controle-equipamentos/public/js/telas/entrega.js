@@ -1,6 +1,6 @@
 // Tela Entrega: registra qual equipamento saiu, para qual cliente, quando e quem entregou.
 import { api } from '../api.js';
-import { esc, opcoes, camposComuns, enviar, aviso, lerFormulario, lembrarResponsavel, seletorEquipamento, selo, dataBR } from '../ui.js';
+import { esc, opcoes, camposComuns, enviar, aviso, lerFormulario, seletorEquipamento, selo, dataBR } from '../ui.js';
 
 export async function renderizar(raiz, params) {
   const [op, disponiveis] = await Promise.all([opcoes(), api.equipamentos({ situacao: 'disponivel' })]);
@@ -57,7 +57,6 @@ export async function renderizar(raiz, params) {
     const dados = lerFormulario(form);
     const e = await enviar(form, () => api.entregar(dados));
     if (!e) return;
-    lembrarResponsavel(dados.responsavel);
     aviso(`Entrega registrada: ${e.numero_serie} com o cliente ${e.cliente_codigo}.`, 'sucesso');
     await opcoes(true);
     renderizar(raiz, {});

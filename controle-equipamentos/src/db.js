@@ -55,11 +55,34 @@ db.exec(`
     criado_em         TEXT NOT NULL DEFAULT (datetime('now','localtime'))
   );
 
+  CREATE TABLE IF NOT EXISTS usuarios (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome          TEXT NOT NULL,
+    email         TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    senha_hash    TEXT NOT NULL,
+    perfil        TEXT NOT NULL DEFAULT 'operador' CHECK (perfil IN ('administrador','operador')),
+    ativo         INTEGER NOT NULL DEFAULT 1,
+    trocar_senha  INTEGER NOT NULL DEFAULT 0,
+    ultimo_acesso TEXT,
+    criado_em     TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  );
+
+  CREATE TABLE IF NOT EXISTS sessoes (
+    token      TEXT PRIMARY KEY,
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    expira_em  INTEGER NOT NULL
+  );
+
   CREATE INDEX IF NOT EXISTS idx_mov_equipamento ON movimentacoes(equipamento_id, data);
   CREATE INDEX IF NOT EXISTS idx_mov_data ON movimentacoes(data);
   CREATE INDEX IF NOT EXISTS idx_equip_situacao ON equipamentos(situacao);
   CREATE INDEX IF NOT EXISTS idx_equip_cliente ON equipamentos(cliente_codigo);
 `);
+
+// Bancos criados antes do login não têm a coluna que registra quem lançou a movimentação.
+if (!db.prepare('PRAGMA table_info(movimentacoes)').all().some((c) => c.name === 'usuario_id')) {
+  db.exec('ALTER TABLE movimentacoes ADD COLUMN usuario_id INTEGER REFERENCES usuarios(id)');
+}
 
 // Executa várias gravações como uma única operação: ou tudo é salvo, ou nada.
 export function transacao(fn) {

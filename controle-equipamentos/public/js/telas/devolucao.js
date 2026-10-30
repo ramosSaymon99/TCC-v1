@@ -1,6 +1,6 @@
 // Tela Devolução: registra o aparelho recebido, o motivo e a condição informada.
 import { api } from '../api.js';
-import { esc, opcoes, camposComuns, enviar, aviso, lerFormulario, lembrarResponsavel, seletorEquipamento, dataBR } from '../ui.js';
+import { esc, opcoes, camposComuns, enviar, aviso, lerFormulario, seletorEquipamento, dataBR } from '../ui.js';
 
 export async function renderizar(raiz, params) {
   const [op, comClientes] = await Promise.all([opcoes(), api.equipamentos({ situacao: 'com_cliente' })]);
@@ -87,7 +87,6 @@ export async function renderizar(raiz, params) {
     const dados = lerFormulario(form);
     const e = await enviar(form, () => api.devolver(dados));
     if (!e) return;
-    lembrarResponsavel(dados.responsavel);
     aviso(`Devolução registrada: ${e.numero_serie} aguardando avaliação.`, 'sucesso');
     await opcoes(true);
     renderizar(raiz, {});
