@@ -7,6 +7,17 @@
   <title>Entrar · Controle de Equipamentos</title>
   <link rel="icon" href="img/icone.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/style.css">
+  <script>
+    // Aberto com dois cliques (file://): as telas precisam do servidor para funcionar.
+    if (location.protocol === 'file:') {
+      document.addEventListener('DOMContentLoaded', function () {
+        document.body.innerHTML = '<main style="max-width:620px;margin:60px auto;padding:0 16px;font-family:system-ui,sans-serif;line-height:1.5">' +
+          '<h1>Inicie o sistema pelo servidor</h1><p>Este arquivo não funciona aberto diretamente. Na pasta do projeto, ' +
+          'dê dois cliques em <b>iniciar-windows.bat</b> (Windows) ou execute <b>./iniciar-linux-mac.sh</b> (Linux/macOS). ' +
+          'Também é possível rodar <b>npm start</b> e acessar <b>http://localhost:3000</b>.</p><p>Mais detalhes no arquivo README.md.</p></main>';
+      });
+    }
+  </script>
 </head>
 <body class="pagina-login">
   <main class="login">
