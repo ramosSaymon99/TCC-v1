@@ -6,7 +6,8 @@ import { api } from '../lib/api';
 import { proximaSoneca } from '../lib/janela';
 import { DIA, MIN, duracao, hm, idade, startOfDay, t, uid } from '../lib/time';
 import { pl } from '../lib/texto';
-import type { BabyEvent } from '../types';
+import { TIPOS } from '../lib/constants';
+import type { BabyEvent, EventType } from '../types';
 
 const C = 160; // centro do mostrador (viewBox 320×320)
 const R = 122; // raio da trilha
@@ -29,6 +30,30 @@ const hhmmHoje = (hhmm: string | undefined, base: number) => {
   const [h, m] = hhmm.split(':').map(Number);
   return startOfDay(base) + h * H + m * MIN;
 };
+/** Registros mostrados em volta do mostrador. */
+const NO_MOSTRADOR: EventType[] = ['mamada', 'mamadeira', 'fralda', 'alimentacao'];
+const R_ICONE = R + 25; // borda externa, fora da trilha do sono
+const SEP = 9; // graus mínimos entre dois ícones
+
+/** Posição dos ícones: cada um no seu horário; muito próximos são empurrados alguns graus (até 2 casas). */
+function posicionarIcones(evs: BabyEvent[]) {
+  const out: { e: BabyEvent; graus: number }[] = [];
+  let ocultos = 0;
+  let ultimo = -Infinity;
+  let ultimoReal = -Infinity;
+  for (const e of [...evs].sort((a, b) => t(a.start_at) - t(b.start_at))) {
+    const real = angulo(t(e.start_at));
+    // ângulo contínuo a partir do primeiro (evita salto 359° → 0°)
+    let g = real;
+    while (out.length && g < ultimoReal - 180) g += 360;
+    ultimoReal = g;
+    const pos = Math.max(g, ultimo + SEP);
+    if (pos - g > 2 * SEP) { ocultos++; continue; }
+    out.push({ e, graus: pos % 360 });
+    ultimo = pos;
+  }
+  return { icones: out, ocultos };
+}
 const mediana = (v: number[]) => { const s = [...v].sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : 0; };
 
 export function CicloSono() {
@@ -68,7 +93,8 @@ export function CicloSono() {
     const sonoHojeMin = sonos.reduce((s, e) => { const i = Math.max(t(e.start_at), hoje); const f = e.end_at ? t(e.end_at) : agora; return f > i ? s + (f - i) / MIN : s; }, 0);
     const sonecasHoje = sonos.filter((e) => t(e.start_at) >= hoje && !ehNoturno(t(e.start_at), e.end_at ? t(e.end_at) : agora)).length;
     const ultAcordou = sonos.filter((e) => e.end_at).sort((a, b) => t(b.end_at!) - t(a.end_at!))[0];
-    return { emCurso, passados, ehNoturno, prox, previstas, dorme, acorda, dias, sonoHojeMin, sonecasHoje, ultAcordou };
+    const registros = posicionarIcones(events.filter((e) => NO_MOSTRADOR.includes(e.type) && t(e.start_at) > desde && t(e.start_at) <= agora));
+    return { emCurso, passados, ehNoturno, prox, previstas, dorme, acorda, dias, sonoHojeMin, sonecasHoje, ultAcordou, registros };
   }, [events, agora, baby.routine, id.dias]);
 
   // Mensagem central
@@ -128,7 +154,7 @@ export function CicloSono() {
           <svg viewBox="0 0 320 320" role="img" aria-label={`Ciclo do sono de ${primeiro}: ${rotulo} ${grande}`}>
             <circle cx={C} cy={C} r={R} fill="none" stroke="rgba(255,255,255,.08)" strokeWidth={26} />
             {horas.map((h) => {
-              const [x, y] = ponto(((h - 12) / 24) * 360, R + 26);
+              const [x, y] = ponto(((h - 12) / 24) * 360, R - 25);
               return <text key={h} x={x} y={y + 4} textAnchor="middle" className="ciclo-hora">{String(h).padStart(2, '0')}h</text>;
             })}
             {/* Sonos registrados */}
@@ -144,6 +170,18 @@ export function CicloSono() {
                 <title>{`Soneca prevista ~${hm(p.ini)}`}</title>
               </path>
             ))}
+            {/* Mamadas, fraldas e papinhas registradas, na borda externa */}
+            {c.registros.icones.map(({ e, graus }) => {
+              const [x, y] = ponto(graus, R_ICONE);
+              const emoji = e.type === 'fralda' && (e.data.diaper === 'coco' || e.data.diaper === 'ambos') ? '💩' : TIPOS[e.type].emoji;
+              return (
+                <g key={e.id} className="ciclo-icone">
+                  <title>{`${TIPOS[e.type].label} às ${hm(e.start_at)}`}</title>
+                  <circle cx={x} cy={y} r={11} fill="#2e2a62" stroke="rgba(255,255,255,.18)" />
+                  <text x={x} y={y + 4.5} textAnchor="middle" fontSize="12">{emoji}</text>
+                </g>
+              );
+            })}
             {marcador(c.acorda, Sun, '#f5c96a', 'acorda')}
             {marcador(c.dorme, Moon, '#f2a46b', 'dorme')}
             {/* Agora */}
@@ -186,6 +224,7 @@ export function CicloSono() {
           <span><i style={{ background: '#a9a2ff' }} /> soneca</span>
           <span><i className="tracejado" /> prevista</span>
           <span><i style={{ background: '#f5c96a', height: 3 }} /> janela ideal</span>
+          <span>{TIPOS.mamada.emoji}{TIPOS.mamadeira.emoji} mamada · {TIPOS.fralda.emoji} fralda · {TIPOS.alimentacao.emoji} papinha{c.registros.ocultos ? ` · +${c.registros.ocultos} juntos` : ''}</span>
         </div>
       </div>
     </div>
