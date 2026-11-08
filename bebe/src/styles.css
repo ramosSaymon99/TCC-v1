@@ -425,3 +425,41 @@ button.chip::after, a.chip::after { content: ''; position: absolute; inset: -3px
 
 .notif-sec { font-size: 13px; text-transform: uppercase; letter-spacing: .4px; color: var(--ink-3); margin: 6px 0 4px; }
 section + section .notif-sec { margin-top: 16px; }
+
+/* ---------- Ciclo do sono (visual noturno fixo, igual nos dois temas) ---------- */
+.ciclo-pagina { padding-top: 12px; }
+.ciclo {
+  border-radius: 24px; padding: 16px 16px 20px; color: #f1effa;
+  background:
+    radial-gradient(1.5px 1.5px at 12% 18%, rgba(255,255,255,.7), transparent 60%),
+    radial-gradient(1px 1px at 78% 12%, rgba(255,255,255,.6), transparent 60%),
+    radial-gradient(1.5px 1.5px at 88% 46%, rgba(255,255,255,.5), transparent 60%),
+    radial-gradient(1px 1px at 22% 64%, rgba(255,255,255,.5), transparent 60%),
+    radial-gradient(1px 1px at 60% 80%, rgba(255,255,255,.6), transparent 60%),
+    radial-gradient(1.5px 1.5px at 40% 30%, rgba(255,255,255,.4), transparent 60%),
+    linear-gradient(170deg, #26224f 0%, #1b1a3a 55%, #141331 100%);
+  display: flex; flex-direction: column; gap: 16px; box-shadow: 0 10px 30px rgba(20, 19, 49, .35);
+}
+.ciclo-voltar { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; padding: 0 12px 0 6px; border: 0; border-radius: 12px; background: rgba(255,255,255,.08); color: #f1effa; font-weight: 800; cursor: pointer; }
+.ciclo-titulo { font-weight: 800; color: #d9d5ff; }
+.ciclo-dial { position: relative; width: 100%; max-width: 360px; margin: 0 auto; aspect-ratio: 1; }
+.ciclo-dial svg { width: 100%; height: 100%; display: block; }
+.ciclo-hora { fill: #a8a3cf; font-size: 12px; font-weight: 700; }
+.ciclo-centro { position: absolute; inset: 22%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; pointer-events: none; }
+.ciclo-rotulo { color: #cfcaf5; font-weight: 700; font-size: 15px; }
+.ciclo-grande { font-size: 44px; font-weight: 900; line-height: 1.1; color: #fff; letter-spacing: -1px; }
+.ciclo-apoio { color: #b9b4e6; font-size: 13px; margin-top: 2px; }
+.ciclo-marcos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; text-align: center; }
+.ciclo-marcos > div { display: flex; flex-direction: column; align-items: center; gap: 2px; background: rgba(255,255,255,.06); border-radius: 14px; padding: 10px 4px; }
+.ciclo-marcos b { font-size: 15px; color: #fff; }
+.ciclo-marcos span { font-size: 12px; color: #b9b4e6; line-height: 1.2; }
+.ciclo-emoji { font-size: 18px !important; line-height: 1 !important; }
+.ciclo-acao { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; border: 0; border-radius: 16px; background: #8f86ff; color: #14123a; font-weight: 900; font-size: 16px; cursor: pointer; }
+.ciclo-acao:active { transform: scale(.98); }
+.ciclo-aprendendo { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,.06); border-radius: 16px; padding: 10px 12px; }
+.ciclo-aprendendo b { display: block; color: #fff; font-size: 14px; }
+.ciclo-aprendendo span { color: #b9b4e6; font-size: 13px; }
+.ciclo-legenda { display: flex; flex-wrap: wrap; gap: 10px 14px; justify-content: center; font-size: 12px; color: #b9b4e6; }
+.ciclo-legenda i { display: inline-block; width: 14px; height: 8px; border-radius: 4px; margin-right: 5px; vertical-align: middle; }
+.ciclo-legenda i.tracejado { border: 2px dashed #c9c4ff; height: 8px; box-sizing: border-box; }
+.since-link, .prev-link { cursor: pointer; }

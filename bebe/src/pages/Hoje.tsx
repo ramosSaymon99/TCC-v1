@@ -206,7 +206,7 @@ export function Hoje() {
 
       <div className="since">
         <div><div className="l">🍼 Última mamada</div><div className="v">{ultFeed ? haQuanto(t(ultFeed.start_at), agora).replace('há ', '') : '—'}</div><div className="faint">{ultFeed ? `às ${hm(ultFeed.start_at)}` : 'sem registro'}</div></div>
-        <div><div className="l">😴 {dormindo ? 'Dormindo' : 'Acordado'}</div><div className="v">{ultSono ? duracao((agora - t(dormindo ? ultSono.start_at : ultSono.end_at!)) / MIN) : '—'}</div><div className="faint">{ultSono ? (dormindo ? `desde ${hm(ultSono.start_at)}` : `acordou ${hm(ultSono.end_at!)}`) : 'sem registro'}</div></div>
+        <div className="since-link" role="button" tabIndex={0} aria-label="Abrir o ciclo do sono" onClick={() => setAba('sono')} onKeyDown={(e) => e.key === 'Enter' && setAba('sono')}><div className="l">😴 {dormindo ? 'Dormindo' : 'Acordado'} ›</div><div className="v">{ultSono ? duracao((agora - t(dormindo ? ultSono.start_at : ultSono.end_at!)) / MIN) : '—'}</div><div className="faint">{ultSono ? (dormindo ? `desde ${hm(ultSono.start_at)}` : `acordou ${hm(ultSono.end_at!)}`) : 'sem registro'}</div></div>
         <div><div className="l">🧷 Última fralda</div><div className="v">{ultFralda ? haQuanto(t(ultFralda.start_at), agora).replace('há ', '') : '—'}</div><div className="faint">{ultFralda ? `às ${hm(ultFralda.start_at)}` : 'sem registro'}</div></div>
       </div>
 
@@ -238,11 +238,11 @@ export function Hoje() {
           <p><b>Próxima soneca:</b> o tempo que o bebê aguenta acordado muda com a idade. O Ninho começa pela faixa da idade e, com 4 sonecas registradas na semana, passa a usar o ritmo do seu bebê.</p>
           <p><b>Próxima mamada:</b> média do intervalo entre as mamadas das últimas 24 h.</p>
           <p><b>Remédios:</b> se você informar o intervalo da receita, o app mostra quando a próxima dose fica liberada e avisa se alguém tentar dar antes.</p>
-        </Ajuda></div>
+        </Ajuda><button className="btn sm ghost" style={{ marginLeft: 'auto' }} onClick={() => setAba('sono')}>🌙 Ciclo do sono</button></div>
         <DicaUnica id="previsoes">Quando a janela de sono abrir, o card fica destacado. É um bom momento para começar o ritual de sono.</DicaUnica>
         <div className="prev-grid">
           {soneca && (
-            <div className={`prev ${agora >= soneca.ini ? 'agora' : ''}`}>
+            <div className={`prev prev-link ${agora >= soneca.ini ? 'agora' : ''}`} role="button" tabIndex={0} aria-label="Abrir o ciclo do sono" onClick={() => setAba('sono')} onKeyDown={(e) => e.key === 'Enter' && setAba('sono')}>
               <div className="l">😴 Próxima soneca</div>
               <div className="v">{hm(soneca.ini)}–{hm(soneca.fim)}</div>
               <div className="faint">{agora > soneca.fim ? `passou da janela (acordado há ${duracao(soneca.acordadoMin)})` : agora >= soneca.ini ? 'janela aberta: bom momento para dormir' : `acordado há ${duracao(soneca.acordadoMin)}`} · {soneca.janela.fonte === 'historico' ? 'pelo ritmo dele(a)' : 'pela idade'}</div>

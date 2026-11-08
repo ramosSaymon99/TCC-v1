@@ -2,7 +2,7 @@ import { createContext, useContext } from 'react';
 import type { Baby, BabyData, BabyEvent, EventType, User } from './types';
 import type { Modo } from './lib/api';
 
-export type Aba = 'hoje' | 'indicadores' | 'diario' | 'mural' | 'saude' | 'familia' | 'ajustes';
+export type Aba = 'hoje' | 'indicadores' | 'diario' | 'mural' | 'saude' | 'familia' | 'ajustes' | 'sono';
 
 export interface Ctx {
   user: User;

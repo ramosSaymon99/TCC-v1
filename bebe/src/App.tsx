@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, Bell, Camera, ChevronDown, Home, LayoutGrid, LogOut, Settings, Stethoscope, Users } from 'lucide-react';
+import { BarChart3, Bell, Camera, ChevronDown, Home, LayoutGrid, LogOut, Moon, Settings, Stethoscope, Users } from 'lucide-react';
 import { AppCtx, type Aba, type Ctx } from './ctx';
 import { api, ApiError, definirUsuarioAtual, detectarModo, getToken, SEM_REDE, sair as sairApi, sincronizar, temSessao, type Modo } from './lib/api';
 import { aplicarPendentes, lerCacheBebe, lerCacheMe, limparCaches, pendentesDoBebe, salvarCacheBebe, salvarCacheMe } from './lib/offline';
@@ -21,6 +21,7 @@ import { Indicadores } from './pages/Indicadores';
 import { Mural } from './pages/Mural';
 import { Saude } from './pages/Saude';
 import { Ajustes, Familia } from './pages/Familia';
+import { CicloSono } from './pages/CicloSono';
 import { DiaADia } from './pages/DiaADia';
 import { Gestacao } from './pages/Gestacao';
 import { semanasGestacao } from './lib/conteudo';
@@ -36,6 +37,7 @@ const ABAS: { id: Aba; label: string; Icon: typeof Home }[] = [
   { id: 'mural', label: 'Mural', Icon: LayoutGrid },
   { id: 'familia', label: 'Família', Icon: Users },
   { id: 'ajustes', label: 'Ajustes', Icon: Settings },
+  { id: 'sono', label: 'Ciclo do sono', Icon: Moon },
 ];
 const LS_BABY = 'ninho-baby';
 /** Link vindo de uma notificação: ?baby=<id>#aba */
@@ -341,11 +343,11 @@ export default function App() {
   const gestacao = !!baby.settings?.gestacao;
   // Na gestação não há rotina para medir: "Hoje" vira a tela da gestação e Indicadores some
   // Barra com 5 itens: Mural e Família ficam juntos em "Casa" (com seletor dentro da página)
-  const NAV = ABAS.filter((a) => a.id !== 'familia' && a.id !== 'ajustes').map((a) => (a.id === 'mural' ? { ...a, label: 'Casa' } : a));
+  const NAV = ABAS.filter((a) => a.id !== 'familia' && a.id !== 'ajustes' && a.id !== 'sono').map((a) => (a.id === 'mural' ? { ...a, label: 'Casa' } : a));
   const abasVisiveis = gestacao ? NAV.filter((a) => a.id !== 'indicadores') : NAV;
-  const ativa = (id: Aba) => abaAtual === id || (id === 'mural' && abaAtual === 'familia');
+  const ativa = (id: Aba) => abaAtual === id || (id === 'mural' && abaAtual === 'familia') || (id === 'hoje' && abaAtual === 'sono');
   const abaAtual = gestacao && aba === 'indicadores' ? 'hoje' : aba;
-  const Pagina = { hoje: gestacao ? Gestacao : Hoje, diario: DiaADia, indicadores: Indicadores, mural: Mural, saude: Saude, familia: Familia, ajustes: Ajustes }[abaAtual];
+  const Pagina = { hoje: gestacao ? Gestacao : Hoje, diario: DiaADia, indicadores: Indicadores, mural: Mural, saude: Saude, familia: Familia, ajustes: Ajustes, sono: CicloSono }[abaAtual];
   const emojiBebe = (b: Baby) => (b.sex === 'M' ? '👦' : b.sex === 'F' ? '👧' : '👶');
   const avatar = <Avatar photo={baby.photo} emoji={emojiBebe(baby)} color={baby.color || 'var(--brand)'} size={42} ring />;
   const naoLidas = naoLidasGlobal;
