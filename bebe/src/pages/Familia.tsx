@@ -76,7 +76,10 @@ export function Familia() {
                 <div className="faint">{c?.total ? `${c.total} registros · ${c.mamadas} mamadas · ${c.fraldas} fraldas · ${c.sonos} sonos` : 'Sem registros na semana'}{c?.ultimo ? ` · último ${haQuanto(c.ultimo, agora)}` : ''}</div>
                 {soma > 0 && <div className="hbar" style={{ marginTop: 6 }}><div className="track"><div className="fill" style={{ width: `${share * 100}%`, background: 'var(--brand)' }} /></div><span className="num faint" style={{ width: 36, textAlign: 'right' }}>{Math.round(share * 100)}%</span></div>}
               </div>
-              {(podeAdmin || m.user_id === user.id) && <button className="icon-btn" onClick={() => setMembro(m)} aria-label="Editar vínculo"><Pencil size={15} /></button>}
+              <div className="stack" style={{ gap: 6, alignItems: 'flex-end' }}>
+                {(podeAdmin || m.user_id === user.id) && <button className="icon-btn" onClick={() => setMembro(m)} aria-label="Editar vínculo"><Pencil size={15} /></button>}
+                {podeAdmin && m.user_id !== user.id && m.access !== 'admin' && <button className="btn sm ghost" onClick={() => setMembro(m)} aria-label={`Gerar código de senha para ${m.name}`}><KeyRound size={14} /> Senha</button>}
+              </div>
             </div>
           );
         })}
@@ -396,10 +399,16 @@ function MembroSheet({ m, onClose }: { m: Member; onClose: () => void }) {
       <p className="faint">{m.email} · desde {dataBr(m.created_at)}</p>
       <Field label="Papel"><div className="choice">{PAPEIS.map((p) => <button key={p.id} className={role === p.id ? 'on' : ''} onClick={() => setRole(p.id)}>{p.emoji} {p.label}</button>)}</div></Field>
       {podeAdmin && <Field label="Acesso"><Choice value={access} onChange={setAccess} options={(Object.keys(ACESSOS) as Access[]).map((a) => ({ v: a, l: ACESSOS[a].label }))} /></Field>}
+      {podeAdmin && !eu && m.access === 'admin' && (
+        <div className="card" style={{ background: 'var(--surface-2)', boxShadow: 'none' }}>
+          <b>Esqueceu a senha?</b>
+          <p className="faint" style={{ marginTop: 4 }}>Por segurança, um administrador não gera código de senha para outro administrador (isso daria acesso à conta dele). {m.name.split(' ')[0]} deve usar "Esqueci minha senha" na tela de entrada. Se precisar, mude o acesso dele para Cuidador, gere o código e depois volte para Administrador.</p>
+        </div>
+      )}
       {podeAdmin && !eu && m.access !== 'admin' && (
         <div className="card" style={{ background: 'var(--surface-2)', boxShadow: 'none' }}>
           <b>Esqueceu a senha?</b>
-          <p className="faint" style={{ margin: '4px 0 10px' }}>Gere um código e passe para {m.name.split(' ')[0]} pessoalmente ou por mensagem. Na tela de entrada: Entrar → "Tenho um código de senha". Vale 30 minutos, uma vez.</p>
+          <p className="faint" style={{ margin: '4px 0 10px' }}>Gere um código e passe para {m.name.split(' ')[0]} pessoalmente ou por mensagem. Na tela de entrada, a pessoa toca em "Tenho um código de senha", informa o e-mail, o código e a nova senha. Vale 30 minutos, uma vez.</p>
           {codigo ? (
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: 5, color: 'var(--brand-ink)' }}>{codigo.code}</div>
