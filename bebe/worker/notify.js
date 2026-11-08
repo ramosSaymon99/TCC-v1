@@ -15,9 +15,17 @@ export const PREFS_PADRAO = {
   familia: true, // alguém entrou no perfil do bebê
   cronometro: true, // sono/mamada em andamento fica fixo na tela de bloqueio (estilo "atividade ao vivo")
   silencio: { on: false, de: '22:00', ate: '06:00' },
+  // Noite tranquila: cronômetro e avisos de registro não acordam ninguém à noite (só quem está de plantão).
+  // Lembretes importantes (dose, febre, mamada atrasada, cronômetro esquecido) continuam chegando.
+  noite: { on: true, de: '22:00', ate: '06:00' },
 };
 
-export const CATEGORIAS = Object.keys(PREFS_PADRAO).filter((k) => k !== 'silencio');
+const FAIXAS = ['silencio', 'noite'];
+export const CATEGORIAS = Object.keys(PREFS_PADRAO).filter((k) => !FAIXAS.includes(k));
+/** Categorias que a Noite tranquila segura (as demais seguem as regras normais). */
+const SEGURADAS_NOITE = ['cronometro', 'atividade'];
+/** Avisos de registro: no máximo 1 a cada 30 min por bebê; o que chegar no meio vira um resumo. */
+const INTERVALO_ATIVIDADE_MS = 30 * 60_000;
 
 const PAPEL = { mae: 'mãe', pai: 'pai', avo_f: 'avó', avo_m: 'avô', baba: 'babá', tia: 'tia', tio: 'tio', irma: 'irmã', irmao: 'irmão', madrinha: 'madrinha', padrinho: 'padrinho', outro: 'cuidador' };
 export const nomePapel = (r) => PAPEL[r] ?? 'cuidador';
@@ -30,7 +38,9 @@ function horaLocal(tz) {
   }
 }
 function emSilencio(prefs, tz) {
-  const s = prefs.silencio;
+  return naFaixa(prefs.silencio, tz);
+}
+function naFaixa(s, tz) {
   if (!s?.on) return false;
   const h = horaLocal(tz);
   if (!h) return false;
@@ -62,7 +72,7 @@ export function plantonista(settings, tz, quando = new Date()) {
 
 export const lerPrefs = (raw) => {
   const p = raw ? JSON.parse(raw) : {};
-  return { ...PREFS_PADRAO, ...p, silencio: { ...PREFS_PADRAO.silencio, ...(p.silencio ?? {}) } };
+  return { ...PREFS_PADRAO, ...p, silencio: { ...PREFS_PADRAO.silencio, ...(p.silencio ?? {}) }, noite: { ...PREFS_PADRAO.noite, ...(p.noite ?? {}) } };
 };
 
 const fmtDur = (min) => (min < 60 ? `${Math.round(min)} min` : `${Math.floor(min / 60)}h${String(Math.round(min % 60)).padStart(2, '0')}`);
@@ -146,12 +156,15 @@ export async function notificar(env, babyId, categoria, msg, exceto = null) {
     if (exceto && s.user_id === exceto) return;
     const prefs = lerPrefs(s.prefs);
     if (!prefs[categoria] || emSilencio(prefs, s.tz)) return;
-    if (NOTURNAS.includes(categoria)) {
-      const quem = plantonista(settings, s.tz);
-      if (quem && quem !== s.user_id) return; // à noite, só quem está de plantão recebe
-    }
+    const quem = NOTURNAS.includes(categoria) ? plantonista(settings, s.tz) : null;
+    if (quem && quem !== s.user_id) return; // à noite, só quem está de plantão recebe
+    // Noite tranquila: cronômetro e registros não acordam ninguém, salvo quem está de plantão
+    if (SEGURADAS_NOITE.includes(categoria) && naFaixa(prefs.noite, s.tz) && quem !== s.user_id) return;
+    // Mensagem por pessoa (ex.: resumo sem os registros que ela mesma fez); null = não enviar a ela
+    const pessoal = msg.porUsuario ? msg.porUsuario(s.user_id, s.tz) : null;
+    if (msg.porUsuario && !pessoal) return;
     const noFuso = (v) => (typeof v === 'function' ? v(s.tz) : v);
-    const payload = { ...base, title: noFuso(msg.title) ?? baby.name, body: noFuso(msg.body) };
+    const payload = { ...base, title: pessoal?.title ?? noFuso(msg.title) ?? baby.name, body: pessoal?.body ?? noFuso(msg.body) };
     try {
       const st = await sendPush(env, s, payload, categoria === 'lembretes' ? 'high' : 'normal');
       if (st === 404 || st === 410) await env.DB.prepare('DELETE FROM push_subs WHERE endpoint = ?').bind(s.endpoint).run();
@@ -166,6 +179,72 @@ export async function notificar(env, babyId, categoria, msg, exceto = null) {
     }
   }));
   return enviados;
+}
+
+/**
+ * Aviso de registro feito por outro cuidador, com agrupamento: se já saiu um aviso deste bebê
+ * nos últimos 30 min, o registro entra na fila e vai num resumo (enviado pelo Cron).
+ */
+export async function avisarAtividade(env, babyId, msg, autor, texto) {
+  const ult = await env.DB.prepare('SELECT at FROM notif_log WHERE key = ?').bind(`ativ-ultimo:${babyId}`).first();
+  if (ult && Date.now() - Date.parse(ult.at) < INTERVALO_ATIVIDADE_MS) {
+    await env.DB.prepare('INSERT INTO notif_fila (baby_id, user_id, texto, at) VALUES (?, ?, ?, ?)').bind(babyId, autor, texto.slice(0, 120), new Date().toISOString()).run();
+    return 0;
+  }
+  await marcarAtividade(env, babyId);
+  return notificar(env, babyId, 'atividade', msg, autor);
+}
+const marcarAtividade = (env, babyId) => env.DB.prepare('INSERT OR REPLACE INTO notif_log (key, at) VALUES (?, ?)').bind(`ativ-ultimo:${babyId}`, new Date().toISOString()).run();
+
+/** Envia os resumos de registros que ficaram na fila (cada pessoa vê só o que os outros registraram). */
+async function enviarResumos(env) {
+  const bebes = (await env.DB.prepare('SELECT DISTINCT baby_id FROM notif_fila').all()).results;
+  for (const { baby_id: babyId } of bebes) {
+    const ult = await env.DB.prepare('SELECT at FROM notif_log WHERE key = ?').bind(`ativ-ultimo:${babyId}`).first();
+    if (ult && Date.now() - Date.parse(ult.at) < INTERVALO_ATIVIDADE_MS) continue;
+    const itens = (await env.DB.prepare('SELECT f.id, f.user_id, f.texto, f.at, u.name FROM notif_fila f LEFT JOIN users u ON u.id = f.user_id WHERE f.baby_id = ? ORDER BY f.at').bind(babyId).all()).results;
+    const b = await env.DB.prepare('SELECT name FROM babies WHERE id = ?').bind(babyId).first();
+    await env.DB.prepare('DELETE FROM notif_fila WHERE baby_id = ? AND id <= ?').bind(babyId, itens[itens.length - 1]?.id ?? 0).run();
+    if (!b || !itens.length) continue;
+    await marcarAtividade(env, babyId);
+    const nome = b.name.split(' ')[0];
+    await notificar(env, babyId, 'atividade', {
+      tag: `ativ-${babyId}`,
+      silent: true,
+      ts: Date.parse(itens[itens.length - 1].at),
+      porUsuario: (uid, tz) => {
+        const meus = itens.filter((i) => i.user_id !== uid);
+        if (!meus.length) return null;
+        const linhas = meus.slice(-3).map((i) => `${horaTz(i.at, tz)} ${i.texto} (${(i.name ?? '').split(' ')[0] || 'cuidador'})`);
+        const resto = meus.length - linhas.length;
+        return { title: `${nome} · ${meus.length} ${meus.length === 1 ? 'registro novo' : 'registros novos'}`, body: `${linhas.join('\n')}${resto > 0 ? `\n+ ${resto} anterior(es)` : ''}` };
+      },
+    });
+  }
+}
+
+/**
+ * Convite parado: 48 h depois de gerado e ainda sem aceite, lembra (uma vez) só quem convidou,
+ * para reenviar enquanto o código vale.
+ */
+async function lembrarConvites(env) {
+  const agora = Date.now();
+  // gerado há 48 h ou mais (validade de 7 dias → expira em até 5 dias) e ainda válido
+  const pend = (await env.DB.prepare(
+    'SELECT i.code, i.baby_id, i.role, i.created_by, i.expires_at, b.name FROM invites i JOIN babies b ON b.id = i.baby_id WHERE i.used_by IS NULL AND i.expires_at > ? AND i.expires_at <= ?',
+  ).bind(new Date(agora + 3600_000).toISOString(), new Date(agora + 5 * 86400_000).toISOString()).all()).results;
+  for (const i of pend) {
+    if (!(await primeiraVez(env, `convite48:${i.code}`))) continue;
+    const dias = Math.max(1, Math.round((Date.parse(i.expires_at) - agora) / 86400_000));
+    await notificar(env, i.baby_id, 'familia', {
+      tag: `convite-${i.code}`,
+      aba: 'familia',
+      porUsuario: (uid) => (uid === i.created_by ? {
+        title: `💌 O convite para ${nomePapel(i.role)} ainda não foi aceito`,
+        body: `${i.name.split(' ')[0]} fica melhor com a família junto. O código ${i.code} vale por mais ${dias} ${dias === 1 ? 'dia' : 'dias'}: reenvie pelo WhatsApp em Casa → Família e ajustes.`,
+      } : null),
+    });
+  }
 }
 
 /** Registra uma chave de deduplicação; retorna true só na primeira vez. */
@@ -186,6 +265,8 @@ export async function lembretes(env) {
   const agora = Date.now();
   const iso = (ms) => new Date(ms).toISOString();
   await env.DB.prepare('DELETE FROM notif_log WHERE at < ?').bind(iso(agora - 14 * 86400_000)).run();
+  await enviarResumos(env).catch((e) => registrarErro(env, { origem: 'cron', mensagem: `resumos: ${e instanceof Error ? e.message : e}` }));
+  await lembrarConvites(env).catch((e) => registrarErro(env, { origem: 'cron', mensagem: `convites: ${e instanceof Error ? e.message : e}` }));
   const bebes = (await env.DB.prepare(
     'SELECT DISTINCT b.* FROM babies b JOIN members m ON m.baby_id = b.id JOIN push_subs p ON p.user_id = m.user_id',
   ).all()).results;

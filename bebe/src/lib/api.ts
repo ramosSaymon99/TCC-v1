@@ -3,7 +3,7 @@
  *  - Publicado no Cloudflare (/api/status responde): dados no D1, compartilhados entre os cuidadores.
  *  - Aberto localmente / hospedagem estática: modo local, mesmo contrato da API, dados no navegador.
  */
-import type { Baby, BabyData, NotifPrefs, Resource, User } from '../types';
+import type { Baby, BabyData, ConvitePendente, NotifPrefs, Resource, User } from '../types';
 import { uid } from './time';
 import { enfileirar, enfileiravel, fila, removerDaFila, type Pendente } from './offline';
 
@@ -158,6 +158,9 @@ export const api = {
   updateBaby: (id: string, b: Partial<Baby>) => req('PUT', `/babies/${id}`, b),
   deleteBaby: (id: string) => req('DELETE', `/babies/${id}`),
   invite: (id: string, role: string, access: string) => req<{ code: string; expires_at: string }>('POST', `/babies/${id}/invites`, { role, access }),
+  invites: (id: string) => req<ConvitePendente[]>('GET', `/babies/${id}/invites`),
+  renovarConvite: (id: string, code: string) => req<{ code: string; expires_at: string }>('POST', `/babies/${id}/invites/${code}/renovar`),
+  cancelarConvite: (id: string, code: string) => req<{ ok: true }>('DELETE', `/babies/${id}/invites/${code}`),
   invitePreview: (code: string) => req<{ bebe: string; role: string; access: string }>('GET', `/invites/${code.trim().toUpperCase()}`),
   acceptInvite: (code: string, role?: string) => req<{ babyId: string }>('POST', '/invites/accept', { code, role }),
   updateMember: (id: string, userId: string, b: { role?: string; access?: string }) => req('PUT', `/babies/${id}/members/${userId}`, b),
@@ -302,7 +305,7 @@ function local(method: string, path: string, body: any): unknown {
   if (r('PUT', '/me/photo')) { (me as Row).photo = body.photo; salvar(); return { photo: body.photo }; }
   if (r('DELETE', '/me/photo')) { (me as Row).photo = null; salvar(); return { ok: true }; }
   if (r('GET', '/push')) {
-    const prefs = { atividade: false, cronometro: true, recados: true, lembretes: true, estoque: true, consultas: true, familia: true, silencio: { on: false, de: '22:00', ate: '06:00' }, ...((me as Row).notifPrefs ?? {}) };
+    const prefs = { atividade: false, cronometro: true, recados: true, lembretes: true, estoque: true, consultas: true, familia: true, silencio: { on: false, de: '22:00', ate: '06:00' }, noite: { on: true, de: '22:00', ate: '06:00' }, ...((me as Row).notifPrefs ?? {}) };
     return { publicKey: null, prefs, devices: 0 };
   }
   if (r('PUT', '/push/prefs')) { (me as Row).notifPrefs = { ...((me as Row).notifPrefs ?? {}), ...body }; salvar(); return { prefs: (me as Row).notifPrefs }; }
@@ -396,6 +399,23 @@ function local(method: string, path: string, body: any): unknown {
     D.invites.push({ code, baby_id: babyId, role: body.role, access: body.access, created_by: myId, expires_at });
     salvar();
     return { code, expires_at };
+  }
+  if (method === 'GET' && sub === '/invites') {
+    if (!pode('admin')) falha('Somente administradores veem os convites.', 403);
+    const nm = (u?: string) => (u ? String(D.users.find((x) => x.id === u)?.name ?? '').split(' ')[0] || null : null);
+    return D.invites.filter((i) => i.baby_id === babyId && String(i.expires_at) > new Date(Date.now() - 23 * 86400_000).toISOString())
+      .map((i) => ({ code: i.code, role: i.role, access: i.access, expires_at: i.expires_at, aceito: !!i.used_by, usado_por: nm(i.used_by as string | undefined), criado_por: nm(i.created_by as string) }));
+  }
+  const mcv = sub.match(/^\/invites\/([A-Z0-9]{6})(\/renovar)?$/);
+  if (mcv && (method === 'DELETE' || (method === 'POST' && mcv[2]))) {
+    if (!pode('admin')) falha('Somente administradores alteram convites.', 403);
+    const inv = D.invites.find((i) => i.code === mcv[1] && i.baby_id === babyId);
+    if (!inv) falha('Convite não encontrado.', 404);
+    if (inv!.used_by) falha('Este convite já foi aceito.', 409);
+    if (method === 'DELETE') D.invites = D.invites.filter((i) => i.code !== mcv[1]);
+    else inv!.expires_at = new Date(Date.now() + 7 * 86400_000).toISOString();
+    salvar();
+    return method === 'DELETE' ? { ok: true } : { code: inv!.code, expires_at: inv!.expires_at };
   }
   if (method === 'GET' && sub === '/export') {
     if (!pode('admin')) falha('Somente administradores exportam os dados do bebê.', 403);

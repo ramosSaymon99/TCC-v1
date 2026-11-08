@@ -18,6 +18,7 @@ import { idCheck } from '../lib/conteudo';
 import { SugestaoRotinaSheet } from './Familia';
 import { Sheet } from '../components/ui';
 import { Ajuda, DicaUnica, PrimeirosPassos, Secao } from '../components/Guia';
+import { CompletarDia } from '../components/Completar';
 import type { ItemRotina } from '../lib/metrics';
 
 const RAPIDOS: EventType[] = ['mamada', 'mamadeira', 'sono', 'fralda', 'remedio', 'saude', 'banho', 'alimentacao'];
@@ -41,7 +42,7 @@ export function descreve(e: BabyEvent, agora: number) {
 
 export function Hoje() {
   const app = useApp();
-  const { data, agora, user, abrirRegistro, act, podeEditar, nome, setAba } = app;
+  const { data, agora, user, abrirRegistro, act, podeEditar, podeAdmin, nome, setAba } = app;
   const { baby, events } = data;
   const [diaSel, setDiaSel] = useState(startOfDay(agora));
   const hoje = startOfDay(agora);
@@ -93,6 +94,17 @@ export function Hoje() {
   const plantao = baby.settings?.plantao;
   const diaNoite = new Date(agora).getHours() < 6 ? (new Date(agora).getDay() + 6) % 7 : new Date(agora).getDay();
   const quemPlantao = plantao?.dias?.[String(diaNoite)];
+  // Sugere o plantão quando 2+ pessoas registraram à noite (22h–6h) nos últimos 7 dias e ainda não há plantão
+  const [semPlantaoOk, setSemPlantaoOk] = useState(() => { try { return localStorage.getItem(`ninho-sugerir-plantao-${baby.id}`) === '1'; } catch { return false; } });
+  const quemLevanta = useMemo(() => {
+    const s = new Set<string>();
+    for (const e of events) {
+      const h = new Date(t(e.start_at)).getHours();
+      if (t(e.start_at) >= agora - 7 * DIA && (h >= 22 || h < 6)) s.add(e.user_id);
+    }
+    return s;
+  }, [events, agora]);
+  const sugerirPlantao = podeAdmin && !semPlantaoOk && !plantao?.dias && quemLevanta.size >= 2 && !baby.settings?.gestacao;
   const [madPref, setMadPref] = useState(() => { try { return localStorage.getItem('ninho-madrugada') || 'auto'; } catch { return 'auto'; } });
   const madrugada = madPref === 'on' || (madPref === 'auto' && ehMadrugada(agora));
   const trocarMadrugada = () => {
@@ -217,7 +229,20 @@ export function Hoje() {
         </div>
       )}
 
+      <CompletarDia />
+
       <PrimeirosPassos />
+
+      {sugerirPlantao && (
+        <div className="card">
+          <div className="card-h"><h2>🌙 Que tal dividir as noites?</h2></div>
+          <p className="faint">Nos últimos 7 dias, {[...quemLevanta].map((u) => (u === user.id ? 'você' : nome(u).split(' ')[0])).join(', ').replace(/, ([^,]*)$/, ' e $1')} registraram coisas de madrugada. Com o plantão, à noite os avisos vão só para quem está de plantão, e quem está de folga dorme.</p>
+          <div className="row" style={{ marginTop: 10, flexWrap: 'wrap' }}>
+            <button className="btn primary sm" onClick={() => setAba('familia')}>Definir plantão</button>
+            <button className="btn ghost sm" onClick={() => { try { localStorage.setItem(`ninho-sugerir-plantao-${baby.id}`, '1'); } catch { /* sem storage */ } setSemPlantaoOk(true); }}>Agora não</button>
+          </div>
+        </div>
+      )}
 
       {noiteRes && (
         <div className="card noite-card">

@@ -11,7 +11,7 @@
 
 import { vapid, sendPush } from './push.js';
 import { ESQUEMA_OBS, MIGRACOES_OBS, contar, limparObservabilidade, marcarSistema, normalizarRota, plataformaDe, registrarAtividade, registrarCadastro, registrarErro, registrarRequisicao } from './observabilidade.js';
-import { CATEGORIAS, dataHoraTz, descreverEvento, horaTz, lembretes, lerPrefs, nomePapel, notificar } from './notify.js';
+import { CATEGORIAS, avisarAtividade, dataHoraTz, descreverEvento, horaTz, lembretes, lerPrefs, nomePapel, notificar } from './notify.js';
 import {
   DOMINIO_DEMO, VERSAO_TERMOS, apagarBebe, bloqueado, codigoCurto, consumirRedefinicao, criarRedefinicao, emailConfigurado,
   enviarEmailRedefinicao, excluirConta, limparContasDemo, limparFalhas, registrarFalha,
@@ -114,6 +114,7 @@ const ESQUEMA = [
   'CREATE INDEX IF NOT EXISTS idx_push_user ON push_subs (user_id)',
   'CREATE TABLE IF NOT EXISTS notif_prefs (user_id TEXT PRIMARY KEY, data TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS notif_log (key TEXT PRIMARY KEY, at TEXT NOT NULL)',
+  'CREATE TABLE IF NOT EXISTS notif_fila (id INTEGER PRIMARY KEY AUTOINCREMENT, baby_id TEXT NOT NULL, user_id TEXT NOT NULL, texto TEXT NOT NULL, at TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS login_attempts (key TEXT PRIMARY KEY, count INTEGER NOT NULL, window_start TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS uso (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, baby_id TEXT, evento TEXT NOT NULL, valor TEXT, at TEXT NOT NULL)',
   'CREATE INDEX IF NOT EXISTS idx_uso_evento ON uso (evento, at)',
@@ -417,9 +418,9 @@ async function api(req, env, url, ctx) {
     const atual = lerPrefs((await env.DB.prepare('SELECT data FROM notif_prefs WHERE user_id = ?').bind(me.id).first())?.data);
     const novo = { ...atual };
     for (const k of CATEGORIAS) if (typeof body[k] === 'boolean') novo[k] = body[k];
-    if (body.silencio && typeof body.silencio === 'object') {
-      const hh = (x, d) => (/^\d{2}:\d{2}$/.test(String(x)) ? x : d);
-      novo.silencio = { on: !!body.silencio.on, de: hh(body.silencio.de, atual.silencio.de), ate: hh(body.silencio.ate, atual.silencio.ate) };
+    const hh = (x, d) => (/^\d{2}:\d{2}$/.test(String(x)) ? x : d);
+    for (const f of ['silencio', 'noite']) {
+      if (body[f] && typeof body[f] === 'object') novo[f] = { on: !!body[f].on, de: hh(body[f].de, atual[f].de), ate: hh(body[f].ate, atual[f].ate) };
     }
     await env.DB.prepare('INSERT INTO notif_prefs (user_id, data) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET data = excluded.data').bind(me.id, JSON.stringify(novo)).run();
     return json({ prefs: novo });
@@ -565,6 +566,33 @@ async function api(req, env, url, ctx) {
     return json({ code, expires_at: expires });
   }
 
+  // Convites dos últimos 30 dias (pendentes, aceitos e expirados), para acompanhar e reenviar
+  if (sub === '/invites' && method === 'GET') {
+    if (!pode('admin')) return erro('Somente administradores veem os convites.', 403);
+    const lista = (await env.DB.prepare(
+      `SELECT i.code, i.role, i.access, i.expires_at, i.used_by, u.name AS usado_por, c.name AS criado_por
+         FROM invites i LEFT JOIN users u ON u.id = i.used_by LEFT JOIN users c ON c.id = i.created_by
+        WHERE i.baby_id = ? AND i.expires_at > ? ORDER BY i.expires_at DESC LIMIT 30`,
+    ).bind(babyId, new Date(Date.now() - 23 * 86400_000).toISOString()).all()).results;
+    return json(lista.map((i) => ({ code: i.code, role: i.role, access: i.access, expires_at: i.expires_at, aceito: !!i.used_by, usado_por: i.usado_por ? i.usado_por.split(' ')[0] : null, criado_por: i.criado_por ? i.criado_por.split(' ')[0] : null })));
+  }
+  const mcv = sub.match(/^\/invites\/([A-Z0-9]{6})(\/renovar)?$/);
+  if (mcv && (method === 'DELETE' || (method === 'POST' && mcv[2]))) {
+    if (!pode('admin')) return erro('Somente administradores alteram convites.', 403);
+    const inv = await env.DB.prepare('SELECT used_by FROM invites WHERE code = ? AND baby_id = ?').bind(mcv[1], babyId).first();
+    if (!inv) return erro('Convite não encontrado.', 404);
+    if (inv.used_by) return erro('Este convite já foi aceito.', 409);
+    if (method === 'DELETE') {
+      await env.DB.prepare('DELETE FROM invites WHERE code = ?').bind(mcv[1]).run();
+      return json({ ok: true });
+    }
+    // Renovar: mesmo código (o link já enviado volta a valer) por mais 7 dias
+    const expires = new Date(Date.now() + 7 * 86400_000).toISOString();
+    await env.DB.prepare('UPDATE invites SET expires_at = ? WHERE code = ?').bind(expires, mcv[1]).run();
+    await env.DB.prepare('DELETE FROM notif_log WHERE key = ?').bind(`convite48:${mcv[1]}`).run();
+    return json({ code: mcv[1], expires_at: expires });
+  }
+
   // Esqueceu a senha e o app não tem e-mail configurado: um administrador gera um código (30 min, uso único).
   // Só vale para quem não é administrador e não acompanha bebês fora do alcance deste administrador.
   const mrc = sub.match(/^\/members\/([A-Za-z0-9-]+)\/reset-code$/);
@@ -652,7 +680,7 @@ async function api(req, env, url, ctx) {
       // Registro comum: aviso discreto (sem som), um por bebê — o mais recente substitui o anterior
       // (o fim de sono/mamada cronometrados já é avisado pela categoria "cronômetro", sem duplicar)
       if (metodo === 'POST' && !(cron && !item.end_at)) {
-        avisar(babyId, 'atividade', { title: `${nome} · ${descreverEvento(item, data).split(' (')[0]}`, body: `${descreverEvento(item, data)} · por ${quem}`, tag: `ativ-${babyId}`, silent: true, ts: Date.parse(item.end_at || item.start_at) }, me.id);
+        ctx.waitUntil(avisarAtividade(env, babyId, { title: `${nome} · ${descreverEvento(item, data).split(' (')[0]}`, body: `${descreverEvento(item, data)} · por ${quem}`, tag: `ativ-${babyId}`, silent: true, ts: Date.parse(item.end_at || item.start_at) }, me.id, descreverEvento(item, data)).catch(() => 0));
       }
       // Cronômetro "ao vivo": fica fixo na tela de bloqueio de todos (inclusive de quem iniciou) e é substituído ao terminar
       if (cron && metodo === 'POST' && !item.end_at) {

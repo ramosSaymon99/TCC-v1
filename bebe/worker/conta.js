@@ -74,7 +74,7 @@ export async function enviarEmailRedefinicao(env, para, nome, link) {
 }
 
 /* ---------------- Exclusão de conta ---------------- */
-const TABELAS_BEBE = ['events', 'growth', 'supplies', 'notes', 'appointments', 'vaccines', 'invites', 'members', 'checks', 'milk', 'posts', 'uso'];
+const TABELAS_BEBE = ['notif_fila', 'events', 'growth', 'supplies', 'notes', 'appointments', 'vaccines', 'invites', 'members', 'checks', 'milk', 'posts', 'uso'];
 export async function apagarBebe(env, babyId) {
   await env.DB.batch([
     env.DB.prepare("DELETE FROM photos WHERE kind = 'post' AND id IN (SELECT id FROM posts WHERE baby_id = ?)").bind(babyId),
@@ -109,6 +109,7 @@ export async function excluirConta(env, userId) {
     env.DB.prepare('DELETE FROM members WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM push_subs WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM notif_prefs WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM notif_fila WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM password_resets WHERE user_id = ?').bind(userId),
     env.DB.prepare("DELETE FROM photos WHERE kind = 'user' AND id = ?").bind(userId),
     env.DB.prepare('UPDATE supplies SET buyer_id = NULL WHERE buyer_id = ?').bind(userId),

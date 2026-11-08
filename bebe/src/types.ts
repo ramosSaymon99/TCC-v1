@@ -115,4 +115,16 @@ export interface NotifPrefs {
   familia: boolean;
   cronometro: boolean;
   silencio: { on: boolean; de: string; ate: string };
+  noite: { on: boolean; de: string; ate: string };
+}
+
+/** Convite gerado para o bebê (lista em Família e ajustes). */
+export interface ConvitePendente {
+  code: string;
+  role: string;
+  access: string;
+  expires_at: string;
+  aceito: boolean;
+  usado_por: string | null;
+  criado_por: string | null;
 }

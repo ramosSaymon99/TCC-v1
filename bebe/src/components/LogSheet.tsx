@@ -56,6 +56,20 @@ export function LogSheet({ tipo, ev, onClose }: { tipo: EventType; ev?: BabyEven
       alert('O término não pode ser antes do início.');
       return;
     }
+    // Trava de data errada (ex.: dia ou mês digitado errado), que distorce médias e previsões
+    if (!timer) {
+      const ts = Date.parse(body.start_at);
+      const quando = new Date(ts).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      const aviso = ts > Date.now() + 60 * 60_000
+        ? `O horário (${quando}) está no futuro.`
+        : ts < Date.now() - 3 * 86_400_000 && !ev
+          ? `O horário (${quando}) é de mais de 3 dias atrás.`
+          : null;
+      if (aviso && !confirm(`${aviso}\n\nSalvar assim mesmo?`)) {
+        setSalvando(false);
+        return;
+      }
+    }
     const babyId = data.baby.id;
     const novoId = uid();
     const anterior = ev && { type: ev.type, start_at: ev.start_at, end_at: ev.end_at ?? null, data: ev.data, note: ev.note ?? null };

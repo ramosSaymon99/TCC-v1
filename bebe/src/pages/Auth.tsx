@@ -87,7 +87,18 @@ export function Auth({ onOk, onDemo }: { onOk: (babyId?: string, aviso?: string)
     <div className="auth">
       <div className="card">
         <div className="brand" style={{ justifyContent: 'center', fontSize: 26 }}><span className="logo" style={{ width: 40, height: 40, fontSize: 22 }}>🪺</span> Ninho</div>
-        <p className="muted" style={{ textAlign: 'center', margin: '8px 0 18px' }}>A rotina do bebê compartilhada por toda a família: mamadas, sonecas, fraldas, saúde e o mural de materiais.</p>
+        {previa && (tela === 'criar' || tela === 'entrar') ? (
+          // Quem chega por convite: mostra para quem é e o que a pessoa ganha antes de pedir a conta
+          <div className="convite-boasvindas">
+            <b>💌 Você foi convidado(a) para cuidar de {previa.bebe} junto com a família</b>
+            <ul>
+              <li>👀 Veja na hora a última mamada, o sono e a fralda de {previa.bebe}</li>
+              <li>👆 Registre com 1 toque o que você fizer, e todos ficam sabendo</li>
+              <li>🔔 Receba os avisos de dose, consultas e recados da família</li>
+            </ul>
+            <span className="faint">Leva 1 minuto. {tela === 'criar' ? 'Já tem conta no Ninho? Toque em "Entrar".' : 'Ainda não tem conta? Toque em "Criar conta".'}</span>
+          </div>
+        ) : <p className="muted" style={{ textAlign: 'center', margin: '8px 0 18px' }}>A rotina do bebê compartilhada por toda a família: mamadas, sonecas, fraldas, saúde e o mural de materiais.</p>}
 
         {(tela === 'criar' || tela === 'entrar') ? (
           <div className="seg" style={{ width: '100%', marginBottom: 16 }}>

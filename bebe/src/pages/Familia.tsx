@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Bell, Camera, Copy, Database, Download, KeyRound, LogOut, Pencil, Plus, Share2, Shield, Trash2, UserPlus, X } from 'lucide-react';
 import { Avatar, PhotoPicker } from '../components/Avatar';
 import { PoliticaSheet } from '../components/Privacidade';
@@ -10,7 +10,7 @@ import { ACESSOS, CORES_BEBE, PAPEIS, papel } from '../lib/constants';
 import { carregarExemplo } from '../lib/seed';
 import { sugerirRotina } from '../lib/rotina';
 import { addDays, dataBr, haQuanto, idade, startOfDay, t } from '../lib/time';
-import type { Access, Member, Routine } from '../types';
+import type { Access, ConvitePendente, Member, Routine } from '../types';
 import { Choice, Field, Sheet } from '../components/ui';
 
 export function Familia() {
@@ -123,6 +123,7 @@ export function Familia() {
             </div>
           );
         })}
+        {podeAdmin && modo === 'cloud' && <ConvitesPendentes atualizar={convite} />}
       </div>
 
       <div className="grid md2">
@@ -285,13 +286,52 @@ export function SugestaoRotinaSheet({ onClose }: { onClose: () => void }) {
 }
 const ymdLocal = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
+const textoConvite = (bebe: string, code: string) => `Oi! Você foi convidado(a) para acompanhar a rotina de ${bebe} no app Ninho 👶\n\nToque no link para entrar (o convite já vem preenchido): ${location.origin}${location.pathname}?convite=${code}\n\nSe pedir, o código de convite é ${code} (vale 7 dias). Crie sua conta com seu e-mail e senha.`;
+
+/** Convites gerados: quem já entrou, quem ainda não aceitou (com reenviar/renovar) e quais expiraram. */
+function ConvitesPendentes({ atualizar }: { atualizar: boolean }) {
+  const { data, agora, act } = useApp();
+  const [lista, setLista] = useState<ConvitePendente[] | null>(null);
+  const carregar = () => api.invites(data.baby.id).then(setLista).catch(() => setLista([]));
+  useEffect(() => { if (!atualizar) void carregar(); }, [data.baby.id, atualizar]); // eslint-disable-line react-hooks/exhaustive-deps
+  const abertos = (lista ?? []).filter((c) => !c.aceito);
+  if (!abertos.length) return null;
+  const bebe = data.baby.name.split(' ')[0];
+  return (
+    <div style={{ borderTop: '1px solid var(--line)', marginTop: 8, paddingTop: 10 }}>
+      <h3 style={{ marginBottom: 4 }}>Convites ainda não aceitos</h3>
+      <p className="faint" style={{ marginBottom: 6 }}>Reenvie para lembrar a pessoa. Renovar mantém o mesmo código e o link já enviado volta a valer.</p>
+      {abertos.map((c) => {
+        const expirado = Date.parse(c.expires_at) <= agora;
+        const dias = Math.max(0, Math.ceil((Date.parse(c.expires_at) - agora) / 86_400_000));
+        return (
+          <div key={c.code} className="list-item" style={{ alignItems: 'flex-start' }}>
+            <span style={{ fontSize: 24 }}>{papel(c.role).emoji}</span>
+            <div className="grow">
+              <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}><b>{papel(c.role).label}</b><span className="chip">{ACESSOS[c.access as Access]?.label ?? c.access}</span><span className={`chip ${expirado ? 'bad' : 'warn'}`}>{expirado ? 'expirou' : `aguardando · expira em ${dias} ${dias === 1 ? 'dia' : 'dias'}`}</span></div>
+              <div className="faint">Código {c.code}{c.criado_por ? ` · criado por ${c.criado_por}` : ''}</div>
+              <div className="wrap-row" style={{ marginTop: 6 }}>
+                {expirado
+                  ? <button className="btn sm primary" onClick={() => act(async () => { await api.renovarConvite(data.baby.id, c.code); await carregar(); }, 'Convite renovado por 7 dias ✓')}>Renovar</button>
+                  : <a className="btn sm primary" href={`https://wa.me/?text=${encodeURIComponent(textoConvite(bebe, c.code))}`} target="_blank" rel="noreferrer"><Share2 size={14} /> Reenviar no WhatsApp</a>}
+                {!expirado && <button className="btn sm" onClick={() => navigator.clipboard?.writeText(textoConvite(bebe, c.code))}><Copy size={14} /> Copiar</button>}
+                <button className="btn sm ghost" onClick={async () => confirm('Cancelar este convite? O código deixa de funcionar.') && act(async () => { await api.cancelarConvite(data.baby.id, c.code); await carregar(); }, 'Convite cancelado')}>Cancelar</button>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function ConviteSheet({ onClose }: { onClose: () => void }) {
   const { data, act, modo, refresh } = useApp();
   const [role, setRole] = useState('pai');
   const [access, setAccess] = useState<Access>('editor');
   const [cod, setCod] = useState<{ code: string; expires_at: string } | null>(null);
   const [nomeDemo, setNomeDemo] = useState('');
-  const texto = cod ? `Oi! Você foi convidado(a) para acompanhar a rotina de ${data.baby.name.split(' ')[0]} no app Ninho 👶\n\nToque no link para entrar (o convite já vem preenchido): ${location.origin}${location.pathname}?convite=${cod.code}\n\nSe pedir, o código de convite é ${cod.code} (vale 7 dias). Crie sua conta com seu e-mail e senha.` : '';
+  const texto = cod ? textoConvite(data.baby.name.split(' ')[0], cod.code) : '';
   async function gerar() {
     if (await act(async () => setCod(await api.invite(data.baby.id, role, access)))) momento('convite', data.baby.id);
   }
