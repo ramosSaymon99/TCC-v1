@@ -7,7 +7,7 @@ import { TIPOS, VACINAS } from '../lib/constants';
 import { referencias } from '../lib/metrics';
 import { DIA, dataBr, fromLocalInput, idade, parseYmd, t, toLocalInput, ymd } from '../lib/time';
 import type { Appointment, Growth } from '../types';
-import { Empty, Field, Seg, Sheet } from '../components/ui';
+import { Empty, Field, Sheet } from '../components/ui';
 import { Alimentos, FebreSintomas, Marcos, Perguntas, RemediosEmUso, TestesRN } from '../components/SaudeExtra';
 
 type AbaSaude = 'crescimento' | 'febre' | 'remedios' | 'vacinas' | 'consultas' | 'perguntas' | 'marcos' | 'testes' | 'alimentos';
@@ -53,10 +53,13 @@ export function Saude() {
         <div className="card kpi"><div className="lab">💉 Vacinas</div><div className="val">{aplicadas.size}</div><div className="sub" style={{ color: atrasadas ? 'var(--warn)' : undefined }}>{atrasadas ? `${atrasadas} sem registro p/ idade` : 'em dia pelos registros'}</div></div>
       </div>}
 
-      <div className="seg-rolagem">
-        <Seg value={aba} onChange={setAba} options={(gestacao
-          ? [{ v: 'consultas', l: 'Consultas' }, { v: 'perguntas', l: 'Perguntas' }]
-          : [{ v: 'crescimento', l: 'Crescimento' }, { v: 'febre', l: 'Febre' }, { v: 'remedios', l: 'Remédios' }, { v: 'vacinas', l: 'Vacinas' }, { v: 'consultas', l: 'Consultas' }, { v: 'perguntas', l: 'Perguntas' }, { v: 'marcos', l: 'Marcos' }, { v: 'testes', l: 'Testes RN' }, { v: 'alimentos', l: 'Alimentos' }]) as { v: AbaSaude; l: string }[]} />
+      {/* Todas as seções visíveis de uma vez (antes ficavam numa faixa que rolava para o lado) */}
+      <div className="grade-abas" role="tablist" aria-label="Seções da saúde">
+        {((gestacao
+          ? [{ v: 'consultas', l: '🩺 Consultas' }, { v: 'perguntas', l: '❓ Perguntas' }]
+          : [{ v: 'crescimento', l: '📈 Crescimento' }, { v: 'vacinas', l: '💉 Vacinas' }, { v: 'consultas', l: '🩺 Consultas' }, { v: 'febre', l: '🌡️ Febre' }, { v: 'remedios', l: '💊 Remédios' }, { v: 'perguntas', l: '❓ Perguntas' }, { v: 'marcos', l: '⭐ Marcos' }, { v: 'testes', l: '🧪 Testes RN' }, { v: 'alimentos', l: '🥣 Alimentos' }]) as { v: AbaSaude; l: string }[]).map((o) => (
+          <button key={o.v} role="tab" aria-selected={aba === o.v} className={aba === o.v ? 'on' : ''} onClick={() => setAba(o.v)}>{o.l}</button>
+        ))}
       </div>
       {aba === 'febre' && <FebreSintomas />}
       {aba === 'perguntas' && <Perguntas />}

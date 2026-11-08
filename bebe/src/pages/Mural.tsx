@@ -11,6 +11,7 @@ import { Empty, Field, Seg, Sheet } from '../components/ui';
 import { Avatar } from '../components/Avatar';
 import { LeiteMaterno } from '../components/Leite';
 import { leiteGuardado } from '../lib/previsao';
+import { pl } from '../lib/texto';
 
 export function Mural() {
   const { data, act, podeEditar, user, nome, agora } = useApp();
@@ -59,7 +60,7 @@ export function Mural() {
 
       {aba === 'materiais' && (porCat.length ? porCat.map(({ c, itens }) => (
         <div key={c} className="card">
-          <div className="card-h"><h2>{c}</h2><span className="faint">{itens.length} item(ns)</span></div>
+          <div className="card-h"><h2>{c}</h2><span className="faint">{pl(itens.length, 'item', 'itens')}</span></div>
           {itens.map((s) => {
             const st = statusSupply(s);
             const cob = coberturaDias(s, data.events, agora);

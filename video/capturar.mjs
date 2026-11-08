@@ -69,9 +69,9 @@ await semToast();
 await foto('06-comemoracao');
 await p.getByRole('button', { name: 'Agora não' }).click();
 
-// 4) Convite (Casa → Família e ajustes)
+// 4) Convite (Casa → Família)
 await aba('Casa');
-await p.getByRole('tab', { name: /Família e ajustes/ }).click();
+await p.getByRole('tab', { name: /Família/ }).click();
 await p.waitForTimeout(600);
 await p.getByRole('button', { name: 'Entendi' }).click().catch(() => {});
 await p.getByRole('button', { name: 'Convidar' }).first().click();
@@ -159,7 +159,7 @@ await foto('14-evolucao-2');
 // 10) Saúde
 await aba('Saúde');
 await foto('15-saude');
-await p.locator('.seg button', { hasText: 'Marcos' }).click();
+await p.locator('.grade-abas button', { hasText: 'Marcos' }).click();
 await p.waitForTimeout(500);
 await foto('16-saude-marcos');
 
@@ -168,7 +168,7 @@ await aba('Casa');
 await p.getByRole('tab', { name: /Mural/ }).click();
 await p.locator('.seg button', { hasText: 'Leite' }).click();
 await foto('17-casa-leite');
-await p.getByRole('tab', { name: /Família e ajustes/ }).click();
+await p.getByRole('tab', { name: /Família/ }).click();
 await p.waitForTimeout(600);
 await p.getByRole('button', { name: /Sugerir/ }).click();
 await p.waitForTimeout(600);

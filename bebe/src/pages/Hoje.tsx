@@ -3,7 +3,7 @@ import { Check, ChevronLeft, ChevronRight, Moon, Pin, RotateCcw, Sun } from 'luc
 import { useApp } from '../ctx';
 import { api } from '../lib/api';
 import { TIPOS, papel } from '../lib/constants';
-import { aderencia, estatisticas, insights, mediaDiaria } from '../lib/metrics';
+import { aderencia, agruparCompras, estatisticas, insights, mediaDiaria } from '../lib/metrics';
 import { DIA, MIN, addDays, cronometro, dataCurta, diaSemana, duracao, haQuanto, hm, idade, startOfDay, t } from '../lib/time';
 import type { BabyEvent, EventType } from '../types';
 import { Delta, Empty } from '../components/ui';
@@ -20,6 +20,7 @@ import { Sheet } from '../components/ui';
 import { Ajuda, DicaUnica, PrimeirosPassos, Secao } from '../components/Guia';
 import { CompletarDia } from '../components/Completar';
 import type { ItemRotina } from '../lib/metrics';
+import { pl } from '../lib/texto';
 
 const RAPIDOS: EventType[] = ['mamada', 'mamadeira', 'sono', 'fralda', 'remedio', 'saude', 'banho', 'alimentacao'];
 const LS_VISITA = (u: string, b: string) => `ninho-visita-${u}-${b}`;
@@ -119,6 +120,42 @@ export function Hoje() {
       `${TIPOS[tipo].label} registrada ✓`, () => api.remove('events', baby.id, novoId));
   };
 
+  // "Onde agir": materiais em falta viram uma linha só (saúde e rotina primeiro)
+  const ondeAgir = useMemo(() => agruparCompras(lista), [lista]);
+  const [verTodos, setVerTodos] = useState(false);
+  const previa = [noiteRes ? `noite ${duracao(noiteRes.totalMin)}` : '', fixados.length ? pl(fixados.length, 'recado', 'recados') : ''].filter(Boolean).join(' · ');
+  const maisDoDia = (cls: string) => (
+    <Secao id="mais-dia" className={cls} aberta={!mobile} titulo="Mais sobre o dia" extra={previa ? <span className="faint">{previa}</span> : undefined}>
+      <div className="stack" style={{ gap: 14 }}>
+      {noiteRes && (
+        <div className="mais-bloco">
+          <div className="between"><h3>🌙 Como foi a noite</h3><span className="faint">{hm(noiteRes.ini)} → {hm(noiteRes.fim)}</span></div>
+          <div className="grid g4">
+            <div><div className="lab faint">Dormiu</div><b>{duracao(noiteRes.totalMin)}</b></div>
+            <div><div className="lab faint">Maior sono seguido</div><b>{duracao(noiteRes.maiorMin)}</b></div>
+            <div><div className="lab faint">Despertares</div><b>{noiteRes.despertares}</b></div>
+            <div><div className="lab faint">Mamadas na noite</div><b>{noiteRes.mamadas}</b></div>
+          </div>
+          {Object.keys(noiteRes.porPessoa).length > 0 && <p className="faint" style={{ marginTop: 8 }}>Quem levantou: {Object.entries(noiteRes.porPessoa).sort((a, b) => b[1] - a[1]).map(([u, n]) => `${nome(u).split(' ')[0]} (${n})`).join(' · ')}</p>}
+        </div>
+      )}
+        {fixados.length > 0 && (
+          <div className="mais-bloco">
+            <div className="between"><h3>📌 Recados fixados</h3><button className="btn sm ghost" onClick={() => setAba('mural')}>Ver recados</button></div>
+            <div className="stack">
+              {fixados.map((n) => <div key={n.id} className="note"><Pin size={13} style={{ float: 'right', opacity: 0.6 }} />{n.text}<div className="faint" style={{ marginTop: 4, color: 'inherit', opacity: 0.7 }}>{nome(n.user_id)}</div></div>)}
+            </div>
+          </div>
+        )}
+        <div className="mais-bloco dica">
+          <h3>💡 {dica.titulo}</h3>
+          <p>{dica.texto}</p>
+          <p className="faint" style={{ marginTop: 6 }}>Fonte: {dica.fonte}. Em caso de dúvida, fale com o pediatra.</p>
+        </div>
+      </div>
+    </Secao>
+  );
+
   const encerrar = (e: BabyEvent) => act(
     () => api.update('events', baby.id, e.id, { end_at: new Date().toISOString() }),
     `${TIPOS[e.type].label} encerrada: ${duracao((Date.now() - t(e.start_at)) / MIN)}`,
@@ -146,9 +183,9 @@ export function Hoje() {
         <div className="card chegada">
           <div className="card-h"><h2>👋 Enquanto você esteve fora</h2><span className="faint">desde {hm(visita!)} · {chegada.quem.map((q) => nome(q).split(' ')[0]).join(', ') || 'família'}</span></div>
           <div className="wrap-row">
-            {chegada.mamadas > 0 && <span className="chip">🍼 {chegada.mamadas} mamada(s){chegada.ultMamada ? ` · última ${hm(chegada.ultMamada.start_at)}` : ''}</span>}
+            {chegada.mamadas > 0 && <span className="chip">🍼 {pl(chegada.mamadas, 'mamada', 'mamadas')}{chegada.ultMamada ? ` · última ${hm(chegada.ultMamada.start_at)}` : ''}</span>}
             {chegada.sonoMin > 0 && <span className="chip">😴 dormiu {duracao(chegada.sonoMin)}</span>}
-            {chegada.fraldas > 0 && <span className="chip">🧷 {chegada.fraldas} fralda(s){chegada.ultFralda ? ` · última ${hm(chegada.ultFralda.start_at)}` : ''}</span>}
+            {chegada.fraldas > 0 && <span className="chip">🧷 {pl(chegada.fraldas, 'fralda', 'fraldas')}{chegada.ultFralda ? ` · última ${hm(chegada.ultFralda.start_at)}` : ''}</span>}
             {chegada.remedios.map((r) => <span key={r.id} className="chip warn">💊 {r.data.med} às {hm(r.start_at)} ({nome(r.user_id).split(' ')[0]})</span>)}
             {chegada.saude.map((r) => <span key={r.id} className="chip bad">🌡️ {descreve(r, agora)} às {hm(r.start_at)}</span>)}
           </div>
@@ -172,6 +209,28 @@ export function Hoje() {
         <div><div className="l">😴 {dormindo ? 'Dormindo' : 'Acordado'}</div><div className="v">{ultSono ? duracao((agora - t(dormindo ? ultSono.start_at : ultSono.end_at!)) / MIN) : '—'}</div><div className="faint">{ultSono ? (dormindo ? `desde ${hm(ultSono.start_at)}` : `acordou ${hm(ultSono.end_at!)}`) : 'sem registro'}</div></div>
         <div><div className="l">🧷 Última fralda</div><div className="v">{ultFralda ? haQuanto(t(ultFralda.start_at), agora).replace('há ', '') : '—'}</div><div className="faint">{ultFralda ? `às ${hm(ultFralda.start_at)}` : 'sem registro'}</div></div>
       </div>
+
+      {podeEditar && (
+        <div className="quick">
+          {RAPIDOS.map((k) => (
+            <button key={k} className="qbtn" onClick={() => abrirRegistro(k)}>
+              <span className="em">{TIPOS[k].emoji}</span>{TIPOS[k].label}
+            </button>
+          ))}
+        </div>
+      )}
+      {podeEditar && repetir.length > 0 && <DicaUnica id="repetir">Os atalhos com ↻ repetem o último registro igual (ex.: mesma fralda) com um toque. A mamada já sugere o outro peito.</DicaUnica>}
+      {podeEditar && (
+        <div className="wrap-row repetir">
+          {repetir.map((r) => (
+            <button key={r.ref.id} className="chip" onClick={() => repetirAgora(r.tipo, r.data)}>
+              <RotateCcw size={13} /> {TIPOS[r.tipo].emoji} {r.tipo === 'mamada' ? `Mamada · ${r.data.side === 'E' ? 'esquerdo' : r.data.side === 'D' ? 'direito' : 'ambos'}` : descreve({ ...r.ref, data: r.data, end_at: r.ref.start_at }, agora).split(' · ')[0]}
+            </button>
+          ))}
+          <button className="chip" onClick={() => abrirRegistro('extracao')}>{TIPOS.extracao.emoji} Extração</button>
+          <button className="chip" onClick={() => abrirRegistro('outro')}>{TIPOS.outro.emoji} Outro</button>
+        </div>
+      )}
 
       {(soneca || mamadaPrev || listaDoses.length > 0) && (
         <div className="stack" style={{ gap: 6 }}>
@@ -207,31 +266,10 @@ export function Hoje() {
         </div>
       )}
 
-      {podeEditar && (
-        <div className="quick">
-          {RAPIDOS.map((k) => (
-            <button key={k} className="qbtn" onClick={() => abrirRegistro(k)}>
-              <span className="em">{TIPOS[k].emoji}</span>{TIPOS[k].label}
-            </button>
-          ))}
-        </div>
-      )}
-      {podeEditar && repetir.length > 0 && <DicaUnica id="repetir">Os atalhos com ↻ repetem o último registro igual (ex.: mesma fralda) com um toque. A mamada já sugere o outro peito.</DicaUnica>}
-      {podeEditar && (
-        <div className="wrap-row repetir">
-          {repetir.map((r) => (
-            <button key={r.ref.id} className="chip" onClick={() => repetirAgora(r.tipo, r.data)}>
-              <RotateCcw size={13} /> {TIPOS[r.tipo].emoji} {r.tipo === 'mamada' ? `Mamada · ${r.data.side === 'E' ? 'esquerdo' : r.data.side === 'D' ? 'direito' : 'ambos'}` : descreve({ ...r.ref, data: r.data, end_at: r.ref.start_at }, agora).split(' · ')[0]}
-            </button>
-          ))}
-          <button className="chip" onClick={() => abrirRegistro('extracao')}>{TIPOS.extracao.emoji} Extração</button>
-          <button className="chip" onClick={() => abrirRegistro('outro')}>{TIPOS.outro.emoji} Outro</button>
-        </div>
-      )}
-
-      <CompletarDia />
-
-      <PrimeirosPassos />
+      {/* Orientação: no máximo um cartão por vez (o primeiro que tiver algo a mostrar) */}
+      <div className="guia-fila">
+        <CompletarDia />
+        <PrimeirosPassos />
 
       {sugerirPlantao && (
         <div className="card">
@@ -243,25 +281,15 @@ export function Hoje() {
           </div>
         </div>
       )}
-
-      {noiteRes && (
-        <div className="card noite-card">
-          <div className="card-h"><h2>🌙 Como foi a noite</h2><span className="faint">{hm(noiteRes.ini)} → {hm(noiteRes.fim)}</span></div>
-          <div className="grid g4">
-            <div><div className="lab faint">Dormiu</div><b>{duracao(noiteRes.totalMin)}</b></div>
-            <div><div className="lab faint">Maior sono seguido</div><b>{duracao(noiteRes.maiorMin)}</b></div>
-            <div><div className="lab faint">Despertares</div><b>{noiteRes.despertares}</b></div>
-            <div><div className="lab faint">Mamadas na noite</div><b>{noiteRes.mamadas}</b></div>
-          </div>
-          {Object.keys(noiteRes.porPessoa).length > 0 && <p className="faint" style={{ marginTop: 8 }}>Quem levantou: {Object.entries(noiteRes.porPessoa).sort((a, b) => b[1] - a[1]).map(([u, n]) => `${nome(u).split(' ')[0]} (${n})`).join(' · ')}</p>}
-        </div>
-      )}
+      </div>
 
       <div className="card hide-desk">
-        <div className="card-h"><h2>Onde agir agora</h2><div className="row" style={{ gap: 4 }}><span className="faint">{lista.length} ponto(s)</span><AjudaOndeAgir /></div></div>
-        <InsightList itens={lista.slice(0, 3)} vazio="Tudo dentro do esperado por aqui. 💛" />
-        {lista.length > 3 && <p className="faint" style={{ marginTop: 8 }}>+{lista.length - 3} ponto(s) em Evolução, Casa e Saúde.</p>}
+        <div className="card-h"><h2>Onde agir agora</h2><div className="row" style={{ gap: 4 }}><span className="faint">{pl(ondeAgir.length, 'ponto', 'pontos')}</span><AjudaOndeAgir /></div></div>
+        <InsightList itens={ondeAgir.slice(0, 3)} vazio="Tudo dentro do esperado por aqui. 💛" />
+        {ondeAgir.length > 3 && <p className="faint" style={{ marginTop: 8 }}>+{pl(ondeAgir.length - 3, 'ponto', 'pontos')} em Evolução, Casa e Saúde.</p>}
       </div>
+
+      {maisDoDia('hide-desk')}
 
       <div className="grid lg3">
         <div className="stack" style={{ gap: 16 }}>
@@ -272,9 +300,9 @@ export function Hoje() {
               <>
                 <p className="faint" style={{ marginBottom: 8 }}>Comparado com a média dos últimos 7 dias, no mesmo horário.</p>
                 <div className="grid g4">
-                  <Mini rot="Sono" val={duracao(hj.sleepMin)} base={base.sleepMin} atual={hj.sleepMin} sub={`${hj.naps} soneca(s)`} />
+                  <Mini rot="Sono" val={duracao(hj.sleepMin)} base={base.sleepMin} atual={hj.sleepMin} sub={pl(hj.naps, 'soneca', 'sonecas')} />
                   <Mini rot="Mamadas" val={String(hj.feeds)} base={base.feeds} atual={hj.feeds} sub={hj.bottleMl ? `${hj.bottleMl} ml na mamadeira` : `${duracao(hj.breastMin)} no peito`} />
-                  <Mini rot="Xixi" val={String(hj.wet)} base={base.wet} atual={hj.wet} sub={`${hj.diapers} fralda(s)`} />
+                  <Mini rot="Xixi" val={String(hj.wet)} base={base.wet} atual={hj.wet} sub={pl(hj.diapers, 'fralda', 'fraldas')} />
                   <Mini rot="Cocô" val={String(hj.poop)} base={base.poop} atual={hj.poop} neutro sub={`média ${base.poop.toFixed(1)}`} />
                 </div>
               </>
@@ -283,14 +311,14 @@ export function Hoje() {
 
           <div className="card">
             <div className="card-h">
-              <div className="row" style={{ gap: 4 }}><h2>Rotina planejada</h2><Ajuda titulo="Rotina planejada"><p>Cada horário é comparado com os registros (tolerância de 45 min): <b>verde</b> aconteceu, <b>vermelho</b> passou sem registro, <b>rosa</b> é o próximo.</p><p>Toque num horário para marcar como feito ou pulado. Com alguns dias de registros, o Ninho sugere uma rotina com os horários reais do bebê.</p></Ajuda></div>
+              <div className="row" style={{ gap: 4 }}><h2>Rotina planejada</h2><Ajuda titulo="Rotina planejada"><p>Cada horário é comparado com os registros (tolerância de 45 min): <b>verde</b> aconteceu, <b>cinza</b> passou sem registro, <b>rosa</b> é o próximo.</p><p>Toque num horário para marcar como feito ou pulado. Com alguns dias de registros, o Ninho sugere uma rotina com os horários reais do bebê.</p></Ajuda></div>
               {rotina.pct != null && <span className={`chip ${rotina.pct >= 0.7 ? 'ok' : 'warn'}`}>{rotina.feitos}/{rotina.avaliados} no horário</span>}
             </div>
             {rotina.itens.length ? (
               <div className="wrap-row">
                 {rotina.itens.map((i, k) => (
-                  <button key={k} type="button" className={`chip chip-rotina ${i.status === 'ok' ? 'ok' : i.status === 'perdido' ? 'bad' : i.status === 'proximo' ? 'brand' : ''}`} title={i.real ? `Aconteceu às ${hm(i.real)}` : 'Toque para marcar'} onClick={() => setItemRotina(i)}>
-                    {i.tipo === 'mamada' ? '🍼' : '😴'} {i.hora}{i.status === 'ok' ? (i.manual === 'feito' && !i.real ? ' ✓ (manual)' : ' ✓') : i.status === 'perdido' ? ' ✕' : i.status === 'pulado' ? ' · pulou' : i.status === 'proximo' ? ' · próximo' : ''}
+                  <button key={k} type="button" className={`chip chip-rotina ${i.status === 'ok' ? 'ok' : i.status === 'perdido' ? 'sem-registro' : i.status === 'proximo' ? 'brand' : ''}`} title={i.real ? `Aconteceu às ${hm(i.real)}` : 'Toque para marcar'} onClick={() => setItemRotina(i)}>
+                    {i.tipo === 'mamada' ? '🍼' : '😴'} {i.hora}{i.status === 'ok' ? (i.manual === 'feito' && !i.real ? ' ✓ (manual)' : ' ✓') : i.status === 'perdido' ? ' · sem registro' : i.status === 'pulado' ? ' · pulou' : i.status === 'proximo' ? ' · próximo' : ''}
                   </button>
                 ))}
               </div>
@@ -300,7 +328,7 @@ export function Hoje() {
             {rotina.itens.length > 0 && <p className="faint" style={{ marginTop: 8 }}>Toque num horário para marcar como feito ou pulado. {sugestao && sugestao.mudancas.length > 0 && <button className="linkbtn" onClick={() => setVerSugestao(true)}>✨ A rotina real mudou: ver sugestão</button>}</p>}
           </div>
 
-          <Secao id="linha-tempo" aberta={!mobile} titulo={`Linha do tempo · ${doDia.length} registro(s)`} extra={
+          <Secao id="linha-tempo" aberta titulo={`Linha do tempo · ${pl(doDia.length, 'registro', 'registros')}`} extra={
               <div className="row">
                 <button className="icon-btn" onClick={() => setDiaSel(addDays(diaSel, -1))} aria-label="Dia anterior"><ChevronLeft size={16} /></button>
                 <span style={{ fontWeight: 800, minWidth: 70, textAlign: 'center' }}>{diaSel === hoje ? 'Hoje' : diaSel === hoje - DIA ? 'Ontem' : `${diaSemana(diaSel)} ${dataCurta(diaSel)}`}</span>
@@ -308,7 +336,7 @@ export function Hoje() {
               </div>}>
             {doDia.length ? (
               <div className="tl">
-                {doDia.map((e) => (
+                {(verTodos ? doDia : doDia.slice(0, 5)).map((e) => (
                   <div key={e.id} className="tl-item" onClick={() => abrirRegistro(e.type, e)} style={{ cursor: 'pointer' }}>
                     <span className="tl-time">{hm(e.start_at)}</span>
                     <span className="tl-ico" style={{ background: `${TIPOS[e.type].cor}22` }}>{e.type === 'fralda' && e.data.diaper !== 'xixi' && e.data.diaper !== 'seca' ? '💩' : TIPOS[e.type].emoji}</span>
@@ -320,27 +348,18 @@ export function Hoje() {
                   </div>
                 ))}
               </div>
-            ) : <Empty emoji="🌙">{diaSel === hoje && podeEditar ? <>Nenhum registro hoje ainda.<br /><button className="btn sm primary" style={{ marginTop: 8 }} onClick={() => abrirRegistro('mamada')}>Registrar agora</button></> : 'Nenhum registro neste dia.'}</Empty>}
+            ) : null}
+            {doDia.length > 5 && <button className="btn sm ghost block" style={{ marginTop: 6 }} onClick={() => setVerTodos(!verTodos)}>{verTodos ? 'Mostrar menos' : `Ver todos os ${doDia.length} registros`}</button>}
+            {!doDia.length && <Empty emoji="🌙">{diaSel === hoje && podeEditar ? <>Nenhum registro hoje ainda.<br /><button className="btn sm primary" style={{ marginTop: 8 }} onClick={() => abrirRegistro('mamada')}>Registrar agora</button></> : 'Nenhum registro neste dia.'}</Empty>}
           </Secao>
         </div>
 
         <div className="stack" style={{ gap: 16 }}>
-          <Secao id="dica-semana" className="dica" titulo={`💡 ${dica.titulo}`} aberta>
-            <p>{dica.texto}</p>
-            <p className="faint" style={{ marginTop: 6 }}>Fonte: {dica.fonte}. Em caso de dúvida, fale com o pediatra.</p>
-          </Secao>
           <div className="card hide-mob">
-            <div className="card-h"><h2>Onde agir agora</h2><div className="row" style={{ gap: 4 }}><span className="faint">{lista.length} ponto(s)</span><AjudaOndeAgir /></div></div>
-            <InsightList itens={lista.slice(0, 5)} vazio="Tudo dentro do esperado por aqui. 💛" />
+            <div className="card-h"><h2>Onde agir agora</h2><div className="row" style={{ gap: 4 }}><span className="faint">{pl(ondeAgir.length, 'ponto', 'pontos')}</span><AjudaOndeAgir /></div></div>
+            <InsightList itens={ondeAgir.slice(0, 5)} vazio="Tudo dentro do esperado por aqui. 💛" />
           </div>
-          <div className="card">
-            <div className="card-h"><h2>Recados fixados</h2><button className="btn sm ghost" onClick={() => setAba('mural')}>Ver recados</button></div>
-            {fixados.length ? (
-              <div className="stack">
-                {fixados.map((n) => <div key={n.id} className="note"><Pin size={13} style={{ float: 'right', opacity: 0.6 }} />{n.text}<div className="faint" style={{ marginTop: 4, color: 'inherit', opacity: 0.7 }}>{nome(n.user_id)}</div></div>)}
-              </div>
-            ) : <p className="faint">Nenhum recado fixado.</p>}
-          </div>
+          {maisDoDia('hide-mob')}
         </div>
       </div>
       {itemRotina && <ItemRotinaSheet item={itemRotina} onClose={() => setItemRotina(null)} />}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, Bell, Camera, ChevronDown, Home, LayoutGrid, LogOut, Stethoscope, Users } from 'lucide-react';
+import { BarChart3, Bell, Camera, ChevronDown, Home, LayoutGrid, LogOut, Settings, Stethoscope, Users } from 'lucide-react';
 import { AppCtx, type Aba, type Ctx } from './ctx';
 import { api, ApiError, definirUsuarioAtual, detectarModo, getToken, SEM_REDE, sair as sairApi, sincronizar, temSessao, type Modo } from './lib/api';
 import { aplicarPendentes, lerCacheBebe, lerCacheMe, limparCaches, pendentesDoBebe, salvarCacheBebe, salvarCacheMe } from './lib/offline';
@@ -10,7 +10,7 @@ import type { Baby, BabyData, BabyEvent, EventType, User } from './types';
 import { LogSheet } from './components/LogSheet';
 import { Sheet } from './components/ui';
 import { Avatar } from './components/Avatar';
-import { CentralSheet, ConfigNotificacoes, contarNaoLidas, lerVisto, montarFeed } from './components/Notificacoes';
+import { CentralSheet, ConfigNotificacoes, contarNaoLidas, lerAlertasVistos, lerVisto, montarFeed } from './components/Notificacoes';
 import { definirBadge, desativarPush, limparSessaoSW, salvarSessaoSW } from './lib/push';
 import { RelatorioSheet } from './components/RelatorioSheet';
 import { TIPOS } from './lib/constants';
@@ -20,12 +20,13 @@ import { Hoje } from './pages/Hoje';
 import { Indicadores } from './pages/Indicadores';
 import { Mural } from './pages/Mural';
 import { Saude } from './pages/Saude';
-import { Familia } from './pages/Familia';
+import { Ajustes, Familia } from './pages/Familia';
 import { DiaADia } from './pages/DiaADia';
 import { Gestacao } from './pages/Gestacao';
 import { semanasGestacao } from './lib/conteudo';
 import { ehMadrugada } from './lib/previsao';
 import { MomentoSheet } from './components/Guia';
+import { pl } from './lib/texto';
 
 const ABAS: { id: Aba; label: string; Icon: typeof Home }[] = [
   { id: 'hoje', label: 'Hoje', Icon: Home },
@@ -34,6 +35,7 @@ const ABAS: { id: Aba; label: string; Icon: typeof Home }[] = [
   { id: 'saude', label: 'Saúde', Icon: Stethoscope },
   { id: 'mural', label: 'Mural', Icon: LayoutGrid },
   { id: 'familia', label: 'Família', Icon: Users },
+  { id: 'ajustes', label: 'Ajustes', Icon: Settings },
 ];
 const LS_BABY = 'ninho-baby';
 /** Link vindo de uma notificação: ?baby=<id>#aba */
@@ -191,10 +193,10 @@ export default function App() {
       setOnline(true);
       const r = await sincronizar();
       if (r.enviados) {
-        toast(`✓ ${r.enviados} registro(s) feito(s) sem internet foram enviados`);
+        toast(`✓ ${pl(r.enviados, 'registro feito sem internet foi enviado', 'registros feitos sem internet foram enviados')}`);
         api.uso('sync_offline', r.enviados);
       }
-      if (r.falhas.length) toast(`${r.falhas.length} registro(s) não puderam ser enviados: ${r.falhas[0]}`);
+      if (r.falhas.length) toast(`${pl(r.falhas.length, 'registro não pôde ser enviado', 'registros não puderam ser enviados')}: ${r.falhas[0]}`);
       refresh();
     };
     window.addEventListener('ninho-fila', fila);
@@ -302,7 +304,7 @@ export default function App() {
   }, [ctx, acaoPendente, setAba]);
 
   // Contador no ícone do app (tela inicial) = notificações não lidas
-  const naoLidasGlobal = ctx ? contarNaoLidas(montarFeed(ctx.data, ctx.user.id, ctx.agora), lerVisto(ctx.user.id, ctx.data.baby.id)) : 0;
+  const naoLidasGlobal = ctx ? contarNaoLidas(montarFeed(ctx.data, ctx.user.id, ctx.agora), lerVisto(ctx.user.id, ctx.data.baby.id), lerAlertasVistos(ctx.user.id, ctx.data.baby.id)) : 0;
   useEffect(() => { if (ctx) definirBadge(naoLidasGlobal); }, [naoLidasGlobal, central]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (carregando || !modo) return <div className="auth"><div className="brand"><span className="logo">🪺</span> Ninho</div></div>;
@@ -339,11 +341,11 @@ export default function App() {
   const gestacao = !!baby.settings?.gestacao;
   // Na gestação não há rotina para medir: "Hoje" vira a tela da gestação e Indicadores some
   // Barra com 5 itens: Mural e Família ficam juntos em "Casa" (com seletor dentro da página)
-  const NAV = ABAS.filter((a) => a.id !== 'familia').map((a) => (a.id === 'mural' ? { ...a, label: 'Casa' } : a));
+  const NAV = ABAS.filter((a) => a.id !== 'familia' && a.id !== 'ajustes').map((a) => (a.id === 'mural' ? { ...a, label: 'Casa' } : a));
   const abasVisiveis = gestacao ? NAV.filter((a) => a.id !== 'indicadores') : NAV;
   const ativa = (id: Aba) => abaAtual === id || (id === 'mural' && abaAtual === 'familia');
   const abaAtual = gestacao && aba === 'indicadores' ? 'hoje' : aba;
-  const Pagina = { hoje: gestacao ? Gestacao : Hoje, diario: DiaADia, indicadores: Indicadores, mural: Mural, saude: Saude, familia: Familia }[abaAtual];
+  const Pagina = { hoje: gestacao ? Gestacao : Hoje, diario: DiaADia, indicadores: Indicadores, mural: Mural, saude: Saude, familia: Familia, ajustes: Ajustes }[abaAtual];
   const emojiBebe = (b: Baby) => (b.sex === 'M' ? '👦' : b.sex === 'F' ? '👧' : '👶');
   const avatar = <Avatar photo={baby.photo} emoji={emojiBebe(baby)} color={baby.color || 'var(--brand)'} size={42} ring />;
   const naoLidas = naoLidasGlobal;
@@ -361,6 +363,7 @@ export default function App() {
               <Avatar photo={user.photo} emoji={papel(ctx.data.role).emoji} size={34} />
               <div className="faint">{user.name}<br />{modo === 'cloud' ? '☁️ Sincronizado (D1)' : '💾 Modo local'}</div>
             </div>
+            <button className={`navitem ${abaAtual === 'ajustes' ? 'on' : ''}`} onClick={() => setAba('ajustes')}><Settings size={18} /> Ajustes</button>
             <button className="navitem" onClick={sair}><LogOut size={18} /> Sair</button>
             <span className="assinatura" style={{ marginTop: 2 }}>powered by <b>Kaivo</b></span>
           </div>
@@ -378,6 +381,7 @@ export default function App() {
               <div className="av-stack hide-mob">
                 {ctx.data.members.slice(0, 5).map((m) => <Avatar key={m.user_id} photo={m.photo} emoji={papel(m.role).emoji} size={32} />)}
               </div>
+              <button className="icon-btn hide-desk" onClick={() => setAba('ajustes')} aria-label="Ajustes: perfil, notificações e dados"><Settings size={19} /></button>
               <button className="icon-btn bell" onClick={() => setCentral(true)} aria-label="Notificações">
                 <Bell size={19} />
                 {naoLidas > 0 && <span className="badge">{naoLidas > 9 ? '9+' : naoLidas}</span>}
@@ -386,7 +390,7 @@ export default function App() {
           </header>
           {(!online || pendentes > 0) && (
             <div className={`net-bar ${online ? 'sync' : ''}`}>
-              {online ? `⏳ Enviando ${pendentes} registro(s) feito(s) sem internet…` : `📴 Sem internet — ${pendentes ? `${pendentes} registro(s) guardado(s) neste aparelho` : 'você pode continuar registrando'}; tudo será enviado quando a conexão voltar.`}
+              {online ? `⏳ Enviando ${pl(pendentes, 'registro feito', 'registros feitos')} sem internet…` : `📴 Sem internet — ${pendentes ? `${pl(pendentes, 'registro guardado', 'registros guardados')} neste aparelho` : 'você pode continuar registrando'}; tudo será enviado quando a conexão voltar.`}
             </div>
           )}
           {user.demo && (

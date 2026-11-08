@@ -241,7 +241,7 @@ async function lembrarConvites(env) {
       aba: 'familia',
       porUsuario: (uid) => (uid === i.created_by ? {
         title: `💌 O convite para ${nomePapel(i.role)} ainda não foi aceito`,
-        body: `${i.name.split(' ')[0]} fica melhor com a família junto. O código ${i.code} vale por mais ${dias} ${dias === 1 ? 'dia' : 'dias'}: reenvie pelo WhatsApp em Casa → Família e ajustes.`,
+        body: `${i.name.split(' ')[0]} fica melhor com a família junto. O código ${i.code} vale por mais ${dias} ${dias === 1 ? 'dia' : 'dias'}: reenvie pelo WhatsApp em Casa → Família.`,
       } : null),
     });
   }

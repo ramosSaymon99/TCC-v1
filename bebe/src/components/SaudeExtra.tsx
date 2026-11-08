@@ -8,6 +8,7 @@ import { DIA, HORA, dataBr, hm, idade, parseYmd, t, ymd } from '../lib/time';
 import { doses } from '../lib/previsao';
 import type { Check } from '../types';
 import { Empty, Field, Sheet } from './ui';
+import { pl } from '../lib/texto';
 
 /* ---------- Febre e sintomas ---------- */
 export function FebreSintomas() {
@@ -30,7 +31,7 @@ export function FebreSintomas() {
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="ts" type="number" domain={['dataMin', 'dataMax']} tickFormatter={(v) => hm(v)} tickLine={false} axisLine={false} />
                 <YAxis domain={[35.5, 40.5]} tickLine={false} axisLine={false} />
-                <ReferenceLine y={37.8} stroke="var(--warn)" strokeDasharray="4 3" label={{ value: 'febre 37,8', position: 'insideTopRight', fontSize: 11 }} />
+                <ReferenceLine y={37.8} stroke="var(--warn)" strokeDasharray="4 3" label={{ value: 'febre 37,8', position: 'insideTopRight', fontSize: 12 }} />
                 <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid var(--line)', background: 'var(--surface)' }} labelFormatter={(v) => new Date(Number(v)).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })} formatter={(v) => [`${String(v).replace('.', ',')} °C`, 'Temperatura']} />
                 <Line dataKey="temp" stroke="#E2873C" strokeWidth={2.5} dot={{ r: 4 }} />
               </LineChart>
@@ -131,7 +132,7 @@ export function Marcos() {
   const status = (m: typeof MARCOS[number]) => (mapa.has(m.code) ? 'ok' : meses > m.ate ? 'conversar' : meses >= m.de ? 'agora' : 'futuro');
   return (
     <div className="card">
-      <div className="card-h"><h2>⭐ Marcos do desenvolvimento</h2><span className="faint">{mapa.size} conquistado(s)</span></div>
+      <div className="card-h"><h2>⭐ Marcos do desenvolvimento</h2><span className="faint">{pl(mapa.size, 'conquistado', 'conquistados')}</span></div>
       {conversar.length > 0 && <div className="chip warn" style={{ whiteSpace: 'normal', marginBottom: 10 }}>💬 Vale comentar com o pediatra na próxima consulta: {conversar.map((m) => m.nome.split(' (')[0].toLowerCase()).join(', ')}. Cada bebê tem seu ritmo; o pediatra avalia o conjunto.</div>}
       {MARCOS.map((m) => {
         const c = mapa.get(m.code);

@@ -3,6 +3,7 @@ import { DIA, HORA, MIN, addDays, duracao, idade, minutosDoDia, startOfDay, t } 
 import { VACINAS } from './constants';
 import { MARCOS, TESTES_RN, avaliarFebre } from './conteudo';
 import { leiteGuardado } from './previsao';
+import { pl } from './texto';
 
 const VACINA_ATRASO_DIAS = 30;
 
@@ -290,7 +291,7 @@ export function insights(d: BabyData, agora = Date.now()): Insight[] {
       out.push({
         nivel: pct >= 0.7 ? 'positivo' : 'info', titulo: `Rotina cumprida em ${Math.round(pct * 100)}% (${usados.length} dia${usados.length > 1 ? 's' : ''})`,
         detalhe: `${ok} de ${av} horários planejados aconteceram (tolerância de 45 min).`,
-        acao: pct < 0.7 ? 'Se a rotina real mudou, veja a rotina sugerida pelos registros (Casa → Família e ajustes → Rotina planejada → ✨ Sugerir) ou marque manualmente o que foi feito.' : undefined, aba: 'familia',
+        acao: pct < 0.7 ? 'Se a rotina real mudou, veja a rotina sugerida pelos registros (Casa → Família → Rotina planejada → ✨ Sugerir) ou marque manualmente o que foi feito.' : undefined, aba: 'familia',
       });
     }
   }
@@ -330,7 +331,7 @@ export function insights(d: BabyData, agora = Date.now()): Insight[] {
   const aplicadas = new Set(d.vaccines.map((v) => v.code));
   const atrasadas = VACINAS.filter((v) => !aplicadas.has(v.code) && id.dias > v.meses * 30.4 + VACINA_ATRASO_DIAS);
   if (atrasadas.length && d.vaccines.length) {
-    out.push({ nivel: 'atencao', titulo: `${atrasadas.length} vacina(s) sem registro para a idade`, detalhe: atrasadas.slice(0, 3).map((v) => v.nome).join(', ') + (atrasadas.length > 3 ? '…' : ''), acao: 'Confira a caderneta e marque as aplicadas em Saúde.', aba: 'saude' });
+    out.push({ nivel: 'atencao', titulo: `${pl(atrasadas.length, 'vacina', 'vacinas')} sem registro para a idade`, detalhe: atrasadas.slice(0, 3).map((v) => v.nome).join(', ') + (atrasadas.length > 3 ? '…' : ''), acao: 'Confira a caderneta e marque as aplicadas em Saúde.', aba: 'saude' });
   }
 
   // Peso
@@ -361,8 +362,8 @@ export function insights(d: BabyData, agora = Date.now()): Insight[] {
   const leite = leiteGuardado(d.milk ?? [], agora);
   const vencidos = leite.filter((m) => m.vencido);
   const vencendo = leite.filter((m) => m.vencendo);
-  if (vencidos.length) out.push({ nivel: 'atencao', titulo: `${vencidos.length} frasco(s) de leite vencido(s)`, detalhe: 'Leite fora da validade não deve ser oferecido.', acao: 'Descarte no Mural → Leite.', aba: 'mural' });
-  else if (vencendo.length) out.push({ nivel: 'info', titulo: `${vencendo.length} frasco(s) de leite vencem em breve`, detalhe: `${vencendo.map((m) => `${m.ml} ml`).join(', ')}: use esses primeiro.`, aba: 'mural' });
+  if (vencidos.length) out.push({ nivel: 'atencao', titulo: `${pl(vencidos.length, 'frasco de leite vencido', 'frascos de leite vencidos')}`, detalhe: 'Leite fora da validade não deve ser oferecido.', acao: 'Descarte no Mural → Leite.', aba: 'mural' });
+  else if (vencendo.length) out.push({ nivel: 'info', titulo: `${vencendo.length === 1 ? '1 frasco de leite vence' : `${vencendo.length} frascos de leite vencem`} em breve`, detalhe: `${vencendo.map((m) => `${m.ml} ml`).join(', ')}: use esses primeiro.`, aba: 'mural' });
 
   // Testes do recém-nascido sem registro após o prazo
   if (id.dias < 120) {
@@ -383,8 +384,17 @@ export function insights(d: BabyData, agora = Date.now()): Insight[] {
   // Perguntas pendentes com consulta chegando
   const consulta = d.appointments.filter((a) => !a.done && t(a.date) > agora && t(a.date) < agora + 2 * DIA)[0];
   const perguntas = d.notes.filter((n) => n.kind === 'pergunta' && !n.done).length;
-  if (consulta && perguntas) out.push({ nivel: 'info', titulo: `Consulta em breve: ${perguntas} pergunta(s) anotada(s)`, detalhe: `${consulta.title} em ${new Date(consulta.date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}.`, acao: 'Gere o relatório para o pediatra: as perguntas já vão nele.', aba: 'saude' });
+  if (consulta && perguntas) out.push({ nivel: 'info', titulo: `Consulta em breve: ${pl(perguntas, 'pergunta anotada', 'perguntas anotadas')}`, detalhe: `${consulta.title} em ${new Date(consulta.date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}.`, acao: 'Gere o relatório para o pediatra: as perguntas já vão nele.', aba: 'saude' });
 
   const ordem = { alerta: 0, atencao: 1, info: 2, positivo: 3 };
   return out.sort((a, b) => ordem[a.nivel] - ordem[b.nivel]);
+}
+
+/** Materiais em falta viram uma linha só ("🛒 3 itens para comprar"), depois de saúde e rotina. */
+export function agruparCompras(lista: Insight[]): Insight[] {
+  const compra = (i: Insight) => i.aba === 'mural' && /: (acabou|estoque baixo)$/.test(i.titulo);
+  const compras = lista.filter(compra);
+  if (compras.length < 2) return lista;
+  const nomes = compras.map((c) => c.titulo.replace(/: (acabou|estoque baixo)$/, ''));
+  return [...lista.filter((i) => !compra(i)), { nivel: 'atencao', titulo: `🛒 ${compras.length} itens para comprar`, detalhe: `${nomes.slice(0, 3).join(', ')}${nomes.length > 3 ? '…' : ''}`, acao: 'Defina quem compra no Mural.', aba: 'mural' }];
 }

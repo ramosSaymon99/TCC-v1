@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { leiteGuardado } from '../lib/previsao';
 import { duracao, fromLocalInput, hm, toLocalInput } from '../lib/time';
 import { Choice, Empty, Field, Sheet } from './ui';
+import { pl } from '../lib/texto';
 
 /** Estoque de leite materno extraído: cada frasco com validade (geladeira 12 h, congelador 15 dias). */
 export function LeiteMaterno() {
@@ -18,7 +19,7 @@ export function LeiteMaterno() {
   return (
     <div className="card">
       <div className="card-h"><h2>🥛 Leite materno guardado</h2>{podeEditar && <button className="btn sm primary" onClick={() => setNovo(true)}><Plus size={14} /> Frasco</button>}</div>
-      <p className="faint" style={{ marginBottom: 8 }}>{frascos.length ? `${frascos.filter((f) => !f.vencido).length} frasco(s) válidos · ${totalMl} ml. Use primeiro o que vence antes.` : 'Ao registrar uma extração, escolha "geladeira" ou "congelador" e o frasco aparece aqui.'}</p>
+      <p className="faint" style={{ marginBottom: 8 }}>{frascos.length ? `${pl(frascos.filter((f) => !f.vencido).length, 'frasco válido', 'frascos válidos')} · ${totalMl} ml. Use primeiro o que vence antes.` : 'Ao registrar uma extração, escolha "geladeira" ou "congelador" e o frasco aparece aqui.'}</p>
       {frascos.length ? frascos.map((f, i) => (
         <div key={f.id} className="list-item">
           <div className="tl-ico" style={{ background: f.vencido ? 'var(--bad-soft)' : f.vencendo ? 'var(--warn-soft)' : 'var(--info-soft)' }}>{f.place === 'congelador' ? '❄️' : '🧊'}</div>

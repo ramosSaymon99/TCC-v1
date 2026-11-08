@@ -7,6 +7,7 @@ import { janelaReferencia } from '../lib/janela';
 import { MIN, duracao, fromLocalInput, hm, idade, startOfDay, t, toLocalInput, uid } from '../lib/time';
 import type { BabyEvent, EventData, EventType } from '../types';
 import { Choice, Field, Sheet } from './ui';
+import { pl } from '../lib/texto';
 
 const H = 60 * MIN;
 const arred5 = (ms: number) => Math.round(ms / (5 * MIN)) * 5 * MIN;
@@ -126,7 +127,7 @@ function CompletarSheet({ lacunas, onClose, onSalvo }: { lacunas: Lacuna[]; onCl
           await api.create('events', babyId, { id: ids[i], type: x.l.tipo, start_at: fromLocalInput(x.ini), end_at: x.l.tipo === 'sono' ? fromLocalInput(x.fim) : null, data: x.data, note: null });
         }
       },
-      `${marcadas.length} registro(s) adicionado(s) ✓`,
+      `${pl(marcadas.length, 'registro adicionado', 'registros adicionados')} ✓`,
       async () => { for (const id of ids) await api.remove('events', babyId, id); },
     );
     setSalvando(false);

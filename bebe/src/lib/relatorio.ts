@@ -8,6 +8,7 @@ import { ACESSOS, VACINAS, papel } from './constants';
 import { MARCOS, TESTES_RN } from './conteudo';
 import { ehNoturno, fimEvento, insights, mediaDiaria, referencias, serieDiaria, type Dia } from './metrics';
 import { DIA, MIN, addDays, dataBr, duracao, hm, idade, parseYmd, startOfDay, t, ymd } from './time';
+import { pl } from './texto';
 
 const COR = { marca: '#C9566F', marcaClara: '#FBE6EB', tinta: '#2B2A33', tinta2: '#5F5D6B', tinta3: '#8F8C99', linha: '#E6E1DC', fundo: '#FAF8F6', sono: '#6B78D6', sonoDia: '#A7B0EC', mamada: '#E0708A', mamadeira: '#EE9B4A', xixi: '#2FA391', coco: '#A0713F', ok: '#2B9A7F', alerta: '#C98316' };
 const W = 210;
@@ -336,7 +337,7 @@ export async function gerarRelatorio(data: BabyData, op: OpcoesRelatorio): Promi
   const saude = evPeriodo.filter((e) => e.type === 'saude').sort((a, b) => t(a.start_at) - t(b.start_at));
   if (saude.length) {
     const febres = saude.filter((e) => (e.data.temp ?? 0) >= 37.8);
-    secao('Febre e sintomas', `${saude.length} registro(s) · ${febres.length} com febre (≥ 37,8 °C)`);
+    secao('Febre e sintomas', `${pl(saude.length, 'registro', 'registros')} · ${febres.length} com febre (≥ 37,8 °C)`);
     tabela(['Data e hora', 'Temperatura', 'Sintomas', 'Observação'], saude.slice(-20).map((e) => [
       `${new Date(e.start_at).toLocaleDateString('pt-BR')} ${hm(e.start_at)}`, e.data.temp != null ? `${String(e.data.temp).replace('.', ',')} °C` : '—', (e.data.sintomas ?? []).join(', ') || '—', e.note || '',
     ]), [28, 20, 50, 32], { alinhar: ['left', 'right', 'left', 'left'], destaque: (i) => ((saude.slice(-20)[i].data.temp ?? 0) >= 37.8 ? COR.alerta : null) });
@@ -356,7 +357,7 @@ export async function gerarRelatorio(data: BabyData, op: OpcoesRelatorio): Promi
   const alimentos = (data.checks ?? []).filter((c) => c.kind === 'alimento');
   if (alimentos.length) {
     const reacoes = alimentos.filter((a) => a.value && !['Sem reação', 'boa', 'media', 'recusou', 'Recusou o alimento'].includes(a.value));
-    secao('Introdução alimentar', `${alimentos.length} alimento(s) já oferecido(s)`);
+    secao('Introdução alimentar', `${pl(alimentos.length, 'alimento já oferecido', 'alimentos já oferecidos')}`);
     fonte(9);
     paragrafo(`Oferecidos: ${alimentos.map((a) => a.note).join(', ')}.`);
     if (reacoes.length) { fonte(9, 'bold', COR.alerta); paragrafo(`Reações registradas: ${reacoes.map((a) => `${a.note} (${a.value})`).join('; ')}.`); }

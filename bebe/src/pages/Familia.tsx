@@ -12,19 +12,17 @@ import { sugerirRotina } from '../lib/rotina';
 import { addDays, dataBr, haQuanto, idade, startOfDay, t } from '../lib/time';
 import type { Access, ConvitePendente, Member, Routine } from '../types';
 import { Choice, Field, Sheet } from '../components/ui';
+import { pl } from '../lib/texto';
 
 export function Familia() {
   const app = useApp();
-  const { data, user, podeAdmin, agora, act, babies, trocarBebe, novoBebe, modo, sair } = app;
+  const { data, user, podeAdmin, agora, babies, trocarBebe, novoBebe, modo, setAba } = app;
   const { baby } = data;
   const [editBebe, setEditBebe] = useState(false);
   const [editRotina, setEditRotina] = useState(false);
   const [sugestao, setSugestao] = useState(false);
   const [convite, setConvite] = useState(false);
-  const [perfil, setPerfil] = useState(false);
   const [membro, setMembro] = useState<Member | null>(null);
-  const [excluir, setExcluir] = useState(false);
-  const [politica, setPolitica] = useState(false);
   const id = idade(baby.birth_date, agora);
 
   // Contribuição de cada cuidador nos últimos 7 dias
@@ -45,16 +43,46 @@ export function Familia() {
   }, [data.events, agora]);
   const soma = Object.values(contrib).reduce((a, c) => a + c.total, 0);
 
-  async function carregarDemo() {
-    if (!confirm(`Carregar 5 semanas de dados de exemplo em ${baby.name}? Eles se somam aos registros existentes.`)) return;
-    await act(() => carregarExemplo(data, user.id, modo), 'Dados de exemplo carregados');
-  }
 
   return (
     <div className="page">
       <CasaTabs atual="familia" />
-      <DicaUnica id="casa-familia">Aqui ficam os cuidadores e convites, a rotina planejada, o plantão da noite, as notificações e a sua conta. Materiais, compras e recados estão em <b>🧺 Mural</b>.</DicaUnica>
-      <div><h1>Família</h1><p className="faint">O bebê é o centro: cada cuidador se vincula a ele com um papel e um nível de acesso</p></div>
+      <DicaUnica id="casa-familia">Aqui ficam os cuidadores e convites, o plantão da noite e a rotina. Materiais, compras e recados estão em <b>🧺 Mural</b>; perfil e notificações, em <b>⚙️ Ajustes</b>.</DicaUnica>
+      <div><h1>Família</h1><p className="faint">Quem cuida de {baby.name.split(' ')[0]}, convites, plantão da noite e rotina. Perfil, notificações e dados ficam em ⚙️ Ajustes, no topo.</p></div>
+
+      <div className="card">
+        <div className="card-h">
+          <h2>Cuidadores</h2>
+          {podeAdmin && <button className="btn sm primary" onClick={() => setConvite(true)}><UserPlus size={14} /> Convidar</button>}
+        </div>
+        <p className="faint" style={{ marginBottom: 6 }}>Participação nos registros dos últimos 7 dias</p>
+        {data.members.map((m) => {
+          const c = contrib[m.user_id];
+          const share = soma && c ? c.total / soma : 0;
+          return (
+            <div key={m.user_id} className="list-item" style={{ alignItems: 'flex-start' }}>
+              {m.user_id === user.id ? (
+                <button className="photo-pick" onClick={() => setAba('ajustes')} aria-label="Trocar minha foto em Ajustes">
+                  <Avatar photo={m.photo} emoji={papel(m.role).emoji} size={44} />
+                  {!m.photo && <span className="photo-cam" style={{ width: 22, height: 22 }}><Camera size={12} /></span>}
+                </button>
+              ) : <Avatar photo={m.photo} emoji={papel(m.role).emoji} size={44} />}
+              <div className="grow">
+                <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+                  <b>{m.name}{m.user_id === user.id ? ' (você)' : ''}</b>
+                  <span className="chip">{papel(m.role).label}</span>
+                  <span className={`chip ${m.access === 'admin' ? 'brand' : m.access === 'leitor' ? '' : 'info'}`}>{ACESSOS[m.access].label}</span>
+                </div>
+                <div className="faint">{c?.total ? `${c.total} registros · ${c.mamadas} mamadas · ${c.fraldas} fraldas · ${c.sonos} sonos` : 'Sem registros na semana'}{c?.ultimo ? ` · último ${haQuanto(c.ultimo, agora)}` : ''}</div>
+                {soma > 0 && <div className="hbar" style={{ marginTop: 6 }}><div className="track"><div className="fill" style={{ width: `${share * 100}%`, background: 'var(--brand)' }} /></div><span className="num faint" style={{ width: 36, textAlign: 'right' }}>{Math.round(share * 100)}%</span></div>}
+              </div>
+              {(podeAdmin || m.user_id === user.id) && <button className="icon-btn" onClick={() => setMembro(m)} aria-label="Editar vínculo"><Pencil size={15} /></button>}
+            </div>
+          );
+        })}
+        {podeAdmin && modo === 'cloud' && <ConvitesPendentes atualizar={convite} />}
+      </div>
+
 
       <div className="card">
         <div className="row" style={{ gap: 14, alignItems: 'flex-start' }}>
@@ -63,7 +91,7 @@ export function Familia() {
             <h2 style={{ fontSize: 20 }}>{baby.name}</h2>
             <p className="muted">{id.texto} · nasceu em {dataBr(baby.birth_date)}</p>
             <div className="wrap-row" style={{ marginTop: 8 }}>
-              <span className="chip brand">{data.members.length} cuidador(es)</span>
+              <span className="chip brand">{pl(data.members.length, 'cuidador', 'cuidadores')}</span>
               <span className="chip">{papel(data.role).emoji} Você é {papel(data.role).label.toLowerCase()} · {ACESSOS[data.access].label.toLowerCase()}</span>
             </div>
           </div>
@@ -93,39 +121,30 @@ export function Familia() {
 
       <PlantaoCard />
 
-      <div className="card">
-        <div className="card-h">
-          <h2>Cuidadores</h2>
-          {podeAdmin && <button className="btn sm primary" onClick={() => setConvite(true)}><UserPlus size={14} /> Convidar</button>}
-        </div>
-        <p className="faint" style={{ marginBottom: 6 }}>Participação nos registros dos últimos 7 dias</p>
-        {data.members.map((m) => {
-          const c = contrib[m.user_id];
-          const share = soma && c ? c.total / soma : 0;
-          return (
-            <div key={m.user_id} className="list-item" style={{ alignItems: 'flex-start' }}>
-              {m.user_id === user.id ? (
-                <button className="photo-pick" onClick={() => setPerfil(true)} aria-label="Trocar minha foto">
-                  <Avatar photo={m.photo} emoji={papel(m.role).emoji} size={44} />
-                  {!m.photo && <span className="photo-cam" style={{ width: 22, height: 22 }}><Camera size={12} /></span>}
-                </button>
-              ) : <Avatar photo={m.photo} emoji={papel(m.role).emoji} size={44} />}
-              <div className="grow">
-                <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
-                  <b>{m.name}{m.user_id === user.id ? ' (você)' : ''}</b>
-                  <span className="chip">{papel(m.role).label}</span>
-                  <span className={`chip ${m.access === 'admin' ? 'brand' : m.access === 'leitor' ? '' : 'info'}`}>{ACESSOS[m.access].label}</span>
-                </div>
-                <div className="faint">{c?.total ? `${c.total} registros · ${c.mamadas} mamadas · ${c.fraldas} fraldas · ${c.sonos} sonos` : 'Sem registros na semana'}{c?.ultimo ? ` · último ${haQuanto(c.ultimo, agora)}` : ''}</div>
-                {soma > 0 && <div className="hbar" style={{ marginTop: 6 }}><div className="track"><div className="fill" style={{ width: `${share * 100}%`, background: 'var(--brand)' }} /></div><span className="num faint" style={{ width: 36, textAlign: 'right' }}>{Math.round(share * 100)}%</span></div>}
-              </div>
-              {(podeAdmin || m.user_id === user.id) && <button className="icon-btn" onClick={() => setMembro(m)} aria-label="Editar vínculo"><Pencil size={15} /></button>}
-            </div>
-          );
-        })}
-        {podeAdmin && modo === 'cloud' && <ConvitesPendentes atualizar={convite} />}
-      </div>
+      {editBebe && <BebeSheet onClose={() => setEditBebe(false)} />}
+      {editRotina && <RotinaSheet onClose={() => setEditRotina(false)} />}
+      {sugestao && <SugestaoRotinaSheet onClose={() => setSugestao(false)} />}
+      {convite && <ConviteSheet onClose={() => setConvite(false)} />}
+      {membro && <MembroSheet m={membro} onClose={() => setMembro(null)} />}
+    </div>
+  );
+}
 
+/** Ajustes: perfil, notificações, dados e privacidade (acessado pelo ⚙️ no topo). */
+export function Ajustes() {
+  const app = useApp();
+  const { data, user, podeAdmin, act, modo, sair } = app;
+  const { baby } = data;
+  const [perfil, setPerfil] = useState(false);
+  const [excluir, setExcluir] = useState(false);
+  const [politica, setPolitica] = useState(false);
+  async function carregarDemo() {
+    if (!confirm(`Carregar 5 semanas de dados de exemplo em ${baby.name}? Eles se somam aos registros existentes.`)) return;
+    await act(() => carregarExemplo(data, user.id, modo), 'Dados de exemplo carregados');
+  }
+  return (
+    <div className="page">
+      <div><h1>Ajustes</h1><p className="faint">Seu perfil, as notificações deste aparelho e os dados de {baby.name.split(' ')[0]}.</p></div>
       <div className="grid md2">
         <div className="card stack">
           <h2>Meu perfil</h2>
@@ -169,13 +188,7 @@ export function Familia() {
           )}
         </div>
       </div>
-
-      {editBebe && <BebeSheet onClose={() => setEditBebe(false)} />}
-      {editRotina && <RotinaSheet onClose={() => setEditRotina(false)} />}
-      {sugestao && <SugestaoRotinaSheet onClose={() => setSugestao(false)} />}
-      {convite && <ConviteSheet onClose={() => setConvite(false)} />}
       {perfil && <PerfilSheet onClose={() => setPerfil(false)} />}
-      {membro && <MembroSheet m={membro} onClose={() => setMembro(null)} />}
       {excluir && <ExcluirContaSheet onClose={() => setExcluir(false)} />}
       {politica && <PoliticaSheet onClose={() => setPolitica(false)} />}
       <span className="assinatura">Ninho · powered by <b>Kaivo</b></span>
@@ -277,7 +290,7 @@ export function SugestaoRotinaSheet({ onClose }: { onClose: () => void }) {
             </table>
           </div>
           {sug.mudancas.length > 0 ? <div className="chip info" style={{ whiteSpace: 'normal' }}>O que muda: {sug.mudancas.join(' · ')}</div> : <div className="chip ok">A rotina planejada já reflete o dia a dia real 👏</div>}
-          {sug.rotina.naps.length !== sug.sonecasRef && <p className="faint">Referência geral para {idade(data.baby.birth_date, agora).texto}: cerca de {sug.sonecasRef} soneca(s) por dia. Cada bebê tem seu ritmo; converse com o pediatra se tiver dúvidas.</p>}
+          {sug.rotina.naps.length !== sug.sonecasRef && <p className="faint">Referência geral para {idade(data.baby.birth_date, agora).texto}: cerca de {pl(sug.sonecasRef, 'soneca', 'sonecas')} por dia. Cada bebê tem seu ritmo; converse com o pediatra se tiver dúvidas.</p>}
           {!podeAdmin && <p className="faint">Só administradores alteram a rotina. Mostre a sugestão a quem administra o perfil.</p>}
         </>
       )}
@@ -433,7 +446,7 @@ function ExcluirContaSheet({ onClose }: { onClose: () => void }) {
     setBusy(true);
     try {
       const r = await api.deleteMe(senha);
-      toast(`Conta excluída.${r.bebesApagados ? ` ${r.bebesApagados} perfil(is) de bebê apagado(s).` : ''}`);
+      toast(`Conta excluída.${r.bebesApagados ? ` ${pl(r.bebesApagados, 'perfil de bebê apagado', 'perfis de bebê apagados')}.` : ''}`);
       sair();
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Não foi possível excluir.');
@@ -476,7 +489,7 @@ function PlantaoCard() {
           <div className="wrap-row">
             {DIAS_PLANTAO.map((d, i) => <span key={d} className={`chip ${atual?.dias?.[String(i)] === user.id ? 'brand' : ''}`}>{d.slice(0, 3)}: {atual?.dias?.[String(i)] ? nome(atual.dias[String(i)]).split(' ')[0] : '—'}</span>)}
           </div>
-          <p className="faint" style={{ marginTop: 8 }}>Das {atual?.de ?? '22:00'} às {atual?.ate ?? '06:00'}, lembretes, cronômetros e avisos de rotina vão só para quem está de plantão. Divisão da semana: {Object.entries(contagem).map(([u, n]) => `${nome(u).split(' ')[0]} ${n} noite(s)`).join(' · ')}.</p>
+          <p className="faint" style={{ marginTop: 8 }}>Das {atual?.de ?? '22:00'} às {atual?.ate ?? '06:00'}, lembretes, cronômetros e avisos de rotina vão só para quem está de plantão. Divisão da semana: {Object.entries(contagem).map(([u, n]) => `${nome(u).split(' ')[0]} ${pl(n, 'noite', 'noites')}`).join(' · ')}.</p>
         </>
       ) : <p className="faint">Combine quem cuida em cada noite. Assim só a pessoa de plantão é acordada pelos avisos, e quem está de folga dorme.</p>)}
       {editando && (

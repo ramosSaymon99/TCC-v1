@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { DICAS_GESTACAO, MALA, idCheck, semanasGestacao } from '../lib/conteudo';
 import { DIA, dataBr, t, ymd } from '../lib/time';
 import { Empty, Field, Sheet } from '../components/ui';
+import { pl } from '../lib/texto';
 
 /** Modo gestação: a família começa a usar o Ninho antes do nascimento. */
 export function Gestacao() {
@@ -66,7 +67,7 @@ export function Gestacao() {
           </div>
           <div className="card">
             <div className="card-h"><h2>🛍️ Enxoval</h2><button className="btn sm" onClick={() => setAba('mural')}>Abrir Mural</button></div>
-            <p className="faint">{enxoval.length ? `${enxoval.length} item(ns) na categoria Enxoval do Mural. Padrinhos e avós podem marcar “eu compro”.` : 'Monte a lista do enxoval no Mural (categoria Enxoval) e combine com a família quem compra o quê.'}</p>
+            <p className="faint">{enxoval.length ? `${pl(enxoval.length, 'item', 'itens')} na categoria Enxoval do Mural. Padrinhos e avós podem marcar “eu compro”.` : 'Monte a lista do enxoval no Mural (categoria Enxoval) e combine com a família quem compra o quê.'}</p>
           </div>
           <div className="card">
             <div className="card-h"><h2>👨‍👩‍👧 Família</h2><button className="btn sm" onClick={() => setAba('familia')}><UserPlus size={14} /> Convidar</button></div>

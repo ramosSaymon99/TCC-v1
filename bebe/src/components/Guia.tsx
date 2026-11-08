@@ -154,7 +154,7 @@ export function DicaUnica({ id, children }: { id: string; children: ReactNode })
   const [vista, setVista] = useState(() => lerLS(chave) === '1');
   if (vista) return null;
   return (
-    <div className="dica-unica" role="note">
+    <div className={`dica-unica dica-${id}`} role="note">
       <span>💡</span>
       <div className="grow">{children}</div>
       <button className="btn sm" onClick={() => { gravarLS(chave, '1'); setVista(true); }}>Entendi</button>
@@ -184,7 +184,7 @@ export function CasaTabs({ atual }: { atual: 'mural' | 'familia' }) {
   return (
     <div className="seg casa-tabs" role="tablist" aria-label="Casa">
       <button role="tab" aria-selected={atual === 'mural'} className={atual === 'mural' ? 'on' : ''} onClick={() => setAba('mural')}>🧺 Mural</button>
-      <button role="tab" aria-selected={atual === 'familia'} className={atual === 'familia' ? 'on' : ''} onClick={() => setAba('familia')}>👨‍👩‍👧 Família e ajustes</button>
+      <button role="tab" aria-selected={atual === 'familia'} className={atual === 'familia' ? 'on' : ''} onClick={() => setAba('familia')}>👨‍👩‍👧 Família</button>
     </div>
   );
 }

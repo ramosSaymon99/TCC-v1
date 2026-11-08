@@ -3,7 +3,7 @@ import { BellOff, BellRing, Send, Settings } from 'lucide-react';
 import { useApp, type Aba } from '../ctx';
 import { api } from '../lib/api';
 import { TIPOS, papel } from '../lib/constants';
-import { insights } from '../lib/metrics';
+import { agruparCompras, insights } from '../lib/metrics';
 import { ativarPush, desativarPush, ehInstalado, ehIOS, inscricaoAtual, pushSuportado } from '../lib/push';
 import { DIA, haQuanto, hm, startOfDay, t } from '../lib/time';
 import type { BabyData, NotifPrefs } from '../types';
@@ -20,12 +20,20 @@ export function lerVisto(userId: string, babyId: string) {
 function gravarVisto(userId: string, babyId: string, ms: number) {
   try { localStorage.setItem(chaveVisto(userId, babyId), String(ms)); } catch { /* sem storage */ }
 }
+/** Alertas já vistos na central (o mesmo alerta não fica contando no sino para sempre). */
+const chaveAlertas = (userId: string, babyId: string) => `ninho-alertas-vistos-${userId}-${babyId}`;
+export function lerAlertasVistos(userId: string, babyId: string): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(chaveAlertas(userId, babyId)) ?? '[]') as string[]); } catch { return new Set(); }
+}
+function gravarAlertasVistos(userId: string, babyId: string, ids: string[]) {
+  try { localStorage.setItem(chaveAlertas(userId, babyId), JSON.stringify(ids.slice(0, 50))); } catch { /* sem storage */ }
+}
 
 /** Central de notificações: o que os outros cuidadores fizeram + alertas atuais do bebê. */
 export function montarFeed(data: BabyData, userId: string, agora: number): ItemFeed[] {
   const itens: ItemFeed[] = [];
   const nome = data.baby.name.split(' ')[0];
-  for (const i of insights(data, agora).filter((x) => x.nivel === 'alerta' || x.nivel === 'atencao')) {
+  for (const i of agruparCompras(insights(data, agora)).filter((x) => x.nivel === 'alerta' || x.nivel === 'atencao')) {
     itens.push({ id: `ins-${i.titulo}`, at: agora, criado: agora, emoji: i.nivel === 'alerta' ? '🚨' : '⚠️', titulo: i.titulo, texto: i.acao ?? i.detalhe, aba: (i.aba as Aba) ?? 'hoje', alerta: true });
   }
   const desde = agora - DIA;
@@ -42,35 +50,49 @@ export function montarFeed(data: BabyData, userId: string, agora: number): ItemF
   return itens.sort((a, b) => Number(!!b.alerta) - Number(!!a.alerta) || b.at - a.at).slice(0, 60);
 }
 
-export function contarNaoLidas(feed: ItemFeed[], visto: number) {
-  return feed.filter((i) => (i.alerta ? false : i.criado > visto)).length + feed.filter((i) => i.alerta && i.emoji === '🚨').length;
+/** Sino: só o que é novo desde a última abertura (atividade nova e alertas ainda não vistos). */
+export function contarNaoLidas(feed: ItemFeed[], visto: number, alertasVistos: Set<string> = new Set()) {
+  return feed.filter((i) => (i.alerta ? !alertasVistos.has(i.id) : i.criado > visto)).length;
 }
 
 export function CentralSheet({ onClose, onConfig }: { onClose: () => void; onConfig: () => void }) {
   const { data, user, agora, setAba, nome } = useApp();
   const [visto] = useState(() => lerVisto(user.id, data.baby.id));
+  const [alertasVistos] = useState(() => lerAlertasVistos(user.id, data.baby.id));
   const feed = montarFeed(data, user.id, agora);
-  useEffect(() => { gravarVisto(user.id, data.baby.id, Date.now()); }, [user.id, data.baby.id]);
+  const alertas = feed.filter((i) => i.alerta);
+  const atividade = feed.filter((i) => !i.alerta);
+  useEffect(() => {
+    gravarVisto(user.id, data.baby.id, Date.now());
+    gravarAlertasVistos(user.id, data.baby.id, alertas.map((i) => i.id));
+  }, [user.id, data.baby.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const membro = (id?: string) => data.members.find((m) => m.user_id === id);
+  const linha = (i: ItemFeed) => {
+    const m = membro(i.quem);
+    const novo = i.alerta ? !alertasVistos.has(i.id) : i.criado > visto;
+    return (
+      <div key={i.id} className={`notif ${novo ? 'novo' : ''}`} onClick={() => { setAba(i.aba); onClose(); }} style={{ cursor: 'pointer' }}>
+        {m ? <Avatar photo={m.photo} emoji={papel(m.role).emoji} size={38} /> : <span className="tl-ico" style={{ background: i.alerta ? 'var(--warn-soft)' : 'var(--surface-2)' }}>{i.emoji}</span>}
+        <div className="grow">
+          <div style={{ fontWeight: 800 }}>{m ? <>{i.emoji} </> : null}{i.titulo}</div>
+          <div className="muted" style={{ fontSize: 13.5 }}>{i.texto}</div>
+          {!i.alerta && <div className="faint">{`${i.at >= startOfDay(agora) ? `hoje às ${hm(i.at)}` : `ontem às ${hm(i.at)}`} · ${haQuanto(i.at, agora)}${i.quem ? ` · ${nome(i.quem)}` : ''}`}</div>}
+        </div>
+      </div>
+    );
+  };
   return (
     <Sheet title="Notificações" onClose={onClose} footer={<button className="btn" onClick={onConfig}><Settings size={16} /> Configurar avisos no celular</button>}>
-      {feed.length ? (
-        <div>
-          {feed.map((i) => {
-            const m = membro(i.quem);
-            return (
-              <div key={i.id} className={`notif ${!i.alerta && i.criado > visto ? 'novo' : ''}`} onClick={() => { setAba(i.aba); onClose(); }} style={{ cursor: 'pointer' }}>
-                {m ? <Avatar photo={m.photo} emoji={papel(m.role).emoji} size={38} /> : <span className="tl-ico" style={{ background: i.alerta ? 'var(--warn-soft)' : 'var(--surface-2)' }}>{i.emoji}</span>}
-                <div className="grow">
-                  <div style={{ fontWeight: 800 }}>{m ? <>{i.emoji} </> : null}{i.titulo}</div>
-                  <div className="muted" style={{ fontSize: 13.5 }}>{i.texto}</div>
-                  <div className="faint">{i.alerta ? 'agora' : `${i.at >= startOfDay(agora) ? `hoje às ${hm(i.at)}` : `ontem às ${hm(i.at)}`} · ${haQuanto(i.at, agora)}${i.quem ? ` · ${nome(i.quem)}` : ''}`}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : <p className="muted">Nada novo por aqui. 💛</p>}
+      {alertas.length > 0 && (
+        <section>
+          <h3 className="notif-sec">Precisa de atenção</h3>
+          {alertas.map(linha)}
+        </section>
+      )}
+      <section>
+        <h3 className="notif-sec">Atividade da família</h3>
+        {atividade.length ? atividade.map(linha) : <p className="muted">Nada novo da família nas últimas 24 h. 💛</p>}
+      </section>
     </Sheet>
   );
 }
@@ -135,7 +157,7 @@ export function ConfigNotificacoes({ onClose }: { onClose: () => void }) {
           {inscrito ? <BellRing size={26} color="var(--ok)" /> : <BellOff size={26} color="var(--ink-3)" />}
           <div className="grow">
             <b>{inscrito ? 'Ativadas neste aparelho' : 'Desativadas neste aparelho'}</b>
-            <p className="faint">{info ? `${info.devices} aparelho(s) seu(s) recebendo avisos` : 'Carregando…'}</p>
+            <p className="faint">{info ? `${info.devices === 1 ? '1 aparelho seu' : `${info.devices} aparelhos seus`} recebendo avisos` : 'Carregando…'}</p>
           </div>
         </div>
         {modo === 'local' ? (

@@ -118,7 +118,7 @@ export interface NotifPrefs {
   noite: { on: boolean; de: string; ate: string };
 }
 
-/** Convite gerado para o bebê (lista em Família e ajustes). */
+/** Convite gerado para o bebê (lista em Casa → Família). */
 export interface ConvitePendente {
   code: string;
   role: string;
