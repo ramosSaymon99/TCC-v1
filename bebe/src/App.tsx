@@ -25,7 +25,7 @@ import { CicloSono } from './pages/CicloSono';
 import { DiaADia } from './pages/DiaADia';
 import { Gestacao } from './pages/Gestacao';
 import { semanasGestacao } from './lib/conteudo';
-import { ehMadrugada } from './lib/previsao';
+import { abrirNoSonoAgora, ehMadrugada } from './lib/previsao';
 import { MomentoSheet } from './components/Guia';
 import { pl } from './lib/texto';
 
@@ -57,7 +57,8 @@ export default function App() {
   const [base, setData] = useState<BabyData | null>(null);
   const [filaV, setFilaV] = useState(0);
   const [online, setOnline] = useState(() => navigator.onLine !== false);
-  const [aba, setAbaState] = useState<Aba>(lerAba());
+  // À noite, ao abrir o app sem destino específico (link de notificação, atalho), começa no Ciclo do sono
+  const [aba, setAbaState] = useState<Aba>(() => (!location.hash && !acaoDaUrl && abrirNoSonoAgora() ? 'sono' : lerAba()));
   const [agora, setAgora] = useState(Date.now());
   const [registro, setRegistro] = useState<{ tipo: EventType; ev?: BabyEvent } | null>(null);
   const [onboarding, setOnboarding] = useState(false);
@@ -207,6 +208,21 @@ export default function App() {
     return () => { window.removeEventListener('ninho-fila', fila); window.removeEventListener('offline', off); window.removeEventListener('online', on); };
   }, [refresh, toast]);
 
+  // Voltando ao app depois de 30 min ou mais em segundo plano, à noite, estando no Hoje: vai para o Ciclo do sono
+  useEffect(() => {
+    let saiu = 0;
+    const v = () => {
+      if (document.visibilityState === 'hidden') { saiu = Date.now(); return; }
+      if (saiu && Date.now() - saiu >= 30 * 60_000 && abrirNoSonoAgora() && (location.hash === '' || location.hash === '#hoje')) {
+        history.replaceState(null, '', '#sono');
+        setAbaState('sono');
+      }
+      saiu = 0;
+    };
+    document.addEventListener('visibilitychange', v);
+    return () => document.removeEventListener('visibilitychange', v);
+  }, []);
+
   // Sincroniza com os outros cuidadores a cada 30 s (quando a aba está visível)
   useEffect(() => {
     const i = window.setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, 30_000);
@@ -346,7 +362,7 @@ export default function App() {
   const NAV = ABAS.filter((a) => a.id !== 'familia' && a.id !== 'ajustes' && a.id !== 'sono').map((a) => (a.id === 'mural' ? { ...a, label: 'Casa' } : a));
   const abasVisiveis = gestacao ? NAV.filter((a) => a.id !== 'indicadores') : NAV;
   const ativa = (id: Aba) => abaAtual === id || (id === 'mural' && abaAtual === 'familia') || (id === 'hoje' && abaAtual === 'sono');
-  const abaAtual = gestacao && aba === 'indicadores' ? 'hoje' : aba;
+  const abaAtual = gestacao && (aba === 'indicadores' || aba === 'sono') ? 'hoje' : aba;
   const Pagina = { hoje: gestacao ? Gestacao : Hoje, diario: DiaADia, indicadores: Indicadores, mural: Mural, saude: Saude, familia: Familia, ajustes: Ajustes, sono: CicloSono }[abaAtual];
   const emojiBebe = (b: Baby) => (b.sex === 'M' ? '👦' : b.sex === 'F' ? '👧' : '👶');
   const avatar = <Avatar photo={baby.photo} emoji={emojiBebe(baby)} color={baby.color || 'var(--brand)'} size={42} ring />;

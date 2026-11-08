@@ -9,6 +9,7 @@ import { api, localCriarUsuarioDemo } from '../lib/api';
 import { ACESSOS, CORES_BEBE, PAPEIS, papel } from '../lib/constants';
 import { carregarExemplo } from '../lib/seed';
 import { sugerirRotina } from '../lib/rotina';
+import { LS_ABRIR_SONO, abrirNoSonoLigado } from '../lib/previsao';
 import { addDays, dataBr, haQuanto, idade, startOfDay, t } from '../lib/time';
 import type { Access, ConvitePendente, Member, Routine } from '../types';
 import { Choice, Field, Sheet } from '../components/ui';
@@ -141,6 +142,7 @@ export function Ajustes() {
   const [perfil, setPerfil] = useState(false);
   const [excluir, setExcluir] = useState(false);
   const [politica, setPolitica] = useState(false);
+  const [abrirSono, setAbrirSono] = useState(abrirNoSonoLigado);
   async function carregarDemo() {
     if (!confirm(`Carregar 5 semanas de dados de exemplo em ${baby.name}? Eles se somam aos registros existentes.`)) return;
     await act(() => carregarExemplo(data, user.id, modo), 'Dados de exemplo carregados');
@@ -167,6 +169,13 @@ export function Ajustes() {
             <button className="btn sm ghost" onClick={() => setPolitica(true)}><Shield size={14} /> Privacidade e termos</button>
             <button className="btn sm ghost danger" onClick={() => setExcluir(true)}><Trash2 size={14} /> Excluir minha conta</button>
           </div>
+        </div>
+        <div className="card stack">
+          <h2>Ao abrir à noite</h2>
+          <label className="between" style={{ cursor: 'pointer', gap: 12 }}>
+            <span><b>🌙 Abrir no Ciclo do sono</b><br /><span className="faint">Das 19h às 6h, o app abre direto no ciclo do sono neste aparelho, com o botão Dormiu/Acordou à mão.</span></span>
+            <span className="switch"><input type="checkbox" checked={abrirSono} onChange={(e) => { try { localStorage.setItem(LS_ABRIR_SONO, e.target.checked ? 'on' : 'off'); } catch { /* sem storage */ } setAbrirSono(e.target.checked); }} /><span /></span>
+          </label>
         </div>
         <div className="card stack">
           <h2>Notificações</h2>

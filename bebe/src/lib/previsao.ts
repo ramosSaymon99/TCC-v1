@@ -113,3 +113,8 @@ export function sugestoesRepetir(events: BabyEvent[]) {
 
 /** Madrugada: 22h às 6h (tela escura, botões maiores). */
 export const ehMadrugada = (ms = Date.now()) => { const h = new Date(ms).getHours(); return h >= 22 || h < 6; };
+
+/** Abrir o app direto no Ciclo do sono à noite (19h–6h). Preferência por aparelho, ligada por padrão. */
+export const LS_ABRIR_SONO = 'ninho-abrir-sono';
+export const abrirNoSonoLigado = () => { try { return localStorage.getItem(LS_ABRIR_SONO) !== 'off'; } catch { return true; } };
+export const abrirNoSonoAgora = (ms = Date.now()) => { const h = new Date(ms).getHours(); return abrirNoSonoLigado() && (h >= 19 || h < 6); };
