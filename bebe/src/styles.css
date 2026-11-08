@@ -240,9 +240,13 @@ textarea.input { min-height: 80px; resize: vertical; }
 /* Modal / sheet */
 .ov { position: fixed; inset: 0; background: rgba(20, 18, 28, .45); z-index: 50; display: flex; align-items: flex-end; justify-content: center; animation: fade .15s; }
 .sheet {
-  background: var(--surface); width: 100%; max-width: 560px; max-height: 92vh; overflow: auto; border-radius: 22px 22px 0 0;
+  background: var(--surface); width: 100%; max-width: 560px; max-height: 92vh; max-height: 92dvh; border-radius: 22px 22px 0 0;
   padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); animation: up .2s ease-out;
+  display: flex; flex-direction: column; overflow: hidden;
 }
+.sheet-h { flex-shrink: 0; }
+.sheet-corpo { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0 -16px; padding: 0 16px 4px; }
+.sheet-pe { flex-shrink: 0; justify-content: flex-end; flex-wrap: wrap; padding-top: 12px; margin-top: 6px; border-top: 1px solid var(--line); }
 @media (min-width: 700px) { .ov { align-items: center; } .sheet { border-radius: 22px; } }
 @keyframes up { from { transform: translateY(40px); opacity: .5; } }
 @keyframes fade { from { opacity: 0; } }
@@ -463,3 +467,7 @@ section + section .notif-sec { margin-top: 16px; }
 .ciclo-legenda i { display: inline-block; width: 14px; height: 8px; border-radius: 4px; margin-right: 5px; vertical-align: middle; }
 .ciclo-legenda i.tracejado { border: 2px dashed #c9c4ff; height: 8px; box-sizing: border-box; }
 .since-link, .prev-link { cursor: pointer; }
+
+@media (max-width: 380px) { .grade-abas button { white-space: normal; line-height: 1.15; font-size: 13px; padding: 4px; } }
+
+@media (max-width: 480px) { .demo-bar { flex-wrap: nowrap; justify-content: space-between; text-align: left; font-size: 12.5px; line-height: 1.3; padding: 6px 12px; } .demo-bar .btn { flex-shrink: 0; } }

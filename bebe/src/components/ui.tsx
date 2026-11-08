@@ -16,8 +16,9 @@ export function Sheet({ title, onClose, children, footer }: { title: ReactNode; 
           <h2>{title}</h2>
           <button className="icon-btn" onClick={onClose} aria-label="Fechar"><X size={18} /></button>
         </div>
-        <div className="stack" style={{ gap: 14 }}>{children}</div>
-        {footer && <div className="row" style={{ marginTop: 18, justifyContent: 'flex-end', flexWrap: 'wrap' }}>{footer}</div>}
+        {/* Só o conteúdo rola; título e botões de ação ficam sempre à vista (telas pequenas) */}
+        <div className="sheet-corpo stack" style={{ gap: 14 }}>{children}</div>
+        {footer && <div className="sheet-pe row">{footer}</div>}
       </div>
     </div>
   );

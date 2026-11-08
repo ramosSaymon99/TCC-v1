@@ -413,7 +413,7 @@ export default function App() {
           )}
           {user.demo && (
             <div className="demo-bar">
-              ✨ Conta de exemplo — dados fictícios, apagados em até {Math.max(1, Math.round((Date.parse(user.created_at ?? new Date().toISOString()) + 24 * 3600_000 - agora) / 3600_000))} h.
+              <span>✨ Conta de exemplo · dados fictícios, apagados em até {Math.max(1, Math.round((Date.parse(user.created_at ?? new Date().toISOString()) + 24 * 3600_000 - agora) / 3600_000))} h</span>
               <button className="btn sm" onClick={sair}>Criar minha conta</button>
             </div>
           )}
