@@ -31,13 +31,13 @@ import { pl } from './lib/texto';
 
 const ABAS: { id: Aba; label: string; Icon: typeof Home }[] = [
   { id: 'hoje', label: 'Hoje', Icon: Home },
+  { id: 'sono', label: 'Rotina', Icon: Moon },
   { id: 'diario', label: 'Dia a dia', Icon: Camera },
   { id: 'indicadores', label: 'Evolução', Icon: BarChart3 },
   { id: 'saude', label: 'Saúde', Icon: Stethoscope },
   { id: 'mural', label: 'Mural', Icon: LayoutGrid },
   { id: 'familia', label: 'Família', Icon: Users },
   { id: 'ajustes', label: 'Ajustes', Icon: Settings },
-  { id: 'sono', label: 'Ciclo do sono', Icon: Moon },
 ];
 const LS_BABY = 'ninho-baby';
 /** Link vindo de uma notificação: ?baby=<id>#aba */
@@ -359,9 +359,9 @@ export default function App() {
   const gestacao = !!baby.settings?.gestacao;
   // Na gestação não há rotina para medir: "Hoje" vira a tela da gestação e Indicadores some
   // Barra com 5 itens: Mural e Família ficam juntos em "Casa" (com seletor dentro da página)
-  const NAV = ABAS.filter((a) => a.id !== 'familia' && a.id !== 'ajustes' && a.id !== 'sono').map((a) => (a.id === 'mural' ? { ...a, label: 'Casa' } : a));
-  const abasVisiveis = gestacao ? NAV.filter((a) => a.id !== 'indicadores') : NAV;
-  const ativa = (id: Aba) => abaAtual === id || (id === 'mural' && abaAtual === 'familia') || (id === 'hoje' && abaAtual === 'sono');
+  const NAV = ABAS.filter((a) => a.id !== 'familia' && a.id !== 'ajustes').map((a) => (a.id === 'mural' ? { ...a, label: 'Casa' } : a));
+  const abasVisiveis = gestacao ? NAV.filter((a) => a.id !== 'indicadores' && a.id !== 'sono') : NAV;
+  const ativa = (id: Aba) => abaAtual === id || (id === 'mural' && abaAtual === 'familia');
   const abaAtual = gestacao && (aba === 'indicadores' || aba === 'sono') ? 'hoje' : aba;
   const Pagina = { hoje: gestacao ? Gestacao : Hoje, diario: DiaADia, indicadores: Indicadores, mural: Mural, saude: Saude, familia: Familia, ajustes: Ajustes, sono: CicloSono }[abaAtual];
   const emojiBebe = (b: Baby) => (b.sex === 'M' ? '👦' : b.sex === 'F' ? '👧' : '👶');

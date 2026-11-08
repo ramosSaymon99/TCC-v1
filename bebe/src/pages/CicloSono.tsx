@@ -1,6 +1,7 @@
 /** Ciclo do sono: mostrador de 24 h com os sonos registrados, a próxima soneca prevista e a hora de dormir. */
 import { useMemo } from 'react';
-import { ChevronLeft, Moon, Sun } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
+import { BotoesRegistro, LinhaDoTempo, RotinaPlanejada } from '../components/RotinaDia';
 import { useApp } from '../ctx';
 import { api } from '../lib/api';
 import { proximaSoneca } from '../lib/janela';
@@ -57,7 +58,7 @@ function posicionarIcones(evs: BabyEvent[]) {
 const mediana = (v: number[]) => { const s = [...v].sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : 0; };
 
 export function CicloSono() {
-  const { data, agora, setAba, act, podeEditar } = useApp();
+  const { data, agora, act, podeEditar } = useApp();
   const { baby, events } = data;
   const primeiro = baby.name.split(' ')[0];
   const id = idade(baby.birth_date, agora);
@@ -144,10 +145,11 @@ export function CicloSono() {
 
   return (
     <div className="page ciclo-pagina">
+      <div><h1>Rotina de {primeiro}</h1><p className="faint">Sono, mamadas, fraldas e tudo do dia num lugar só: marque aqui e a família vê na hora.</p></div>
       <div className="ciclo">
         <div className="between">
-          <button className="ciclo-voltar" onClick={() => setAba('hoje')} aria-label="Voltar para Hoje"><ChevronLeft size={18} /> Hoje</button>
           <span className="ciclo-titulo">🌙 Ciclo do sono</span>
+          <span className="ciclo-titulo" style={{ fontWeight: 600, fontSize: 13 }}>{new Date(agora).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'short' })}</span>
         </div>
 
         <div className="ciclo-dial">
@@ -227,6 +229,13 @@ export function CicloSono() {
           <span>{TIPOS.mamada.emoji}{TIPOS.mamadeira.emoji} mamada · {TIPOS.fralda.emoji} fralda · {TIPOS.alimentacao.emoji} papinha{c.registros.ocultos ? ` · +${c.registros.ocultos} juntos` : ''}</span>
         </div>
       </div>
+
+      <div className="stack" style={{ gap: 6 }}>
+        <h3 className="titulo-bloco">Marcar agora</h3>
+        <BotoesRegistro />
+      </div>
+      <RotinaPlanejada />
+      <LinhaDoTempo />
     </div>
   );
 }

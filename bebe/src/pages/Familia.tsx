@@ -173,7 +173,7 @@ export function Ajustes() {
         <div className="card stack">
           <h2>Ao abrir à noite</h2>
           <label className="between" style={{ cursor: 'pointer', gap: 12 }}>
-            <span><b>🌙 Abrir no Ciclo do sono</b><br /><span className="faint">Das 19h às 6h, o app abre direto no ciclo do sono neste aparelho, com o botão Dormiu/Acordou à mão.</span></span>
+            <span><b>🌙 Abrir na Rotina</b><br /><span className="faint">Das 19h às 6h, o app abre direto na aba Rotina (ciclo do sono) neste aparelho, com o botão Dormiu/Acordou à mão.</span></span>
             <span className="switch"><input type="checkbox" checked={abrirSono} onChange={(e) => { try { localStorage.setItem(LS_ABRIR_SONO, e.target.checked ? 'on' : 'off'); } catch { /* sem storage */ } setAbrirSono(e.target.checked); }} /><span /></span>
           </label>
         </div>
