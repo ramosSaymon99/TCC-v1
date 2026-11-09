@@ -1,16 +1,16 @@
 # Vídeo "modo de uso" do Ninho
 
-- `ninho-modo-de-uso.mp4`: vertical 1080×1920, ~113 s, para enviar às novas famílias (família e dados fictícios).
+- `ninho-modo-de-uso.mp4`: vertical 1080×1920, ~128 s, para enviar às novas famílias (família e dados fictícios).
 - `ninho-modo-de-uso-whatsapp.mp4`: 720×1280, compatível com o WhatsApp.
-- `ninho-essencial-60s.mp4` / `ninho-essencial-60s-whatsapp.mp4`: versão essencial de 60 s (12 capítulos, um destaque por tela,
+- `ninho-essencial-60s.mp4` / `ninho-essencial-60s-whatsapp.mp4`: versão essencial de 60 s (12 capítulos, com a aba Rotina, um destaque por tela,
   cortes no tempo da música).
 
 Trilha sonora original em clima lo-fi calmo, sintetizada por `trilha.py` (60 bpm, piano elétrico, kalimba e vinil; sem direitos de terceiros), com efeitos
 discretos nos cortes de tela, balões e toques, sincronizados pela linha do tempo do vídeo.
 
-Roteiro (13 capítulos): conta → bebê e rotina pronta → primeiros passos → registro em 1 toque → convite da família →
-o que vem agora (previsões e plantão) → onde agir → rotina com check e sugestão → remédio com alerta de dose dupla →
-Dia a dia (fotos, curtidas, mêsversário) → Evolução → Saúde → Casa (mural, leite e plantão).
+Roteiro (15 capítulos): conta → bebê e rotina pronta → primeiros passos → registro em 1 toque → convite da família →
+Hoje (resumo e registro no topo) → o que vem agora e onde agir → aba Rotina: ciclo do sono → marcar tudo, rotina com
+check e sugestão → remédio com alerta de dose dupla → Dia a dia → Evolução → Saúde → Casa (leite e plantão) → ⚙️ Ajustes.
 
 Para regerar:
 1. Suba o app local com banco limpo:

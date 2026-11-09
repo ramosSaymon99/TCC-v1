@@ -111,6 +111,7 @@ await p.evaluate(({ u, bb }) => {
   for (const k of ['previsoes', 'repetir', 'casa-mural', 'casa-familia', 'diario']) localStorage.setItem(`ninho-dica-${k}`, '1');
   localStorage.setItem(`ninho-passos-${u}-${bb}`, 'ocultar');
   localStorage.setItem('ninho-madrugada', 'off');
+  localStorage.setItem('ninho-abrir-sono', 'off');
 }, { u: me.user.id, bb: babyId });
 await p.reload();
 await p.locator('.bnav').waitFor();
@@ -119,14 +120,23 @@ await aba('Hoje');
 await p.waitForTimeout(800);
 await semToast();
 
-// 6) Hoje com dados
+// 6) Hoje com dados: resumo e registro no topo, o que vem agora e onde agir
 await foto('08-hoje');
-await rolar('.quick');
-await foto('09-hoje-registro');
+await rolar('.prev-grid');
+await p.evaluate(() => window.scrollBy(0, -40));
+await foto('09-o-que-vem');
 await rolar('.card.hide-desk');
 await foto('10-onde-agir');
+
+// 6b) Aba Rotina: ciclo do sono, marcar tudo, rotina planejada com check
+await aba('Rotina');
+await foto('20-rotina-ciclo');
+await rolar('.main .quick');
+await p.evaluate(() => window.scrollBy(0, -40));
+await foto('21-rotina-marcar');
 await rolar('.card:has(h2:text-is("Rotina planejada"))');
-await foto('10b-rotina');
+await foto('22-rotina-planejada');
+await aba('Hoje');
 
 // 7) Remédio: alerta de dose dupla
 await p.evaluate(() => window.scrollTo(0, 0));
@@ -177,6 +187,13 @@ await p.keyboard.press('Escape');
 await p.waitForTimeout(400);
 await rolar('.card:has(h2:text("Plantão da noite"))');
 await foto('18-casa-plantao');
+
+// 12) Ajustes (⚙️ no topo), com "Abrir na Rotina" ligado como vem por padrão
+await p.evaluate(() => localStorage.setItem('ninho-abrir-sono', 'on'));
+await p.getByRole('button', { name: /Ajustes: perfil/ }).click();
+await p.waitForTimeout(700);
+await p.evaluate(() => window.scrollTo(0, 0));
+await foto('23-ajustes');
 
 console.log('ERROS:', erros);
 await b.close();
