@@ -9,8 +9,9 @@ import { RotinaEditor } from './Familia';
 import { PhotoPicker } from '../components/Avatar';
 
 /** Cadastro do bebê (registro central) ou entrada em um bebê existente por código de convite. */
-export function Onboarding({ onDone, onCancel, userName }: { onDone: (babyId: string) => void; onCancel?: () => void; userName: string }) {
-  const [modo, setModo] = useState<'novo' | 'codigo'>('novo');
+export function Onboarding({ onDone, onCancel, onCreche, userName }: { onDone: (babyId: string) => void; onCancel?: () => void; onCreche?: () => Promise<void>; userName: string }) {
+  const [modo, setModo] = useState<'novo' | 'codigo' | 'creche'>('novo');
+  const [org, setOrg] = useState('');
   const [passo, setPasso] = useState(1);
   const [f, setF] = useState({ name: '', birth_date: '', sex: undefined as 'F' | 'M' | undefined, role: 'mae', peso: '', altura: '', consult_date: ymd(Date.now()), color: CORES_BEBE[0] });
   const [rotina, setRotina] = useState<Routine | null>(null);
@@ -61,9 +62,18 @@ export function Onboarding({ onDone, onCancel, userName }: { onDone: (babyId: st
         <div className="seg" style={{ width: '100%', marginBottom: 16 }}>
           <button style={{ flex: 1 }} className={modo === 'novo' ? 'on' : ''} onClick={() => setModo('novo')}>Cadastrar bebê</button>
           <button style={{ flex: 1 }} className={modo === 'codigo' ? 'on' : ''} onClick={() => setModo('codigo')}>Tenho um convite</button>
+          {onCreche && <button style={{ flex: 1 }} className={modo === 'creche' ? 'on' : ''} onClick={() => setModo('creche')}>Sou creche</button>}
         </div>
 
         <div className="stack" style={{ gap: 14 }}>
+          {modo === 'creche' ? (
+            <>
+              <p className="muted">Para creches, berçários e escolas: cadastre as crianças da turma, registre chegada, saída, refeições, sono e fraldas (de uma ou de várias crianças de uma vez) e os responsáveis acompanham tudo pelo celular.</p>
+              <Field label="Nome da creche ou escola"><input className="input" value={org} onChange={(e) => setOrg(e.target.value)} placeholder="ex.: Creche Pequenos Passos" /></Field>
+              {erro && <div className="chip bad" style={{ whiteSpace: 'normal' }}>{erro}</div>}
+              <button className="btn primary block" disabled={busy || org.trim().length < 2} onClick={async () => { setBusy(true); setErro(''); try { await api.setPerfil('creche', org.trim()); await onCreche?.(); } catch (x) { setErro(x instanceof Error ? x.message : 'Erro'); } setBusy(false); }}>🏫 Criar perfil de creche</button>
+            </>
+          ) : (<>
           {(modo === 'codigo' || passo === 1) && (trocarPapel
             ? <Field label="Eu sou"><div className="choice">{PAPEIS.map((p) => <button key={p.id} className={f.role === p.id ? 'on' : ''} onClick={() => { setF({ ...f, role: p.id }); setTrocarPapel(false); }}>{p.emoji} {p.label}</button>)}</div></Field>
             : <div className="row eu-sou"><span className="faint">Você é</span><b>{PAPEIS.find((p) => p.id === f.role)?.emoji} {PAPEIS.find((p) => p.id === f.role)?.label}</b><button className="linkbtn" onClick={() => setTrocarPapel(true)}>trocar</button></div>)}
@@ -123,6 +133,7 @@ export function Onboarding({ onDone, onCancel, userName }: { onDone: (babyId: st
               </div>
             </>
           )}
+          </>)}
         </div>
       </div>
     </div>

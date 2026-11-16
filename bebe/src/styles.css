@@ -473,3 +473,23 @@ section + section .notif-sec { margin-top: 16px; }
 @media (max-width: 480px) { .demo-bar { flex-wrap: nowrap; justify-content: space-between; text-align: left; font-size: 12.5px; line-height: 1.3; padding: 6px 12px; } .demo-bar .btn { flex-shrink: 0; } }
 
 .atalho-rotina { display: flex; align-items: center; gap: 12px; width: 100%; border: 1px solid var(--line); cursor: pointer; color: var(--ink); font: inherit; text-align: left; }
+
+/* ---------- Creche: Turma ---------- */
+.turma-resumo { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.turma-resumo > div { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; }
+.turma-resumo b { font-size: 24px; }
+.turma-resumo span { font-size: 12.5px; color: var(--ink-3); font-weight: 700; }
+.turma-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.turma-card { padding: 14px; border-left: 5px solid var(--line); }
+.turma-card.presente { border-left-color: var(--ok); }
+.turma-card.marcado { outline: 2px solid var(--brand-forte); }
+.turma-check { display: grid; place-items: center; min-width: 44px; min-height: 44px; margin: -4px 0 0 -6px; cursor: pointer; }
+.turma-check input { width: 22px; height: 22px; accent-color: var(--brand-forte); }
+.turma-nome { display: flex; align-items: center; gap: 10px; border: 0; background: none; padding: 0; text-align: left; cursor: pointer; color: var(--ink); font: inherit; flex: 1; min-width: 0; min-height: 44px; }
+.turma-acoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(68px, 1fr)); gap: 6px; margin-top: 10px; }
+.turma-acoes button { min-height: 44px; border: 1px solid var(--line); background: var(--surface-2); border-radius: 12px; font: inherit; font-weight: 700; font-size: 13.5px; color: var(--ink); cursor: pointer; padding: 4px; }
+.turma-acoes button.destaque { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.turma-acoes button:active { transform: scale(.97); }
+.turma-lote { position: sticky; bottom: calc(var(--nav-h) + 10px + env(safe-area-inset-bottom)); z-index: 25; background: var(--surface); border: 2px solid var(--brand-forte); border-radius: 18px; padding: 12px; box-shadow: var(--shadow); }
+@media (min-width: 900px) { .turma-lote { bottom: 16px; } }
+.na-creche { border-left: 5px solid var(--info); }

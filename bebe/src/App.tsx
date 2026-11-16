@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, Bell, Camera, ChevronDown, Home, LayoutGrid, LogOut, Moon, Settings, Stethoscope, Users } from 'lucide-react';
+import { BarChart3, Bell, Camera, ChevronDown, Home, LayoutGrid, LogOut, Moon, School, Settings, Stethoscope, Users } from 'lucide-react';
 import { AppCtx, type Aba, type Ctx } from './ctx';
 import { api, ApiError, definirUsuarioAtual, detectarModo, getToken, SEM_REDE, sair as sairApi, sincronizar, temSessao, type Modo } from './lib/api';
 import { aplicarPendentes, lerCacheBebe, lerCacheMe, limparCaches, pendentesDoBebe, salvarCacheBebe, salvarCacheMe } from './lib/offline';
@@ -22,6 +22,7 @@ import { Mural } from './pages/Mural';
 import { Saude } from './pages/Saude';
 import { Ajustes, Familia } from './pages/Familia';
 import { CicloSono } from './pages/CicloSono';
+import { Turma } from './pages/Turma';
 import { DiaADia } from './pages/DiaADia';
 import { Gestacao } from './pages/Gestacao';
 import { semanasGestacao } from './lib/conteudo';
@@ -30,6 +31,7 @@ import { MomentoSheet } from './components/Guia';
 import { pl } from './lib/texto';
 
 const ABAS: { id: Aba; label: string; Icon: typeof Home }[] = [
+  { id: 'turma', label: 'Turma', Icon: School },
   { id: 'hoje', label: 'Hoje', Icon: Home },
   { id: 'sono', label: 'Rotina', Icon: Moon },
   { id: 'diario', label: 'Dia a dia', Icon: Camera },
@@ -106,6 +108,8 @@ export default function App() {
     }
     definirUsuarioAtual(r.user.id);
     setUser(r.user);
+    // Creche/escola começa na Turma (salvo link de notificação ou aba já escolhida)
+    if (r.user.perfil === 'creche' && (!location.hash || location.hash === '#hoje' || location.hash === '#sono')) setAbaState((a) => (a === 'hoje' || a === 'sono' ? 'turma' : a));
     salvarSessaoSW(getToken(), r.user.id);
     setBabies(r.babies);
     let alvo = selecionar ?? consumirBebeDaUrl() ?? babyId ?? localStorage.getItem(LS_BABY);
@@ -340,10 +344,21 @@ export default function App() {
     );
   }
 
+  const creche = user.perfil === 'creche';
+  if (creche && !babies.length && !onboarding) {
+    return (
+      <div className="app"><div className="main" style={{ paddingBottom: 40 }}>
+        <header className="topbar"><div className="wrap"><div className="brand grow"><span className="logo">🪺</span> Ninho</div><button className="btn sm ghost" onClick={sair}><LogOut size={15} /> Sair</button></div></header>
+        <main className="wrap"><Turma user={user} toast={toast} onAbrir={(id) => { void reloadMe(id); }} onCriada={(id) => reloadMe(id)} /></main>
+        {msg && <div className="toast" role="status">{msg.texto}{msg.acao && <button className="toast-acao" onClick={msg.acao.fn}>{msg.acao.label}</button>}</div>}
+      </div></div>
+    );
+  }
   if (!babies.length || onboarding) {
     return (
       <>
         <Onboarding
+          onCreche={babies.length ? undefined : async () => { await reloadMe(); setAba('turma'); }}
           userName={user.name}
           onCancel={babies.length ? () => setOnboarding(false) : sair}
           onDone={async (id) => { setOnboarding(false); await reloadMe(id); setAba('hoje'); }}
@@ -359,11 +374,11 @@ export default function App() {
   const gestacao = !!baby.settings?.gestacao;
   // Na gestação não há rotina para medir: "Hoje" vira a tela da gestação e Indicadores some
   // Barra com 5 itens: Mural e Família ficam juntos em "Casa" (com seletor dentro da página)
-  const NAV = ABAS.filter((a) => a.id !== 'familia' && a.id !== 'ajustes').map((a) => (a.id === 'mural' ? { ...a, label: 'Casa' } : a));
+  const NAV = ABAS.filter((a) => a.id !== 'familia' && a.id !== 'ajustes' && (creche ? !['hoje', 'indicadores'].includes(a.id) : a.id !== 'turma')).map((a) => (a.id === 'mural' ? { ...a, label: 'Casa' } : a));
   const abasVisiveis = gestacao ? NAV.filter((a) => a.id !== 'indicadores' && a.id !== 'sono') : NAV;
   const ativa = (id: Aba) => abaAtual === id || (id === 'mural' && abaAtual === 'familia');
   const abaAtual = gestacao && (aba === 'indicadores' || aba === 'sono') ? 'hoje' : aba;
-  const Pagina = { hoje: gestacao ? Gestacao : Hoje, diario: DiaADia, indicadores: Indicadores, mural: Mural, saude: Saude, familia: Familia, ajustes: Ajustes, sono: CicloSono }[abaAtual];
+  const Pagina = { hoje: gestacao ? Gestacao : Hoje, diario: DiaADia, indicadores: Indicadores, mural: Mural, saude: Saude, familia: Familia, ajustes: Ajustes, sono: CicloSono, turma: CicloSono }[abaAtual];
   const emojiBebe = (b: Baby) => (b.sex === 'M' ? '👦' : b.sex === 'F' ? '👧' : '👶');
   const avatar = <Avatar photo={baby.photo} emoji={emojiBebe(baby)} color={baby.color || 'var(--brand)'} size={42} ring />;
   const naoLidas = naoLidasGlobal;
@@ -417,7 +432,7 @@ export default function App() {
               <button className="btn sm" onClick={sair}>Criar minha conta</button>
             </div>
           )}
-          <main className="wrap"><Pagina /></main>
+          <main className="wrap">{abaAtual === 'turma' ? <Turma user={user} toast={toast} onAbrir={(id) => { setBabyId(id); setAba('sono'); }} onCriada={(id) => reloadMe(id)} /> : <Pagina />}</main>
         </div>
         <nav className="bnav">
           {abasVisiveis.map(({ id, label, Icon }) => (

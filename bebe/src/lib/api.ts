@@ -3,7 +3,7 @@
  *  - Publicado no Cloudflare (/api/status responde): dados no D1, compartilhados entre os cuidadores.
  *  - Aberto localmente / hospedagem estática: modo local, mesmo contrato da API, dados no navegador.
  */
-import type { Baby, BabyData, ConvitePendente, NotifPrefs, Resource, User } from '../types';
+import type { Baby, BabyData, ConvitePendente, ItemTurma, NotifPrefs, Resource, User } from '../types';
 import { uid } from './time';
 import { enfileirar, enfileiravel, fila, removerDaFila, type Pendente } from './offline';
 
@@ -154,6 +154,8 @@ export const api = {
     return r;
   },
   createBaby: (b: Record<string, unknown>) => req<{ id: string }>('POST', '/babies', b),
+  setPerfil: (perfil: 'familia' | 'creche', org_nome?: string) => req<{ ok: boolean }>('PUT', '/me', { perfil, org_nome }),
+  turma: () => req<ItemTurma[]>('GET', '/turma'),
   getBaby: (id: string, since: string) => req<BabyData>('GET', `/babies/${id}?since=${encodeURIComponent(since)}`),
   updateBaby: (id: string, b: Partial<Baby>) => req('PUT', `/babies/${id}`, b),
   deleteBaby: (id: string) => req('DELETE', `/babies/${id}`),
@@ -312,9 +314,26 @@ function local(method: string, path: string, body: any): unknown {
   if (rota.startsWith('/push/')) falha('Notificações no celular exigem o app publicado no Cloudflare.', 400);
   if (r('GET', '/me')) {
     const babies = D.members.filter((m) => m.user_id === myId).map((m) => ({ ...D.babies.find((b) => b.id === m.baby_id), role: m.role, access: m.access }) as Row).filter((b) => b.id);
-    return { user: { id: myId, name: me!.name, email: me!.email, photo: (me as Row).photo ?? null }, babies };
+    return { user: { id: myId, name: me!.name, email: me!.email, photo: (me as Row).photo ?? null, perfil: (me as Row).perfil ?? 'familia', org_nome: (me as Row).org_nome ?? null }, babies };
+  }
+  if (r('GET', '/turma')) {
+    const desde = new Date(Date.now() - 24 * 3600_000).toISOString();
+    return D.members.filter((m) => m.user_id === myId).map((m) => {
+      const b = D.babies.find((x) => x.id === m.baby_id);
+      if (!b) return null;
+      return { baby: { ...b, settings: b.settings ?? {} }, role: m.role, access: m.access, responsaveis: D.members.filter((x) => x.baby_id === b.id && !['creche', 'educador'].includes(String(x.role))).length,
+        events: D.events.filter((e) => e.baby_id === b.id && (String(e.start_at) >= desde || !e.end_at)).sort((x, y) => String(y.start_at).localeCompare(String(x.start_at))) };
+    }).filter(Boolean);
   }
   if (r('PUT', '/me')) {
+    if (body.perfil !== undefined) {
+      const perfil = body.perfil === 'creche' ? 'creche' : 'familia';
+      if (perfil === 'creche' && String(body.org_nome ?? '').trim().length < 2) falha('Informe o nome da creche ou escola.');
+      (me as Row).perfil = perfil;
+      (me as Row).org_nome = perfil === 'creche' ? String(body.org_nome).trim() : null;
+      salvar();
+      if (body.name === undefined) return { ok: true };
+    }
     if (body.newPassword) {
       if (body.password !== me!.password) falha('Senha atual incorreta.', 403);
       me!.password = body.newPassword;
@@ -358,7 +377,7 @@ function local(method: string, path: string, body: any): unknown {
     const baby = D.babies.find((b) => b.id === babyId);
     return structuredClone({
       baby,
-      members: doBebe(D.members).map((m) => { const u = D.users.find((x) => x.id === m.user_id) as Row | undefined; return { ...m, name: u?.name ?? '?', email: u?.email ?? '', photo: u?.photo ?? null }; }),
+      members: doBebe(D.members).map((m) => { const u = D.users.find((x) => x.id === m.user_id) as Row | undefined; return { ...m, name: u?.name ?? '?', email: u?.email ?? '', photo: u?.photo ?? null, org_nome: u?.org_nome ?? null }; }),
       events: doBebe(D.events).filter((e) => e.start_at >= since || !e.end_at).sort((a, b) => a.start_at.localeCompare(b.start_at)),
       growth: doBebe(D.growth).sort((a, b) => a.date.localeCompare(b.date)),
       supplies: doBebe(D.supplies).sort((a, b) => a.name.localeCompare(b.name)),

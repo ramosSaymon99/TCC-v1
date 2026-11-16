@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Check, ChevronRight, Moon, Pin, Sun } from 'lucide-react';
 import { useApp } from '../ctx';
 import { api } from '../lib/api';
-import { TIPOS, papel } from '../lib/constants';
+import { TIPOS, ehCreche, papel } from '../lib/constants';
 import { aderencia, agruparCompras, estatisticas, insights, mediaDiaria } from '../lib/metrics';
 import { DIA, MIN, addDays, cronometro, duracao, haQuanto, hm, idade, startOfDay, t } from '../lib/time';
 import type { BabyEvent } from '../types';
@@ -30,6 +30,7 @@ export function descreve(e: BabyEvent, agora: number) {
     case 'extracao': return `${e.data.ml ?? '?'} ml extraídos${e.data.guardar && e.data.guardar !== 'usado' ? ` · ${e.data.guardar}` : ''}`;
     case 'saude': return [e.data.temp != null ? `${String(e.data.temp).replace('.', ',')} °C` : '', ...(e.data.sintomas ?? [])].filter(Boolean).join(' · ') || 'Registro de saúde';
     case 'banho': return 'Banho';
+    case 'presenca': return `${e.data.acao === 'saida' ? 'Saiu da creche' : 'Chegou à creche'}${e.data.quem ? ` · com ${e.data.quem}` : ''}`;
     default: return e.note ?? 'Registro';
   }
 }
@@ -191,6 +192,8 @@ export function Hoje() {
         <div><div className="l">🧷 Última fralda</div><div className="v">{ultFralda ? haQuanto(t(ultFralda.start_at), agora).replace('há ', '') : '—'}</div><div className="faint">{ultFralda ? `às ${hm(ultFralda.start_at)}` : 'sem registro'}</div></div>
       </div>
 
+      <HojeNaCreche />
+
       <BotoesRegistro />
 
       {(soneca || mamadaPrev || listaDoses.length > 0) && (
@@ -303,6 +306,44 @@ function Mini({ rot, val, sub, atual, base, neutro }: { rot: string; val: string
       <div className="lab">{rot}</div>
       <div className="val" style={{ fontSize: 22 }}>{val}</div>
       <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}><Delta atual={atual} anterior={base} neutro={neutro} /><span className="faint" style={{ fontSize: 12 }}>{sub}</span></div>
+    </div>
+  );
+}
+
+/** Para os pais: o que a creche registrou hoje (entrada, saída, refeições, sono, fraldas). */
+function HojeNaCreche() {
+  const { data, agora, nome, user } = useApp();
+  const equipe = data.members.filter((m) => ehCreche(m.role) && m.user_id !== user.id);
+  if (!equipe.length || ehCreche(data.role)) return null;
+  const ids = new Set(equipe.map((m) => m.user_id));
+  const hoje = startOfDay(agora);
+  const doDia = data.events.filter((e) => t(e.start_at) >= hoje && (ids.has(e.user_id) || e.type === 'presenca')).sort((a, b) => t(b.start_at) - t(a.start_at));
+  const pres = doDia.filter((e) => e.type === 'presenca');
+  const ult = pres[0];
+  const entrada = [...pres].reverse().find((e) => e.data.acao !== 'saida');
+  const registros = doDia.filter((e) => e.type !== 'presenca');
+  const local = equipe.find((m) => m.org_nome)?.org_nome ?? 'creche';
+  const primeiro = data.baby.name.split(' ')[0];
+  return (
+    <div className="card na-creche">
+      <div className="card-h"><h2>🏫 Hoje na creche</h2><span className="faint">{local}</span></div>
+      <p style={{ fontWeight: 700 }}>
+        {!ult ? `${primeiro} ainda não chegou hoje.` : ult.data.acao === 'saida'
+          ? `Saiu às ${hm(ult.start_at)}${ult.data.quem ? ` com ${ult.data.quem}` : ''}${entrada ? ` · chegou às ${hm(entrada.start_at)}` : ''}`
+          : `Na creche desde ${hm(ult.start_at)}${ult.data.quem ? ` · trazida(o) por ${ult.data.quem}` : ''}`}
+      </p>
+      {registros.length > 0 ? (
+        <div className="tl" style={{ marginTop: 8 }}>
+          {registros.slice(0, 5).map((e) => (
+            <div key={e.id} className="tl-item">
+              <span className="tl-time">{hm(e.start_at)}</span>
+              <span className="tl-ico" style={{ background: `${TIPOS[e.type].cor}22` }}>{e.type === 'fralda' && e.data.diaper !== 'xixi' && e.data.diaper !== 'seca' ? '💩' : TIPOS[e.type].emoji}</span>
+              <div className="grow"><div style={{ fontWeight: 700 }}>{descreve(e, agora)}</div><div className="faint">{nome(e.user_id)}</div></div>
+            </div>
+          ))}
+          {registros.length > 5 && <p className="faint">+{registros.length - 5} registros da creche na Rotina.</p>}
+        </div>
+      ) : ult && ult.data.acao !== 'saida' ? <p className="faint" style={{ marginTop: 4 }}>Os registros da creche (refeições, sono, fraldas) aparecem aqui ao longo do dia.</p> : null}
     </div>
   );
 }

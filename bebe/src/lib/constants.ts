@@ -12,6 +12,8 @@ export const PAPEIS: { id: string; label: string; emoji: string }[] = [
   { id: 'irmao', label: 'Irmão', emoji: '👦' },
   { id: 'madrinha', label: 'Madrinha', emoji: '💐' },
   { id: 'padrinho', label: 'Padrinho', emoji: '🎩' },
+  { id: 'creche', label: 'Creche / escola', emoji: '🏫' },
+  { id: 'educador', label: 'Educador(a)', emoji: '🧑‍🏫' },
   { id: 'outro', label: 'Outro cuidador', emoji: '🤝' },
 ];
 export const papel = (id?: string) => PAPEIS.find((p) => p.id === id) ?? PAPEIS[PAPEIS.length - 1];
@@ -32,6 +34,7 @@ export const TIPOS: Record<EventType, { label: string; emoji: string; cor: strin
   alimentacao: { label: 'Papinha', emoji: '🥣', cor: '#74AE4F' },
   extracao: { label: 'Extração', emoji: '🥛', cor: '#B57BD0' },
   saude: { label: 'Febre/sintoma', emoji: '🌡️', cor: '#E2873C' },
+  presenca: { label: 'Creche', emoji: '🏫', cor: '#5468C9' },
   outro: { label: 'Outro', emoji: '📝', cor: '#8A8F98' },
 };
 export const COR_COCO = '#A0713F';
@@ -70,3 +73,7 @@ export const VACINAS: { code: string; nome: string; meses: number }[] = [
   { code: 'fa_r', nome: 'Febre amarela – reforço', meses: 48 },
   { code: 'varicela_2', nome: 'Varicela – 2ª dose', meses: 48 },
 ];
+
+/** Papéis da creche/escola. */
+export const PAPEIS_CRECHE = ['creche', 'educador'];
+export const ehCreche = (role?: string) => !!role && PAPEIS_CRECHE.includes(role);

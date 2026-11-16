@@ -27,7 +27,7 @@ const SEGURADAS_NOITE = ['cronometro', 'atividade'];
 /** Avisos de registro: no máximo 1 a cada 30 min por bebê; o que chegar no meio vira um resumo. */
 const INTERVALO_ATIVIDADE_MS = 30 * 60_000;
 
-const PAPEL = { mae: 'mãe', pai: 'pai', avo_f: 'avó', avo_m: 'avô', baba: 'babá', tia: 'tia', tio: 'tio', irma: 'irmã', irmao: 'irmão', madrinha: 'madrinha', padrinho: 'padrinho', outro: 'cuidador' };
+const PAPEL = { mae: 'mãe', pai: 'pai', avo_f: 'avó', avo_m: 'avô', baba: 'babá', tia: 'tia', tio: 'tio', irma: 'irmã', irmao: 'irmão', madrinha: 'madrinha', padrinho: 'padrinho', creche: 'creche', educador: 'educador(a)', outro: 'cuidador' };
 export const nomePapel = (r) => PAPEL[r] ?? 'cuidador';
 
 function horaLocal(tz) {
@@ -117,6 +117,7 @@ export function descreverEvento(e, data) {
     case 'banho': return 'tomou banho';
     case 'alimentacao': return `comeu ${d.food || 'papinha'}`;
     case 'extracao': return `extração de ${d.ml ?? '?'} ml`;
+    case 'presenca': return d.acao === 'saida' ? 'saiu da creche' : 'chegou à creche';
     case 'saude': return d.temp ? `temperatura ${String(d.temp).replace('.', ',')} °C` : `sintomas: ${(d.sintomas ?? []).join(', ') || 'registro de saúde'}`;
     default: return 'novo registro';
   }

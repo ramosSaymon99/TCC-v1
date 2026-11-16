@@ -23,8 +23,8 @@ const EVENTOS_USO = ['pdf_gerado', 'pdf_compartilhado', 'push_ativado', 'push_de
 const FOTO_MAX = 400_000; // ~300 KB de imagem em base64 (o app envia 320×320 JPEG, ~25 KB)
 const PBKDF2_ITER = 100000;
 const NIVEL = { leitor: 1, editor: 2, admin: 3 };
-const PAPEIS = ['mae', 'pai', 'avo_m', 'avo_f', 'baba', 'tio', 'tia', 'irmao', 'irma', 'padrinho', 'madrinha', 'outro'];
-const TIPOS_EVENTO = ['mamada', 'mamadeira', 'sono', 'fralda', 'remedio', 'banho', 'alimentacao', 'extracao', 'saude', 'outro'];
+const PAPEIS = ['mae', 'pai', 'avo_m', 'avo_f', 'baba', 'tio', 'tia', 'irmao', 'irma', 'padrinho', 'madrinha', 'creche', 'educador', 'outro'];
+const TIPOS_EVENTO = ['mamada', 'mamadeira', 'sono', 'fralda', 'remedio', 'banho', 'alimentacao', 'extracao', 'saude', 'presenca', 'outro'];
 const POST_MAX = 750_000; // foto do Dia a dia: o app envia JPEG de até 1280 px (~200–400 KB em base64)
 
 /** Recursos filhos do bebê: colunas graváveis e campos obrigatórios. */
@@ -132,6 +132,7 @@ const MIGRACOES = [
   'ALTER TABLE users ADD COLUMN consent_at TEXT', 'ALTER TABLE users ADD COLUMN terms_version TEXT',
   'ALTER TABLE babies ADD COLUMN guardian_consent_at TEXT', 'ALTER TABLE babies ADD COLUMN guardian_consent_by TEXT',
   'ALTER TABLE babies ADD COLUMN settings TEXT', "ALTER TABLE notes ADD COLUMN kind TEXT DEFAULT 'recado'",
+  'ALTER TABLE users ADD COLUMN perfil TEXT', 'ALTER TABLE users ADD COLUMN org_nome TEXT',
 ];
 let esquemaOk = false;
 async function garantirEsquema(env) {
@@ -152,7 +153,7 @@ async function fotoUrl(env, kind, id, v) {
 const parseBaby = async (env, b) => b && { ...b, routine: b.routine ? JSON.parse(b.routine) : null, settings: b.settings ? JSON.parse(b.settings) : {}, photo: await fotoUrl(env, 'baby', b.id, b.photo_v) };
 const parsePost = async (env, p) => ({ ...p, likes: p.likes ? JSON.parse(p.likes) : [], photo: await fotoUrl(env, 'post', p.id, p.photo_v) });
 const parseEvent = (e) => ({ ...e, data: e.data ? JSON.parse(e.data) : {} });
-const publicUser = async (env, u) => u && { id: u.id, name: u.name, email: u.email, photo: await fotoUrl(env, 'user', u.id, u.photo_v), demo: u.email.endsWith(DOMINIO_DEMO), created_at: u.created_at };
+const publicUser = async (env, u) => u && { id: u.id, name: u.name, email: u.email, photo: await fotoUrl(env, 'user', u.id, u.photo_v), demo: u.email.endsWith(DOMINIO_DEMO), created_at: u.created_at, perfil: u.perfil || 'familia', org_nome: u.org_nome || null };
 
 /** Valida um data URL de imagem e devolve { mime, data } (base64). */
 function lerFoto(dataUrl) {
@@ -208,7 +209,7 @@ const ajusteEstoque = (env, babyId, tipo, sinal) => env.DB
 async function dadosDoBebe(env, babyId, since) {
   const [baby, members, events, growth, supplies, notes, appointments, vaccines, checks, milk, posts] = await Promise.all([
     env.DB.prepare('SELECT * FROM babies WHERE id = ?').bind(babyId).first(),
-    env.DB.prepare('SELECT m.user_id, m.role, m.access, m.created_at, u.name, u.email, u.photo_v FROM members m JOIN users u ON u.id = m.user_id WHERE m.baby_id = ? ORDER BY m.created_at').bind(babyId).all(),
+    env.DB.prepare('SELECT m.user_id, m.role, m.access, m.created_at, u.name, u.email, u.photo_v, u.org_nome FROM members m JOIN users u ON u.id = m.user_id WHERE m.baby_id = ? ORDER BY m.created_at').bind(babyId).all(),
     env.DB.prepare('SELECT * FROM events WHERE baby_id = ? AND (start_at >= ? OR end_at IS NULL) ORDER BY start_at').bind(babyId, since).all(),
     env.DB.prepare('SELECT * FROM growth WHERE baby_id = ? ORDER BY date').bind(babyId).all(),
     env.DB.prepare('SELECT * FROM supplies WHERE baby_id = ? ORDER BY name').bind(babyId).all(),
@@ -380,6 +381,20 @@ async function api(req, env, url, ctx) {
     return json({ user: await publicUser(env, me), babies: await Promise.all(babies.results.map((b) => parseBaby(env, b))) });
   }
 
+  // Turma: todas as crianças da conta com os registros das últimas 24 h (tela da creche)
+  if (path === '/turma' && method === 'GET') {
+    const lista = (await env.DB.prepare('SELECT b.*, m.role, m.access FROM members m JOIN babies b ON b.id = m.baby_id WHERE m.user_id = ? ORDER BY b.name').bind(me.id).all()).results;
+    const desde = new Date(Date.now() - 24 * 3600_000).toISOString();
+    const out = [];
+    for (const b of lista) {
+      const ev = (await env.DB.prepare('SELECT id, type, start_at, end_at, data, user_id FROM events WHERE baby_id = ? AND (start_at >= ? OR end_at IS NULL) ORDER BY start_at DESC LIMIT 80').bind(b.id, desde).all()).results
+        .map((e) => ({ ...e, data: e.data ? JSON.parse(e.data) : {} }));
+      const pais = (await env.DB.prepare("SELECT COUNT(*) AS n FROM members WHERE baby_id = ? AND role NOT IN ('creche', 'educador')").bind(b.id).first()).n;
+      out.push({ baby: await parseBaby(env, b), role: b.role, access: b.access, events: ev, responsaveis: pais });
+    }
+    return json(out);
+  }
+
   if (path === '/me' && method === 'DELETE') {
     if (!me.email.endsWith(DOMINIO_DEMO) && !iguais((await hashSenha(String(body.password ?? ''), me.salt)).hash, me.hash)) {
       return erro('Senha incorreta.', 403);
@@ -452,6 +467,14 @@ async function api(req, env, url, ctx) {
   if (path === '/me' && method === 'PUT') {
     const name = String(body.name ?? me.name).trim();
     if (name.length < 2) return erro('Informe seu nome.');
+    // Perfil da conta: família (padrão) ou creche/escola, com o nome da instituição
+    if (body.perfil !== undefined) {
+      const perfil = body.perfil === 'creche' ? 'creche' : 'familia';
+      const org = perfil === 'creche' ? String(body.org_nome ?? '').trim().slice(0, 80) : '';
+      if (perfil === 'creche' && org.length < 2) return erro('Informe o nome da creche ou escola.');
+      await env.DB.prepare('UPDATE users SET perfil = ?, org_nome = ? WHERE id = ?').bind(perfil, org || null, me.id).run();
+      if (body.name === undefined) return json({ ok: true });
+    }
     if (body.newPassword) {
       if (String(body.newPassword).length < 6) return erro('A nova senha deve ter ao menos 6 caracteres.');
       if (!iguais((await hashSenha(String(body.password ?? ''), me.salt)).hash, me.hash)) return erro('Senha atual incorreta.', 403);
@@ -701,6 +724,15 @@ async function api(req, env, url, ctx) {
           tag: `timer-${item.id}`, silent: true, ts: Date.parse(item.end_at),
         });
       }
+    }
+    if (res === 'events' && metodo === 'POST' && item.type === 'presenca') {
+      const d = typeof item.data === 'string' ? JSON.parse(item.data || '{}') : (item.data ?? {});
+      const local = me.org_nome || 'creche';
+      avisar(babyId, 'familia', {
+        title: d.acao === 'saida' ? `👋 ${nome} saiu da ${local}` : `🏫 ${nome} chegou à ${local}`,
+        body: (tz) => `${d.acao === 'saida' ? 'Saída' : 'Entrada'} às ${horaTz(item.start_at, tz)}${d.quem ? ` · com ${String(d.quem).slice(0, 40)}` : ''} · registrado por ${me.name.split(' ')[0]}`,
+        tag: `presenca-${babyId}`, ts: Date.parse(item.start_at), aba: 'hoje',
+      }, me.id);
     }
     if (res === 'events' && metodo === 'POST' && item.type === 'saude') {
       const d = typeof item.data === 'string' ? JSON.parse(item.data || '{}') : (item.data ?? {});

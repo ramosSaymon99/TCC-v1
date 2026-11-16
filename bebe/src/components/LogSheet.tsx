@@ -21,7 +21,7 @@ export function LogSheet({ tipo, ev, onClose }: { tipo: EventType; ev?: BabyEven
   const [modo, setModo] = useState<'timer' | 'manual'>(novo && COM_TIMER.includes(tipo) ? 'timer' : 'manual');
   const [ini, setIni] = useState(toLocalInput(ev ? t(ev.start_at) : agora - (tipo === 'sono' ? 60 : tipo === 'mamada' ? 15 : 0) * MIN));
   const [fim, setFim] = useState(ev?.end_at ? toLocalInput(t(ev.end_at)) : ev ? '' : toLocalInput(agora));
-  const [d, setD] = useState<EventData>(ev?.data ?? (tipo === 'fralda' ? { diaper: 'xixi' } : tipo === 'mamadeira' ? { milk: 'materno' } : tipo === 'mamada' ? { side: 'E' } : tipo === 'extracao' ? { guardar: 'geladeira' } : {}));
+  const [d, setD] = useState<EventData>(ev?.data ?? (tipo === 'fralda' ? { diaper: 'xixi' } : tipo === 'mamadeira' ? { milk: 'materno' } : tipo === 'presenca' ? { acao: 'entrada' } : tipo === 'mamada' ? { side: 'E' } : tipo === 'extracao' ? { guardar: 'geladeira' } : {}));
   const [note, setNote] = useState(ev?.note ?? '');
   const [salvando, setSalvando] = useState(false);
   const set = (p: Partial<EventData>) => setD((x) => ({ ...x, ...p }));
@@ -224,6 +224,14 @@ export function LogSheet({ tipo, ev, onClose }: { tipo: EventType; ev?: BabyEven
           </div>
           {(d.novo || d.alergeno) && <p className="faint">Vai para Saúde → Alimentos, para acompanhar a introdução alimentar.</p>}
           {d.reacao && d.reacao !== 'Sem reação' && d.reacao !== 'Recusou o alimento' && <div className="chip warn" style={{ whiteSpace: 'normal' }}>⚠️ Suspenda esse alimento e fale com o pediatra. Inchaço nos lábios/olhos ou falta de ar: procure atendimento imediatamente.</div>}
+        </>
+      )}
+
+      {tipo === 'presenca' && (
+        <>
+          <Field label="Na creche"><Choice value={d.acao ?? 'entrada'} onChange={(v) => set({ acao: v })} options={[{ v: 'entrada', l: '🏫 Chegou' }, { v: 'saida', l: '👋 Saiu' }]} /></Field>
+          <Field label={(d.acao ?? 'entrada') === 'saida' ? 'Quem buscou (opcional)' : 'Quem trouxe (opcional)'}><input className="input" value={d.quem ?? ''} onChange={(e) => set({ quem: e.target.value })} placeholder="ex.: mãe, avó Lúcia" /></Field>
+          <p className="faint">Os responsáveis recebem um aviso no celular na entrada e na saída.</p>
         </>
       )}
 

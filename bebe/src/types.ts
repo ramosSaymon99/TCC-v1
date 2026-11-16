@@ -1,5 +1,5 @@
 export type Access = 'admin' | 'editor' | 'leitor';
-export type EventType = 'mamada' | 'mamadeira' | 'sono' | 'fralda' | 'remedio' | 'banho' | 'alimentacao' | 'extracao' | 'saude' | 'outro';
+export type EventType = 'mamada' | 'mamadeira' | 'sono' | 'fralda' | 'remedio' | 'banho' | 'alimentacao' | 'extracao' | 'saude' | 'presenca' | 'outro';
 
 export interface Routine {
   wake?: string;
@@ -9,7 +9,7 @@ export interface Routine {
   feedIntervalMin?: number;
 }
 
-export interface User { id: string; name: string; email: string; photo?: string | null; demo?: boolean; created_at?: string }
+export interface User { id: string; name: string; email: string; photo?: string | null; demo?: boolean; created_at?: string; perfil?: 'familia' | 'creche'; org_nome?: string | null }
 
 export interface Baby {
   id: string;
@@ -33,7 +33,7 @@ export interface BabySettings {
   nasceu_em?: string;
 }
 
-export interface Member { user_id: string; role: string; access: Access; name: string; email: string; created_at: string; photo?: string | null }
+export interface Member { user_id: string; role: string; access: Access; name: string; email: string; created_at: string; photo?: string | null; org_nome?: string | null }
 
 export interface EventData {
   side?: 'E' | 'D' | 'ambos';
@@ -53,6 +53,9 @@ export interface EventData {
   /** Saúde: temperatura (°C) e sintomas. */
   temp?: number;
   sintomas?: string[];
+  /** Creche: entrada ou saída da criança e quem trouxe/buscou. */
+  acao?: 'entrada' | 'saida';
+  quem?: string;
   /** Introdução alimentar. */
   novo?: boolean;
   alergeno?: string;
@@ -127,4 +130,13 @@ export interface ConvitePendente {
   aceito: boolean;
   usado_por: string | null;
   criado_por: string | null;
+}
+
+/** Criança na tela Turma (creche): bebê, vínculo e registros das últimas 24 h. */
+export interface ItemTurma {
+  baby: Baby;
+  role: string;
+  access: Access;
+  events: BabyEvent[];
+  responsaveis: number;
 }
