@@ -8,14 +8,15 @@ import { referencias } from '../lib/metrics';
 import { DIA, dataBr, fromLocalInput, idade, parseYmd, t, toLocalInput, ymd } from '../lib/time';
 import type { Appointment, Growth } from '../types';
 import { Empty, Field, Sheet } from '../components/ui';
-import { Alimentos, FebreSintomas, Marcos, Perguntas, RemediosEmUso, TestesRN } from '../components/SaudeExtra';
+import { FebreSintomas, Marcos, Perguntas, RemediosEmUso, TestesRN } from '../components/SaudeExtra';
+import { IntroAlimentar } from '../components/IntroAlimentar';
 
 type AbaSaude = 'crescimento' | 'febre' | 'remedios' | 'vacinas' | 'consultas' | 'perguntas' | 'marcos' | 'testes' | 'alimentos';
 
 export function Saude() {
   const { data, act, podeEditar, agora, nome, abrirRegistro, abrirRelatorio } = useApp();
   const gestacao = !!data.baby.settings?.gestacao;
-  const [aba, setAba] = useState<AbaSaude>(gestacao ? 'consultas' : 'crescimento');
+  const [aba, setAba] = useState<AbaSaude>(() => { try { const v = sessionStorage.getItem('ninho-saude-aba'); if (v) { sessionStorage.removeItem('ninho-saude-aba'); return v as AbaSaude; } } catch { /* sem storage */ } return gestacao ? 'consultas' : 'crescimento'; });
   const [gEdit, setGEdit] = useState<Growth | 'novo' | null>(null);
   const [cEdit, setCEdit] = useState<Appointment | 'novo' | null>(null);
   const { baby } = data;
@@ -57,7 +58,7 @@ export function Saude() {
       <div className="grade-abas" role="tablist" aria-label="Seções da saúde">
         {((gestacao
           ? [{ v: 'consultas', l: '🩺 Consultas' }, { v: 'perguntas', l: '❓ Perguntas' }]
-          : [{ v: 'crescimento', l: '📈 Crescimento' }, { v: 'vacinas', l: '💉 Vacinas' }, { v: 'consultas', l: '🩺 Consultas' }, { v: 'febre', l: '🌡️ Febre' }, { v: 'remedios', l: '💊 Remédios' }, { v: 'perguntas', l: '❓ Perguntas' }, { v: 'marcos', l: '⭐ Marcos' }, { v: 'testes', l: '🧪 Testes RN' }, { v: 'alimentos', l: '🥣 Alimentos' }]) as { v: AbaSaude; l: string }[]).map((o) => (
+          : [{ v: 'crescimento', l: '📈 Crescimento' }, { v: 'vacinas', l: '💉 Vacinas' }, { v: 'consultas', l: '🩺 Consultas' }, { v: 'febre', l: '🌡️ Febre' }, { v: 'remedios', l: '💊 Remédios' }, { v: 'perguntas', l: '❓ Perguntas' }, { v: 'marcos', l: '⭐ Marcos' }, { v: 'testes', l: '🧪 Testes RN' }, { v: 'alimentos', l: '🥣 Introdução alimentar' }]) as { v: AbaSaude; l: string }[]).map((o) => (
           <button key={o.v} role="tab" aria-selected={aba === o.v} className={aba === o.v ? 'on' : ''} onClick={() => setAba(o.v)}>{o.l}</button>
         ))}
       </div>
@@ -65,7 +66,7 @@ export function Saude() {
       {aba === 'perguntas' && <Perguntas />}
       {aba === 'marcos' && <Marcos />}
       {aba === 'testes' && <TestesRN />}
-      {aba === 'alimentos' && <Alimentos />}
+      {aba === 'alimentos' && <IntroAlimentar />}
 
       {aba === 'crescimento' && (
         <>

@@ -3,7 +3,7 @@ import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Too
 import { Check as CheckIcon, Plus, Trash2 } from 'lucide-react';
 import { useApp } from '../ctx';
 import { api } from '../lib/api';
-import { ALERGENOS, MARCOS, RESULTADOS_TESTE, TESTES_RN, avaliarFebre, idCheck } from '../lib/conteudo';
+import { MARCOS, RESULTADOS_TESTE, TESTES_RN, avaliarFebre, idCheck } from '../lib/conteudo';
 import { DIA, HORA, dataBr, hm, idade, parseYmd, t, ymd } from '../lib/time';
 import { doses } from '../lib/previsao';
 import type { Check } from '../types';
@@ -199,28 +199,3 @@ function TesteSheet({ code, atual, onClose, salvar, remover }: { code: string; a
   );
 }
 
-export function Alimentos() {
-  const { data, agora, abrirRegistro, podeEditar } = useApp();
-  const alim = data.checks.filter((c) => c.kind === 'alimento').sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
-  const meses = idade(data.baby.birth_date, agora).dias / 30.4;
-  const nomes = new Set(alim.map((a) => (a.note ?? '').toLowerCase()));
-  const reacoes = alim.filter((a) => a.value && !['Sem reação', 'boa', 'media', 'recusou', 'Recusou o alimento'].includes(a.value));
-  return (
-    <div className="card">
-      <div className="card-h"><h2>🥕 Introdução alimentar</h2>{podeEditar && <button className="btn sm primary" onClick={() => abrirRegistro('alimentacao')}><Plus size={14} /> Registrar refeição</button>}</div>
-      {meses < 6 && <p className="faint" style={{ marginBottom: 8 }}>Até os 6 meses a recomendação é leite materno exclusivo (ou fórmula, se indicada). A introdução alimentar começa por volta dos 6 meses, com orientação do pediatra.</p>}
-      {reacoes.length > 0 && <div className="chip bad" style={{ whiteSpace: 'normal', marginBottom: 10 }}>⚠️ Reação registrada: {reacoes.map((r) => `${r.note} (${r.value})`).join('; ')}. Mostre ao pediatra.</div>}
-      <h3 style={{ margin: '6px 0' }}>Alimentos que mais causam alergia</h3>
-      <div className="wrap-row" style={{ marginBottom: 10 }}>
-        {ALERGENOS.map((a) => <span key={a} className={`chip ${nomes.has(a.toLowerCase()) ? 'ok' : ''}`}>{nomes.has(a.toLowerCase()) ? '✓ ' : ''}{a}</span>)}
-      </div>
-      <h3 style={{ margin: '6px 0' }}>Já oferecidos ({alim.length})</h3>
-      {alim.length ? alim.map((a) => (
-        <div key={a.id} className="list-item">
-          <div className="grow"><b>{a.note}</b><div className="faint">primeira vez em {a.date ? dataBr(a.date) : '—'}{a.value ? ` · ${a.value}` : ''}</div></div>
-        </div>
-      )) : <Empty emoji="🥣">Ao registrar uma refeição, marque “primeira vez” para o alimento aparecer aqui.</Empty>}
-      <p className="disclaimer">Ofereça um alimento novo por vez e observe por alguns dias (SBP / Guia Alimentar para Crianças Menores de 2 Anos).</p>
-    </div>
-  );
-}

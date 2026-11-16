@@ -15,6 +15,7 @@ import { Ajuda, DicaUnica, PrimeirosPassos, Secao } from '../components/Guia';
 import { CompletarDia } from '../components/Completar';
 import { BotoesRegistro } from '../components/RotinaDia';
 import { pl } from '../lib/texto';
+import { NOME_FASE, fase, sugestoes } from '../lib/alimentacao';
 
 const LS_VISITA = (u: string, b: string) => `ninho-visita-${u}-${b}`;
 
@@ -277,6 +278,7 @@ export function Hoje() {
             <span className="grow" style={{ textAlign: 'left' }}><b>Rotina e sono</b><span className="faint" style={{ display: 'block' }}>{rotina.pct != null ? `${rotina.feitos}/${rotina.avaliados} horários cumpridos · ` : ''}ciclo do sono, rotina planejada e linha do tempo</span></span>
             <ChevronRight size={18} />
           </button>
+          <AtalhoIntroAlimentar />
         </div>
 
         <div className="stack" style={{ gap: 16 }}>
@@ -345,5 +347,22 @@ function HojeNaCreche() {
         </div>
       ) : ult && ult.data.acao !== 'saida' ? <p className="faint" style={{ marginTop: 4 }}>Os registros da creche (refeições, sono, fraldas) aparecem aqui ao longo do dia.</p> : null}
     </div>
+  );
+}
+
+/** Atalho para a introdução alimentar (5,5 a 24 meses): sugestão do dia e progresso. */
+function AtalhoIntroAlimentar() {
+  const { data, agora, setAba } = useApp();
+  const meses = idade(data.baby.birth_date, agora).dias / 30.4;
+  const oferecidos = useMemo(() => data.checks.filter((c) => c.kind === 'alimento').map((c) => c.note ?? ''), [data.checks]);
+  const sug = useMemo(() => sugestoes(oferecidos), [oferecidos]);
+  if (data.baby.settings?.gestacao || meses < 5.5 || meses > 24) return null;
+  const abrir = () => { try { sessionStorage.setItem('ninho-saude-aba', 'alimentos'); } catch { /* sem storage */ } setAba('saude'); };
+  return (
+    <button className="card atalho-rotina" onClick={abrir}>
+      <span style={{ fontSize: 26 }}>{sug.hoje?.emoji ?? '🥣'}</span>
+      <span className="grow" style={{ textAlign: 'left' }}><b>{sug.hoje ? `Introdução alimentar: ${sug.hoje.nome} hoje?` : 'Introdução alimentar'}</b><span className="faint" style={{ display: 'block' }}>{sug.provados}/{sug.total} alimentos experimentados · como oferecer e cortar ({NOME_FASE[fase(meses)]})</span></span>
+      <ChevronRight size={18} />
+    </button>
   );
 }

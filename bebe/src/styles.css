@@ -493,3 +493,25 @@ section + section .notif-sec { margin-top: 16px; }
 .turma-lote { position: sticky; bottom: calc(var(--nav-h) + 10px + env(safe-area-inset-bottom)); z-index: 25; background: var(--surface); border: 2px solid var(--brand-forte); border-radius: 18px; padding: 12px; box-shadow: var(--shadow); }
 @media (min-width: 900px) { .turma-lote { bottom: 16px; } }
 .na-creche { border-left: 5px solid var(--info); }
+
+/* Introdução alimentar */
+.intro-topo h2 { margin-bottom: 2px; }
+.intro-barra { height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; margin: 10px 0 12px; }
+.intro-barra span { display: block; height: 100%; background: var(--brand); border-radius: 99px; transition: width .3s; }
+.intro-abas { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; }
+.intro-abas button { padding: 6px 4px; font-size: 13px; }
+.intro-hoje { background: linear-gradient(160deg, var(--brand-soft), var(--surface) 70%); }
+.alimento { display: flex; gap: 12px; align-items: flex-start; width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); cursor: pointer; font: inherit; color: inherit; }
+.alimento.ja { background: var(--ok-soft); border-color: transparent; }
+.alimento-em { font-size: 30px; line-height: 1; }
+.plano-dia { display: flex; gap: 10px; align-items: center; width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); cursor: pointer; font: inherit; color: inherit; }
+.plano-n { font-size: 12px; font-weight: 800; color: var(--brand-ink); min-width: 44px; }
+.prato-item { display: flex; gap: 10px; align-items: center; background: var(--surface-2); border-radius: 12px; padding: 10px; }
+.fase-box { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--surface-2); }
+.fase-box p { margin-top: 4px; line-height: 1.45; }
+.fase-box.atual { border-color: var(--brand); background: var(--brand-soft); }
+.lista-guia { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; line-height: 1.45; }
+.tab-scroll { overflow-x: auto; }
+table.tab-simples { width: 100%; border-collapse: collapse; font-size: 14px; }
+.intro-abas button { display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.15; font-size: 12.5px; }
+.chip.aviso { white-space: normal; border-radius: 12px; padding: 10px 12px; display: block; line-height: 1.4; }
