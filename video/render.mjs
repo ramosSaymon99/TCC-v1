@@ -5,9 +5,9 @@ const dir = new URL('.', import.meta.url).pathname;
 const [modo, ...args] = process.argv.slice(2);
 const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 1080, height: 1920 } });
-const versao = process.env.VERSAO || 'completo'; // completo | essencial
-const quadros = versao === 'essencial' ? 'quadros-60' : 'quadros';
-await p.goto('file://' + dir + 'motion.html' + (versao === 'essencial' ? '?v=essencial' : ''));
+const versao = process.env.VERSAO || 'completo'; // completo | essencial | stories
+const quadros = versao === 'essencial' ? 'quadros-60' : versao === 'stories' ? 'quadros-stories' : 'quadros';
+await p.goto('file://' + dir + (versao === 'stories' ? 'stories.html' : 'motion.html' + (versao === 'essencial' ? '?v=essencial' : '')));
 await p.evaluate(() => window.pronto);
 if (modo === 'eventos') {
   // linha do tempo para a trilha sonora: cortes de tela, balões e toques
