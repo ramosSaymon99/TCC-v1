@@ -147,6 +147,11 @@ const ROTEIRO = [
     { f: '17-casa-leite', d: 4.4, tipo: 'lado', focos: [[0.6, 4.2, [17, 475, 356, 300]]], baloes: [[0.8, 4.3, 'e', 320, '🍼', 'Leite materno guardado', 'com validade e “usar primeiro”']] },
     { f: '18-casa-plantao', d: 4.4, tipo: 'rola', focos: [[0.6, 4.2, [17, 510, 356, 240]]], baloes: [[0.7, 4.3, 'd', 330, '🌙', 'Plantão da noite', 'avisos só para quem está de plantão']] },
   ] },
+  { t: 'Para creches e escolas', s: 'A creche registra a turma inteira e os pais acompanham pelo celular.', telas: [
+    { f: '24-turma', d: 4.6, tipo: 'lado', focos: [[0.6, 2.4, [16, 195, 358, 72]], [2.5, 4.4, [16, 482, 358, 168]]], baloes: [[0.7, 2.4, 'd', 330, '🏫', 'Toda a turma numa tela', 'presentes, dormindo e ausentes'], [2.6, 4.4, 'e', 700, '👆', 'Chegou, dormiu, fralda, comeu', 'um toque por criança']] },
+    { f: '25-turma-lote', d: 4.4, tipo: 'rola', focos: [[0.6, 4.2, [16, 588, 358, 175]]], baloes: [[0.7, 4.3, 'e', 300, '✅', 'Várias crianças de uma vez', 'ex.: todas almoçaram']] },
+    { f: '26-hoje-na-creche', d: 4.6, tipo: 'lado', focos: [[0.6, 4.4, [16, 72, 358, 270]]], baloes: [[0.7, 4.4, 'd', 520, '📲', 'Os pais acompanham tudo', 'e recebem aviso na chegada e na saída']] },
+  ] },
   { t: 'Ajustes no ⚙️', s: 'Perfil, notificações e dados ficam no ícone do topo.', telas: [
     { f: '23-ajustes', d: 4.4, tipo: 'lado', focos: [[0.6, 4.2, [16, 575, 358, 140]]], toques: [[0.4, 296, 31]], baloes: [[0.8, 4.3, 'e', 360, '🌙', 'À noite, abre na Rotina', 'com o Dormiu/Acordou à mão']] },
   ] },
@@ -182,8 +187,8 @@ const ROTEIRO_60 = [
   { t: 'Dia a dia', s: 'Fotos só para a família, com curtidas.', telas: [
     { f: '12b-dia-a-dia-post', d: 3.5, tipo: 'lado', focos: [[0.5, 3.4, [17, 632, 356, 120]]], baloes: [[0.6, 3.4, 'e', 320, '❤️', 'Curtidas da família', 'e cartão de mêsversário']] },
   ] },
-  { t: 'Evolução', s: 'Sono e mamadas comparados à semana anterior.', telas: [
-    { f: '13-evolucao', d: 3.5, tipo: 'lado', focos: [[0.5, 3.4, [16, 383, 358, 150]]], baloes: [[0.6, 3.4, 'd', 640, '📈', 'Dentro do esperado?', 'referência para a idade']] },
+  { t: 'Para creches', s: 'A creche registra a turma e os pais acompanham pelo celular.', telas: [
+    { f: '24-turma', d: 3.5, tipo: 'lado', focos: [[0.5, 3.4, [16, 482, 358, 168]]], baloes: [[0.6, 3.4, 'd', 330, '🏫', 'Toda a turma numa tela', 'e aviso aos pais na chegada']] },
   ] },
   { t: 'Saúde e pediatra', s: 'Peso, vacinas, consultas e relatório em PDF.', telas: [
     { f: '15-saude', d: 3.5, tipo: 'lado', focos: [[0.5, 3.4, [16, 151, 226, 42]]], baloes: [[0.6, 3.4, 'd', 380, '📄', 'Relatório para o pediatra', 'pronto em PDF']] },

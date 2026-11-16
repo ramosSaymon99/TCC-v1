@@ -195,5 +195,47 @@ await p.waitForTimeout(700);
 await p.evaluate(() => window.scrollTo(0, 0));
 await foto('23-ajustes');
 
+// 13) Creche: a família convida a creche, a creche registra e os pais acompanham
+const creche = await api('POST', '/auth/signup', { name: 'Paula Rocha', email: 'paula@creche.exemplo', password: SENHA, consent: true });
+await api('PUT', '/me', { perfil: 'creche', org_nome: 'Creche Pequenos Passos' }, creche.token);
+const { code: codCreche } = await api('POST', `/babies/${babyId}/invites`, { role: 'creche', access: 'editor' }, token);
+await api('POST', '/invites/accept', { code: codCreche, role: 'creche' }, creche.token);
+const turmaIds = [babyId];
+for (const [n, d, sx] of [['Theo Lima', ymd(AGORA - 300 * 864e5), 'M'], ['Maria Alves', ymd(AGORA - 210 * 864e5), 'F'], ['Davi Costa', ymd(AGORA - 400 * 864e5), 'M']]) {
+  turmaIds.push((await api('POST', '/babies', { name: n, birth_date: d, sex: sx, role: 'creche', guardian_consent: true }, creche.token)).id);
+}
+const ev = (type, minAtras, data, fimMin = null) => ({ id: crypto.randomUUID(), type, start_at: new Date(AGORA - minAtras * 60e3).toISOString(), end_at: fimMin == null ? null : new Date(AGORA - fimMin * 60e3).toISOString(), data });
+for (const [k, b] of turmaIds.entries()) {
+  if (k === 3) continue; // Davi ainda não chegou
+  await api('POST', `/babies/${b}/events`, ev('presenca', 420 - k * 12, { acao: 'entrada', quem: ['mãe', 'pai', 'avó', ''][k] || undefined }), creche.token);
+  await api('POST', `/babies/${b}/events`, ev('alimentacao', 250, { food: 'Almoço', acceptance: k === 2 ? 'media' : 'boa' }), creche.token);
+  await api('POST', `/babies/${b}/events`, ev('fralda', 95 + k * 7, { diaper: k === 0 ? 'coco' : 'xixi' }), creche.token);
+  await api('POST', `/babies/${b}/events`, k === 1 ? ev('sono', 25, {}) : ev('sono', 200, {}, 120), creche.token);
+}
+const ctxC = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo', colorScheme: 'light', isMobile: true, hasTouch: true });
+const pc = await ctxC.newPage();
+await pc.clock.setFixedTime(new Date(AGORA));
+pc.on('pageerror', (e) => { erros.push(e.message); console.log('PAGEERROR', e.message); });
+await pc.goto(BASE);
+await pc.getByRole('button', { name: 'Entrar' }).first().click();
+await pc.getByLabel('E-mail').fill('paula@creche.exemplo');
+await pc.getByLabel('Senha').fill(SENHA);
+await pc.locator('button.btn.primary').click();
+await pc.getByRole('heading', { name: 'Turma' }).waitFor();
+await pc.waitForTimeout(1500);
+await pc.screenshot({ path: OUT + '24-turma.png' }); console.log('📸', '24-turma');
+for (const n of ['Helena', 'Maria', 'Theo']) await pc.locator('.turma-card', { hasText: n }).locator('.turma-check input').check();
+await pc.waitForTimeout(500);
+await pc.screenshot({ path: OUT + '25-turma-lote.png' }); console.log('📸', '25-turma-lote');
+// Pais: "Hoje na creche"
+await p.locator('.bnav button', { hasText: 'Hoje' }).click();
+await p.waitForTimeout(800);
+await p.reload();
+await p.locator('.bnav').waitFor();
+await p.waitForTimeout(1500);
+await semToast();
+await rolar('.na-creche');
+await foto('26-hoje-na-creche');
+
 console.log('ERROS:', erros);
 await b.close();
