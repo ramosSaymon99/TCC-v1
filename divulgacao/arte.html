@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Ninho · divulgação</title>
+<style>
+  :root { --brand: #e0708a; --brand-forte: #b34861; --ink: #2b2a33; --muted: #5f5d6b; --noite: #1d1b3d; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--ink); }
+  .arte { position: relative; overflow: hidden; background: #fbf4f0; }
+  .arte::before, .arte::after { content: ''; position: absolute; border-radius: 50%; filter: blur(70px); opacity: .7; }
+  .arte::before { width: 760px; height: 760px; background: #f9d3dc; left: -260px; top: -240px; }
+  .arte::after { width: 680px; height: 680px; background: #dcd6ff; right: -260px; bottom: -200px; }
+  .conteudo { position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; }
+  .marca { display: flex; align-items: center; gap: 16px; font-weight: 900; font-size: 46px; letter-spacing: -1px; }
+  .logo { width: 72px; height: 72px; border-radius: 22px; background: linear-gradient(145deg, #ef8aa2, #e0708a); display: grid; place-items: center; font-size: 42px; box-shadow: 0 12px 30px rgba(224,112,138,.35); }
+  h1 { font-size: 78px; line-height: 1.02; font-weight: 900; letter-spacing: -2.5px; }
+  h1 em { font-style: normal; color: var(--brand-forte); }
+  .sub { font-size: 32px; line-height: 1.3; color: var(--muted); font-weight: 600; }
+  .lista { display: flex; flex-direction: column; gap: 14px; }
+  .item { display: flex; align-items: center; gap: 14px; font-size: 27px; font-weight: 700; background: rgba(255,255,255,.85); border-radius: 18px; padding: 12px 18px; box-shadow: 0 6px 18px rgba(43,42,51,.07); }
+  .item span { font-size: 32px; }
+  .fone { position: absolute; width: 360px; border-radius: 52px; background: #1d1c22; padding: 12px; box-shadow: 0 34px 70px rgba(43,42,51,.32), inset 0 0 0 2px #3a3842; }
+  .fone img { display: block; width: 100%; border-radius: 41px; }
+  .cta { display: flex; align-items: center; justify-content: space-between; gap: 20px; background: var(--brand-forte); color: #fff; border-radius: 26px; padding: 24px 30px; }
+  .cta b { font-size: 33px; font-weight: 900; display: block; }
+  .cta small { font-size: 23px; opacity: .92; font-weight: 600; }
+  .cta .seta { font-size: 46px; font-weight: 900; }
+  .rodape { font-size: 19px; color: var(--muted); text-align: center; }
+  .selo { position: absolute; z-index: 3; background: #fff; border-radius: 22px; padding: 14px 18px; font-size: 22px; font-weight: 800; display: flex; gap: 10px; align-items: center; box-shadow: 0 14px 34px rgba(43,42,51,.18); }
+  .selo small { display: block; font-size: 17px; color: var(--muted); font-weight: 600; }
+
+  /* Feed 1080×1350 */
+  #feed { width: 1080px; height: 1350px; }
+  #feed .conteudo { padding: 70px 64px 56px; gap: 28px; }
+  #feed .texto { width: 500px; display: flex; flex-direction: column; gap: 24px; }
+  #feed h1 { font-size: 70px; }
+  #feed .sub { font-size: 29px; }
+  #feed .item { font-size: 24px; padding: 11px 16px; }
+  #feed .f1 { right: 50px; top: 175px; width: 400px; transform: rotate(3deg); }
+  #feed .s1 { right: 260px; top: 905px; }
+  #feed .cta { margin-top: auto; }
+
+  /* Story 1080×1920 */
+  #story { width: 1080px; height: 1920px; }
+  body.so-feed #story, body.so-story #feed { display: none; }
+  #story .conteudo { padding: 110px 72px 90px; gap: 30px; align-items: center; text-align: center; }
+  #story h1 { font-size: 88px; }
+  #story .sub { max-width: 860px; }
+  #story .fones { position: relative; width: 100%; height: 820px; margin: 10px 0 0; }
+  #story .f1 { left: 380px; top: 0; width: 380px; transform: rotate(4deg); z-index: 2; }
+  #story .f2 { left: 90px; top: 70px; width: 340px; transform: rotate(-6deg); z-index: 1; }
+  #story .f3 { left: 660px; top: 120px; width: 320px; transform: rotate(9deg); z-index: 0; }
+  #story .lista { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; text-align: left; }
+  #story .cta { width: 100%; margin-top: auto; text-align: left; }
+</style>
+</head>
+<body>
+<script>document.body.className = location.hash === '#story' ? 'so-story' : location.hash === '#feed' ? 'so-feed' : '';</script>
+
+<!-- ===== Post de feed ===== -->
+<section class="arte" id="feed">
+  <div class="conteudo">
+    <div class="marca"><span class="logo">🪺</span> Ninho</div>
+    <div class="texto">
+      <h1>A rotina do bebê,<br><em>em família.</em></h1>
+      <p class="sub">Mamadas, sono, fraldas e saúde registrados por todos que cuidam, num só lugar.</p>
+      <div class="lista">
+        <div class="item"><span>👆</span> Registro em 1 toque</div>
+        <div class="item"><span>🌙</span> Ciclo do sono e próxima soneca</div>
+        <div class="item"><span>👨‍👩‍👧</span> Pai, mãe, avós e babá juntos</div>
+        <div class="item"><span>💊</span> Alerta de dose dupla de remédio</div>
+        <div class="item"><span>📄</span> Relatório para o pediatra</div>
+      </div>
+    </div>
+    <div class="fone f1"><img src="../video/telas/20-rotina-ciclo.png" alt=""></div>
+    <div class="selo s1">🔒<div>Só a família vê<small>dados protegidos</small></div></div>
+    <div class="cta">
+      <div><b>Experimente grátis</b><small>ninho.tinico85.workers.dev</small></div>
+      <span class="seta">→</span>
+    </div>
+    <p class="rodape">Funciona no celular, sem baixar da loja · Ninho · powered by Kaivo</p>
+  </div>
+</section>
+
+<!-- ===== Story / status 1080×1920 ===== -->
+<section class="arte" id="story">
+  <div class="conteudo">
+    <div class="marca"><span class="logo">🪺</span> Ninho</div>
+    <h1>Quem cuida junto,<br><em>cuida melhor.</em></h1>
+    <p class="sub">A rotina do bebê compartilhada por toda a família, no celular de cada um.</p>
+    <div class="fones">
+      <div class="fone f2"><img src="../video/telas/08-hoje.png" alt=""></div>
+      <div class="fone f3"><img src="../video/telas/12b-dia-a-dia-post.png" alt=""></div>
+      <div class="fone f1"><img src="../video/telas/20-rotina-ciclo.png" alt=""></div>
+    </div>
+    <div class="lista">
+      <div class="item"><span>👆</span> Registro em 1 toque</div>
+      <div class="item"><span>🌙</span> Ciclo do sono</div>
+      <div class="item"><span>👨‍👩‍👧</span> Família conectada</div>
+      <div class="item"><span>💊</span> Remédio seguro</div>
+      <div class="item"><span>📸</span> Fotos só da família</div>
+      <div class="item"><span>📄</span> Relatório ao pediatra</div>
+    </div>
+    <div class="cta">
+      <div><b>Experimente grátis</b><small>ninho.tinico85.workers.dev</small></div>
+      <span class="seta">→</span>
+    </div>
+    <p class="rodape">Funciona no celular, sem baixar da loja · Ninho · powered by Kaivo</p>
+  </div>
+</section>
+</body>
+</html>
