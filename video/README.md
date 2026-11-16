@@ -5,9 +5,9 @@
 - `ninho-essencial-60s.mp4` / `ninho-essencial-60s-whatsapp.mp4`: versão essencial de 60 s (12 capítulos, com a aba Rotina, um destaque por tela,
   cortes no tempo da música).
 
-- `ninho-stories.mp4` / `ninho-stories-whatsapp.mp4`: vídeo de divulgação de 16 s para stories (gancho, 3 benefícios e chamada
-  "Experimente grátis"), feito em `stories.html` (`VERSAO=stories node video/render.mjs completo`). Conteúdo fora das faixas que
-  o Instagram cobre no topo e na base.
+- `ninho-stories.mp4` / `ninho-stories-whatsapp.mp4`: vídeo de divulgação de 20 s para stories (gancho, 4 benefícios: família,
+  sono, creche e introdução alimentar; chamada "Quer testar grátis? Manda NINHO no Direct"), feito em `stories.html`
+  (`VERSAO=stories node video/render.mjs completo`). Conteúdo fora das faixas que o Instagram cobre no topo e na base.
 
 Trilha sonora original em clima lo-fi calmo, sintetizada por `trilha.py` (60 bpm, piano elétrico, kalimba e vinil; sem direitos de terceiros), com efeitos
 discretos nos cortes de tela, balões e toques, sincronizados pela linha do tempo do vídeo.

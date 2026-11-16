@@ -97,8 +97,10 @@ export const porId = (id: string) => ALIMENTOS.find((a) => a.id === id);
 
 /** Já oferecido? Compara com os nomes registrados (ex.: "Abóbora", "abobora cabotiá"). */
 export function jaOferecido(a: Alimento, oferecidos: string[]) {
-  const n = chave(a.nome);
-  return oferecidos.some((o) => { const c = chave(o); return c === n || c.startsWith(n) || n.startsWith(c); });
+  // compara por palavras inteiras: "Abóbora cabotiá" conta como Abóbora, mas "Batata-doce" não conta como Batata
+  const palavras = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const n = palavras(a.nome);
+  return oferecidos.some((o) => { const c = palavras(o); return c === n || c.startsWith(n + ' ') && !ALIMENTOS.some((b) => b !== a && palavras(b.nome) !== n && c.startsWith(palavras(b.nome))); });
 }
 
 /** Fase pela idade (meses), para mostrar a forma de oferecer certa. */
