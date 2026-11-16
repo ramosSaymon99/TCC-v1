@@ -22,6 +22,8 @@
   .item span { font-size: 32px; }
   .fone { position: absolute; width: 360px; border-radius: 52px; background: #1d1c22; padding: 12px; box-shadow: 0 34px 70px rgba(43,42,51,.32), inset 0 0 0 2px #3a3842; }
   .fone img { display: block; width: 100%; border-radius: 41px; }
+  .idade { display: inline-flex; align-items: center; gap: 10px; align-self: flex-start; background: var(--brand-forte); color: #fff; font-weight: 900; font-size: 28px; border-radius: 999px; padding: 10px 22px; box-shadow: 0 10px 24px rgba(179,72,97,.28); }
+  .idade small { font-weight: 700; opacity: .9; font-size: 22px; }
   .cta { display: flex; align-items: center; justify-content: space-between; gap: 20px; background: var(--brand-forte); color: #fff; border-radius: 26px; padding: 24px 30px; }
   .cta b { font-size: 33px; font-weight: 900; display: block; }
   .cta small { font-size: 23px; opacity: .92; font-weight: 600; }
@@ -34,7 +36,7 @@
   #feed { width: 1080px; height: 1350px; }
   #feed .conteudo { padding: 70px 64px 56px; gap: 28px; }
   #feed .texto { width: 500px; display: flex; flex-direction: column; gap: 24px; }
-  #feed h1 { font-size: 70px; }
+  #feed h1 { font-size: 66px; }
   #feed .sub { font-size: 29px; }
   #feed .item { font-size: 24px; padding: 11px 16px; }
   #feed .f1 { right: 50px; top: 175px; width: 400px; transform: rotate(3deg); }
@@ -48,12 +50,13 @@
   #story { width: 1080px; height: 1920px; }
   body.so-feed #story, body.so-story #feed { display: none; }
   #story .conteudo { padding: 110px 72px 90px; gap: 30px; align-items: center; text-align: center; }
-  #story h1 { font-size: 88px; }
+  #story h1 { font-size: 84px; }
+  #story .conteudo { gap: 26px; }
   #story .sub { max-width: 860px; }
-  #story .fones { position: relative; width: 100%; height: 820px; margin: 10px 0 0; }
-  #story .f1 { left: 380px; top: 0; width: 380px; transform: rotate(4deg); z-index: 2; }
-  #story .f2 { left: 90px; top: 70px; width: 340px; transform: rotate(-6deg); z-index: 1; }
-  #story .f3 { left: 660px; top: 120px; width: 320px; transform: rotate(9deg); z-index: 0; }
+  #story .fones { position: relative; width: 100%; height: 760px; margin: 0; }
+  #story .f1 { left: 395px; top: 0; width: 340px; transform: rotate(4deg); z-index: 2; }
+  #story .f2 { left: 115px; top: 60px; width: 305px; transform: rotate(-6deg); z-index: 1; }
+  #story .f3 { left: 680px; top: 100px; width: 290px; transform: rotate(9deg); z-index: 0; }
   #story .lista { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; text-align: left; }
   #story .cta { width: 100%; margin-top: auto; text-align: left; }
 </style>
@@ -68,6 +71,7 @@
     <div class="texto">
       <h1>A rotina do bebê,<br><em>em família.</em></h1>
       <p class="sub">Mamadas, sono, fraldas e saúde registrados por todos que cuidam, num só lugar.</p>
+      <span class="idade">🤰 → 🧒 Da gestação aos 5 anos</span>
       <div class="lista">
         <div class="item"><span>👆</span> Registro em 1 toque</div>
         <div class="item"><span>🌙</span> Ciclo do sono e próxima soneca</div>
@@ -94,6 +98,7 @@
     <div class="marca"><span class="logo">🪺</span> Ninho</div>
     <h1>Quem cuida junto,<br><em>cuida melhor.</em></h1>
     <p class="sub">A rotina do bebê compartilhada por toda a família, no celular de cada um.</p>
+    <span class="idade" style="align-self: center">🤰 → 🧒 Da gestação aos 5 anos</span>
     <div class="fones">
       <div class="fone f2"><img src="../video/telas/08-hoje.png" alt=""></div>
       <div class="fone f3"><img src="../video/telas/24-turma.png" alt=""></div>
